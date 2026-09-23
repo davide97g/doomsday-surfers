@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "check:gen": "tsx scripts/check-generator.ts",
     "ios:sync": "npm run build && npx cap sync ios",
-    "ios:open": "npx cap open ios"
+    "ios:open": "npx cap open ios",
+    "ios:run": "npm run build && npx cap run ios"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.2",

@@ -25,7 +25,7 @@ iPhone 14 at 60 fps. Pixel ratio capped at 2, instancing, half-res bloom.
 Art: procedural grey box now; Blender-scripted .glb assets later.
 
 ## Roadmap
-- Day 1: controls, track, obstacles, perf gate ✅ (pending on-device result)
+- Day 1: controls, track, obstacles, perf gate ✅ (iPhone 14 native build: 60 fps, swipes clean)
 - Day 2: dopamine meter + drain, content pickups with tolerance, healthy-habit obstacles, grade/audio tied to dopamine, death-into-reality sequence
 - Day 3: comedy layer (content bank, fake ads, manipulative UI, end-of-run report, sound)
 - Day 4: first Blender hero assets, juice (haptics, particles), TestFlight

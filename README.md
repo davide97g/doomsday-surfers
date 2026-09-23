@@ -25,13 +25,13 @@ Tap the **fps pill** at the top to open the device-test panel: bloom, colour gra
 
 **Native app (Capacitor):**
 
-```bash
-npx cap add ios        # first time only, creates ios/
-npm run ios:sync       # build + copy web assets into the iOS project
-npm run ios:open       # opens Xcode
-```
+`ios/` is already set up: signing team DA596D32QB, iPhone only, portrait only, status bar hidden.
 
-In Xcode: App target → Signing & Capabilities → pick your team, then select your iPhone and press Run. After any code change, run `npm run ios:sync` and press Run again.
+```bash
+npm run ios:run        # build, sync, pick a device, install and launch
+npm run ios:sync       # build + copy web assets into the iOS project
+npm run ios:open       # opens Xcode, if you prefer pressing Run there
+```
 
 ### Day-1 perf gate
 
