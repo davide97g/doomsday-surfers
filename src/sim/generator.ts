@@ -7,13 +7,17 @@
 //   2. Posts in the same chunk start together, so the free lane(s) only change
 //      at chunk boundaries, with a speed-scaled gap to react.
 //
-// Later (day 2+) this is where "the Algorithm" plugs in: chunk weights and
-// content types will be biased by what the player grabs.
+// Healthy habits get their own chunks, so they never sit in the only lane a
+// post row leaves free. Each pickup line is one content type; parallel lines of
+// different types make tolerance a lane choice.
+//
+// Later this is where "the Algorithm" plugs in: chunk weights and content
+// types will be biased by what the player grabs.
 
 import { Rng } from './rng';
 import { TUNING, type Obstacle, type ObstacleKind, type Pickup, type Tuning } from './types';
 
-type ChunkKind = 'barrierRow' | 'doubleBarrier' | 'postRow' | 'movingPost' | 'pickupRun';
+type ChunkKind = 'barrierRow' | 'doubleBarrier' | 'postRow' | 'movingPost' | 'pickupRun' | 'habitRow';
 
 export interface GenContext {
   speed: number;
@@ -45,13 +49,17 @@ export class Generator {
   }
 
   private obstacle(kind: ObstacleKind, lane: number, s: number, length = 0, speed = 0): Obstacle {
-    return { id: this.nextId++, kind, lane, s, length, speed, active: false, variant: this.rng.int(0, 7) };
+    return { id: this.nextId++, kind, lane, s, length, speed, active: false, variant: this.rng.int(0, 7), hit: false };
   }
 
-  private pickupLine(pickups: Pickup[], lane: number, from: number, to: number, y = 0.9): void {
+  private contentType(): number {
+    return this.rng.int(0, this.t.content.types - 1);
+  }
+
+  private pickupLine(pickups: Pickup[], lane: number, from: number, to: number, type = this.contentType(), y = 0.9): void {
     const step = this.t.pickup.spacing;
     for (let s = from; s <= to; s += step) {
-      pickups.push({ id: this.nextId++, lane, s, y, taken: false, variant: this.rng.int(0, 3) });
+      pickups.push({ id: this.nextId++, lane, s, y, taken: false, type });
     }
   }
 
@@ -63,6 +71,7 @@ export class Generator {
       postRow: 0.34,
       movingPost: d >= this.t.movingPost.minDifficulty ? 0.06 + 0.12 * d : 0,
       pickupRun: 0.16,
+      habitRow: this.t.habit.weight + this.t.habit.weightByDifficulty * d,
     };
     const kind = this.rng.weighted(weights);
     const lanes = this.t.lanes.count;
@@ -112,11 +121,29 @@ export class Generator {
         break;
       }
       case 'pickupRun': {
-        const lane = this.rng.int(0, lanes - 1);
         const n = this.rng.int(6, 10);
         const end = s + n * this.t.pickup.spacing;
-        this.pickupLine(pickups, lane, s, end);
+        const order = shuffle(range(lanes), this.rng);
+        const first = this.contentType();
+        this.pickupLine(pickups, order[0], s, end, first);
+        if (this.rng.chance(0.5)) {
+          // A second, different content type alongside: pick your fix.
+          const second = (first + this.rng.int(1, this.t.content.types - 1)) % this.t.content.types;
+          this.pickupLine(pickups, order[1], s, end, second);
+        }
         this.cursor = end + this.gap(ctx) * 0.5;
+        break;
+      }
+      case 'habitRow': {
+        const n = this.rng.chance(0.25 + 0.4 * d) ? 2 : 1;
+        const order = shuffle(range(lanes), this.rng);
+        for (const lane of order.slice(0, n)) {
+          const o = this.obstacle('habit', lane, s);
+          o.variant = this.rng.int(0, this.t.habit.types - 1);
+          obstacles.push(o);
+        }
+        if (this.rng.chance(0.6)) this.pickupLine(pickups, order[n], s - 8, s + 8);
+        this.cursor = s + this.gap(ctx);
         break;
       }
     }

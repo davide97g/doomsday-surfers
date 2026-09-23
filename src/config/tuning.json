@@ -16,5 +16,19 @@
   "post": { "minLength": 10, "maxLength": 24, "height": 2.8, "halfWidth": 1.0 },
   "movingPost": { "speed": 10, "trigger": 75, "length": 14, "minDifficulty": 0.12 },
   "barrier": { "lowTop": 0.9, "highBottom": 1.05, "highTop": 3.2, "halfDepth": 0.15, "halfWidth": 0.95 },
-  "pickup": { "spacing": 2.6, "value": 10, "radius": 0.7 }
+  "pickup": { "spacing": 2.6, "value": 10, "radius": 0.7 },
+  "dopamine": { "max": 100, "start": 70, "drainStart": 5, "drainEnd": 9, "drainRampSeconds": 180, "fullColourAt": 80 },
+  "content": { "types": 4, "gain": 6, "toleranceDecay": 0.94, "toleranceFloor": 0.2 },
+  "habit": {
+    "types": 4,
+    "cost": 15,
+    "slowFactor": 0.7,
+    "slowTime": 2,
+    "halfWidth": 0.6,
+    "height": 1.0,
+    "halfDepth": 0.35,
+    "weight": 0.1,
+    "weightByDifficulty": 0.14
+  },
+  "reality": { "fadeTime": 2.5 }
 }

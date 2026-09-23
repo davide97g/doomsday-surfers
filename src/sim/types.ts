@@ -8,9 +8,13 @@ export const TUNING: Tuning = tuningJson;
 
 export type Action = 'left' | 'right' | 'up' | 'down' | 'tap';
 
-export type Phase = 'ready' | 'running' | 'dead';
+/** `fading` is the slow-down into grey reality between losing and the death screen. */
+export type Phase = 'ready' | 'running' | 'fading' | 'dead';
 
-export type ObstacleKind = 'low' | 'high' | 'post' | 'movingPost';
+export type DeathCause = 'empty' | 'crash';
+
+/** `habit` is a healthy habit: it drains dopamine and slows you, but never kills. */
+export type ObstacleKind = 'low' | 'high' | 'post' | 'movingPost' | 'habit';
 
 export interface Obstacle {
   id: number;
@@ -23,8 +27,11 @@ export interface Obstacle {
   /** Speed toward the player once active (m/s). 0 for static obstacles. */
   speed: number;
   active: boolean;
-  /** Visual variant index, chosen by the generator so renders are deterministic. */
+  /** Visual variant index, chosen by the generator so renders are deterministic.
+   *  For habits it is the habit type (index into the content bank). */
   variant: number;
+  /** Habits only: already walked into (they don't respawn). */
+  hit: boolean;
 }
 
 export interface Pickup {
@@ -33,7 +40,8 @@ export interface Pickup {
   s: number;
   y: number;
   taken: boolean;
-  variant: number;
+  /** Content type (like, notification, reel, outrage); each has its own tolerance. */
+  type: number;
 }
 
 export interface PlayerState {
@@ -56,8 +64,11 @@ export type SimEvent =
   | { type: 'lane'; dir: -1 | 1 }
   | { type: 'edge'; dir: -1 | 1 }
   | { type: 'stumble' }
-  | { type: 'pickup'; id: number }
-  | { type: 'crash'; kind: ObstacleKind };
+  | { type: 'pickup'; id: number; content: number; gain: number; tolerance: number }
+  | { type: 'habit'; id: number; habit: number; cost: number }
+  | { type: 'crash'; kind: ObstacleKind }
+  | { type: 'empty' }
+  | { type: 'dead'; cause: DeathCause };
 
 export function laneX(lane: number, t: Tuning = TUNING): number {
   return (lane - (t.lanes.count - 1) / 2) * t.lanes.width;

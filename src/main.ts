@@ -1,4 +1,5 @@
 import './style.css';
+import { GameAudio } from './audio/audio';
 import { Bot } from './dev/bot';
 import { Input } from './input/input';
 import { GameRenderer } from './render/renderer';
@@ -22,13 +23,14 @@ const hud = new Hud(document.body, {
   bloom: true,
   grade: true,
   pixelRatio: view.settings.pixelRatio,
-  dopamine: 1,
+  noDrain: false,
 });
+const audio = new GameAudio();
 hud.onRestart = () => world.reset(seedParam ? Number(seedParam) : Date.now());
 hud.onPerfChange = (p) => {
   view.post.settings.bloom = p.bloom;
   view.post.settings.grade = p.grade;
-  view.post.grade.uniforms.dopamine.value = p.dopamine;
+  world.noDrain = p.noDrain;
   if (p.pixelRatio !== view.settings.pixelRatio) {
     view.settings.pixelRatio = p.pixelRatio;
     view.resize();
@@ -36,7 +38,7 @@ hud.onPerfChange = (p) => {
 };
 
 // Expose for automated tests / debugging in the console.
-(window as unknown as { game: unknown }).game = { world, view, input };
+(window as unknown as { game: unknown }).game = { world, view, input, audio };
 
 let last = performance.now();
 let acc = 0;
@@ -59,11 +61,15 @@ function frame(now: number): void {
     actions = [];
     acc -= STEP;
   }
-  view.handleEvents(world.drainEvents());
+  const events = world.drainEvents();
+  view.handleEvents(events);
+  audio.handle(events);
+  hud.handle(events);
 
   view.renderer.info.reset();
   view.render(world, dt);
-  hud.update(world.phase, world.d, world.score);
+  audio.update(world, dt);
+  hud.update(world, dt);
 
   cpuAcc += performance.now() - cpuStart;
   fpsFrames++;

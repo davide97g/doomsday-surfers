@@ -1,0 +1,32 @@
+{
+  "contentTypes": [
+    { "id": "like", "name": "Like" },
+    { "id": "notification", "name": "Notification" },
+    { "id": "reel", "name": "Reel" },
+    { "id": "outrage", "name": "Outrage" }
+  ],
+  "habits": [
+    {
+      "id": "water",
+      "name": "Glass of water",
+      "popups": ["+1 glass of water. Ew.", "Hydrated. Unfortunately.", "Your skin will thank you. Nobody asked."]
+    },
+    {
+      "id": "book",
+      "name": "Book",
+      "popups": ["You read a page. Why.", "+1 attention span. Gross.", "A book? In this economy?"]
+    },
+    {
+      "id": "shoes",
+      "name": "Running shoes",
+      "popups": ["You went outside. Wash your hands.", "Natural endorphins. Disgusting.", "Touched grass. Please don't."]
+    },
+    {
+      "id": "mum",
+      "name": "Mum calling",
+      "popups": ["You picked up. Mum is so proud. Ew.", "Real conversation detected.", "She just wanted to hear your voice. Weird."]
+    }
+  ],
+  "battery": { "label": "DOPAMINE", "low": "LOW DOPAMINE" },
+  "death": { "line1": "You are present.", "line2": "… Disgusting.", "cta": "SCROLL AGAIN" }
+}

@@ -1,6 +1,8 @@
 // Headless fairness + soak test. Run with `npm run check:gen`.
-// 1. Static check: at every distance at least one lane is free of posts.
-// 2. Soak: the autopilot bot plays N seeds; reports how far it gets.
+// 1. Static check: at every distance at least one lane is free of posts, and
+//    no healthy habit sits in a lane a post row left as the only way through.
+// 2. Soak: the autopilot bot plays N seeds; reports how far and how long it
+//    lasts and what ended the run (a rough read on the dopamine balance).
 //    The bot is dumb, so deaths are OK, but a bot that dies very early on
 //    many seeds hints at unfair patterns.
 
@@ -12,7 +14,10 @@ const MAX_DIST = 6000;
 const DT = 1 / 120;
 
 let blockedFailures = 0;
+let habitFailures = 0;
 const results: number[] = [];
+const times: number[] = [];
+const causes = { empty: 0, crash: 0 };
 
 for (let seed = 1; seed <= SEEDS; seed++) {
   // --- static check on a pre-generated stretch ---
@@ -21,15 +26,19 @@ for (let seed = 1; seed <= SEEDS; seed++) {
   const bot = new Bot();
   let steps = 0;
   const seenPosts = new Map<number, { lane: number; s0: number; s1: number }>();
+  const seenHabits = new Map<number, { lane: number; s: number }>();
   while (w.phase !== 'dead' && w.d < MAX_DIST && steps < 120 * 60 * 10) {
     const actions = bot.think(w, DT);
     w.step(DT, actions);
     for (const o of w.obstacles) {
       if (o.kind === 'post') seenPosts.set(o.id, { lane: o.lane, s0: o.s, s1: o.s + o.length });
+      if (o.kind === 'habit') seenHabits.set(o.id, { lane: o.lane, s: o.s });
     }
     steps++;
   }
   results.push(w.d);
+  times.push(w.time);
+  if (w.cause) causes[w.cause]++;
 
   // Sweep: count distinct lanes covered at each post start (coverage can only
   // increase at a start point).
@@ -47,11 +56,24 @@ for (let seed = 1; seed <= SEEDS; seed++) {
       break;
     }
   }
+  for (const h of seenHabits.values()) {
+    const blocked = new Set<number>([h.lane]);
+    for (const p of posts) if (p.s0 <= h.s && h.s <= p.s1) blocked.add(p.lane);
+    if (blocked.size >= w.t.lanes.count) {
+      habitFailures++;
+      console.log(`seed ${seed}: habit blocks the only free lane at s=${h.s.toFixed(1)}`);
+      break;
+    }
+  }
 }
 
 results.sort((a, b) => a - b);
 const median = results[Math.floor(results.length / 2)];
 const reachedMax = results.filter((d) => d >= MAX_DIST).length;
+times.sort((a, b) => a - b);
+const medianTime = times[Math.floor(times.length / 2)];
 console.log(`all-lanes-blocked failures: ${blockedFailures}`);
+console.log(`habit-in-only-lane failures: ${habitFailures}`);
 console.log(`bot distance — min ${results[0].toFixed(0)}m, median ${median.toFixed(0)}m, max ${results[results.length - 1].toFixed(0)}m, reached ${MAX_DIST}m: ${reachedMax}/${SEEDS}`);
-if (blockedFailures > 0) process.exit(1);
+console.log(`bot run time — min ${times[0].toFixed(0)}s, median ${medianTime.toFixed(0)}s, max ${times[times.length - 1].toFixed(0)}s · ended by: empty ${causes.empty}, crash ${causes.crash}`);
+if (blockedFailures > 0 || habitFailures > 0) process.exit(1);

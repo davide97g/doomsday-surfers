@@ -225,10 +225,107 @@ export function makeReelFront(i: number): THREE.CanvasTexture {
   return tex(c);
 }
 
-/** Pickup sprite: a like / heart glyph. */
-export function makeHeart(): THREE.CanvasTexture {
+/** Pickup sprites, one per content type: like, notification, reel, outrage. */
+export function makeContent(type: number): THREE.CanvasTexture {
   const [c, ctx] = canvas(128, 128);
-  ctx.fillStyle = '#ff2e63';
-  heart(ctx, 64, 18, 96);
+  switch (type) {
+    case 0: // like
+      ctx.fillStyle = '#ff2e63';
+      heart(ctx, 64, 18, 96);
+      break;
+    case 1: {
+      // notification badge
+      ctx.fillStyle = '#ff2e3b';
+      ctx.beginPath();
+      ctx.arc(64, 64, 52, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 64px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('1', 64, 87);
+      break;
+    }
+    case 2: {
+      // reel
+      ctx.fillStyle = '#00e1ff';
+      roundRect(ctx, 14, 8, 100, 112, 22);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(50, 36);
+      ctx.lineTo(90, 64);
+      ctx.lineTo(50, 92);
+      ctx.fill();
+      break;
+    }
+    default: {
+      // outrage: an angry face
+      ctx.fillStyle = '#ff7a1f';
+      ctx.beginPath();
+      ctx.arc(64, 64, 54, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#2a0c00';
+      ctx.lineWidth = 9;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(30, 40);
+      ctx.lineTo(56, 52);
+      ctx.moveTo(98, 40);
+      ctx.lineTo(72, 52);
+      ctx.moveTo(40, 94);
+      ctx.quadraticCurveTo(64, 74, 88, 94);
+      ctx.stroke();
+      ctx.fillStyle = '#2a0c00';
+      ctx.beginPath();
+      ctx.arc(46, 62, 6, 0, Math.PI * 2);
+      ctx.arc(82, 62, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  return tex(c);
+}
+
+/** Healthy habit: the upright phone showing an incoming call from Mum. */
+export function makeMumCall(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(256, 512);
+  const g = ctx.createLinearGradient(0, 0, 0, 512);
+  g.addColorStop(0, '#3d5a4c');
+  g.addColorStop(1, '#1d2b25');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 512);
+  ctx.fillStyle = '#d8d2c4';
+  ctx.beginPath();
+  ctx.arc(128, 150, 54, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#f2efe6';
+  ctx.textAlign = 'center';
+  ctx.font = '900 44px system-ui, sans-serif';
+  ctx.fillText('Mum', 128, 256);
+  ctx.font = '24px system-ui, sans-serif';
+  ctx.fillText('calling…', 128, 292);
+  ctx.fillStyle = '#e0473b';
+  ctx.beginPath();
+  ctx.arc(66, 426, 34, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#35b86b';
+  ctx.beginPath();
+  ctx.arc(190, 426, 34, 0, Math.PI * 2);
+  ctx.fill();
+  return tex(c);
+}
+
+/** Healthy habit: a book cover. */
+export function makeBookCover(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(256, 256);
+  ctx.fillStyle = '#6b4a36';
+  ctx.fillRect(0, 0, 256, 256);
+  ctx.fillStyle = '#e9dcc2';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 30px Georgia, serif';
+  ctx.fillText('A Long', 128, 110);
+  ctx.fillText('Novel', 128, 146);
+  ctx.strokeStyle = '#e9dcc2';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(22, 22, 212, 212);
   return tex(c);
 }

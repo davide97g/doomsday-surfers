@@ -1,12 +1,18 @@
 // The game simulation. Runs at a fixed timestep, knows nothing about rendering.
 // Coordinates: `s` is distance along the track (forward = +s), `x` is lateral,
 // `y` is height. The player sits at s = world.d.
+//
+// Dopamine drains constantly. Content pickups refill it, but each content type
+// gives less every time you take it (tolerance, never recovers within a run).
+// Healthy habits drain it and slow you down. At zero, or on a crash, the run
+// enters `fading`: you slow to a stop in grey reality, then `dead`.
 
 import { Generator } from './generator';
 import {
   TUNING,
   laneX,
   type Action,
+  type DeathCause,
   type Obstacle,
   type Phase,
   type Pickup,
@@ -30,19 +36,34 @@ export class World {
   phase: Phase = 'ready';
   /** Distance travelled (m). */
   d = 0;
+  /** Base forward speed; the actual speed also includes habit slow-down (see runSpeed). */
   speed: number;
   time = 0;
   pickupsTaken = 0;
+  habitsHit = 0;
+  dopamine: number;
+  /** Per content type multiplier on gain, 1 = fresh. */
+  tolerance: number[];
+  /** Seconds left of the habit slow-down. */
+  slowT = 0;
+  cause: DeathCause | null = null;
+  /** Seconds into the fade to reality. */
+  fadeT = 0;
+  /** Dev toggle: stop the drain (perf testing, screenshots). */
+  noDrain = false;
   obstacles: Obstacle[] = [];
   pickups: Pickup[] = [];
   player: PlayerState;
   events: SimEvent[] = [];
   private gen: Generator;
+  private fadeFrom = 0;
 
   constructor(seed = Date.now(), t: Tuning = TUNING) {
     this.t = t;
     this.seed = seed;
     this.speed = t.speed.start;
+    this.dopamine = t.dopamine.start;
+    this.tolerance = new Array(t.content.types).fill(1);
     this.player = World.freshPlayer(t);
     this.gen = new Generator(seed, t);
     this.gen.fill(t.spawn.ahead, { speed: this.speed, difficulty: 0 }, this.obstacles, this.pickups);
@@ -60,6 +81,12 @@ export class World {
     this.time = 0;
     this.speed = this.t.speed.start;
     this.pickupsTaken = 0;
+    this.habitsHit = 0;
+    this.dopamine = this.t.dopamine.start;
+    this.tolerance.fill(1);
+    this.slowT = 0;
+    this.cause = null;
+    this.fadeT = 0;
     this.obstacles = [];
     this.pickups = [];
     this.player = World.freshPlayer(this.t);
@@ -79,6 +106,29 @@ export class World {
     return this.player.rollT > 0;
   }
 
+  /** Dopamine lost per second right now. */
+  get drainRate(): number {
+    const { drainStart, drainEnd, drainRampSeconds } = this.t.dopamine;
+    return drainStart + (drainEnd - drainStart) * Math.min(1, this.time / drainRampSeconds);
+  }
+
+  /** Forward speed actually applied this tick (m/s). */
+  get runSpeed(): number {
+    if (this.phase === 'fading') {
+      const k = Math.min(1, this.fadeT / this.t.reality.fadeTime);
+      return this.fadeFrom * (1 - k) * (1 - k);
+    }
+    if (this.phase !== 'running') return 0;
+    const h = this.t.habit;
+    const slow = this.slowT > 0 ? 1 - (1 - h.slowFactor) * (this.slowT / h.slowTime) : 1;
+    return this.speed * slow;
+  }
+
+  /** Gain the next pickup of this content type would give. */
+  gainFor(type: number): number {
+    return this.t.content.gain * this.tolerance[type];
+  }
+
   step(dt: number, actions: readonly Action[]): void {
     if (this.phase === 'ready') {
       if (actions.length > 0) {
@@ -88,14 +138,63 @@ export class World {
       return;
     }
     if (this.phase === 'dead') return;
+    if (this.phase === 'fading') {
+      this.stepFade(dt);
+      return;
+    }
 
     const t = this.t;
-    const p = this.player;
     this.time += dt;
     this.speed = Math.min(t.speed.max, this.speed + t.speed.accel * dt);
 
     for (const a of actions) this.applyAction(a);
+    this.movePlayer(dt);
 
+    const prevBox = this.playerBox();
+    this.d += this.runSpeed * dt;
+    this.slowT = Math.max(0, this.slowT - dt);
+
+    for (const o of this.obstacles) {
+      if (o.speed > 0) {
+        if (!o.active && o.s - this.d < t.movingPost.trigger) o.active = true;
+        if (o.active) o.s -= o.speed * dt;
+      }
+    }
+
+    if (!this.noDrain) this.dopamine -= this.drainRate * dt;
+    this.collide(prevBox);
+    if (this.phase === 'running') this.collect();
+    if (this.phase === 'running' && this.dopamine <= 0) this.lose('empty');
+
+    this.gen.fill(this.d + t.spawn.ahead, { speed: this.speed, difficulty: this.difficulty }, this.obstacles, this.pickups);
+    const behind = this.d - 20;
+    this.obstacles = this.obstacles.filter((o) => o.s + o.length > behind);
+    this.pickups = this.pickups.filter((pk) => !pk.taken && pk.s > behind);
+  }
+
+  /** Slowing into reality: no input, no collisions, the feed stops moving. */
+  private stepFade(dt: number): void {
+    this.movePlayer(dt);
+    this.d += this.runSpeed * dt;
+    this.fadeT += dt;
+    if (this.fadeT >= this.t.reality.fadeTime) {
+      this.phase = 'dead';
+      this.events.push({ type: 'dead', cause: this.cause ?? 'empty' });
+    }
+  }
+
+  private lose(cause: DeathCause): void {
+    this.cause = cause;
+    this.dopamine = 0;
+    this.fadeFrom = cause === 'crash' ? 0 : this.runSpeed;
+    this.fadeT = 0;
+    this.phase = 'fading';
+    if (cause === 'empty') this.events.push({ type: 'empty' });
+  }
+
+  private movePlayer(dt: number): void {
+    const t = this.t;
+    const p = this.player;
     // Lateral: move toward the target lane at constant rate.
     const targetX = laneX(p.lane, t);
     const rate = t.lanes.width / t.laneSwitchTime;
@@ -111,7 +210,7 @@ export class World {
         p.vy = 0;
         p.grounded = true;
         this.events.push({ type: 'land' });
-        if (p.rollQueued) {
+        if (p.rollQueued && this.phase === 'running') {
           p.rollQueued = false;
           p.rollT = t.roll.duration;
           this.events.push({ type: 'roll' });
@@ -120,24 +219,6 @@ export class World {
     }
     p.rollT = Math.max(0, p.rollT - dt);
     p.stumbleT = Math.max(0, p.stumbleT - dt);
-
-    const prevBox = this.playerBox();
-    this.d += this.speed * dt;
-
-    for (const o of this.obstacles) {
-      if (o.speed > 0) {
-        if (!o.active && o.s - this.d < t.movingPost.trigger) o.active = true;
-        if (o.active) o.s -= o.speed * dt;
-      }
-    }
-
-    this.collide(prevBox);
-    this.collect();
-
-    this.gen.fill(this.d + t.spawn.ahead, { speed: this.speed, difficulty: this.difficulty }, this.obstacles, this.pickups);
-    const behind = this.d - 20;
-    this.obstacles = this.obstacles.filter((o) => o.s + o.length > behind);
-    this.pickups = this.pickups.filter((pk) => !pk.taken && pk.s > behind);
   }
 
   private applyAction(a: Action): void {
@@ -205,15 +286,22 @@ export class World {
       case 'post':
       case 'movingPost':
         return { x0: cx - t.post.halfWidth, x1: cx + t.post.halfWidth, y0: 0, y1: t.post.height, s0: o.s, s1: o.s + o.length };
+      case 'habit':
+        return { x0: cx - t.habit.halfWidth, x1: cx + t.habit.halfWidth, y0: 0, y1: t.habit.height, s0: o.s - t.habit.halfDepth, s1: o.s + t.habit.halfDepth };
     }
   }
 
   private collide(prev: Box): void {
     const pb = this.playerBox();
     for (const o of this.obstacles) {
+      if (o.hit) continue;
       const ob = this.obstacleBox(o);
       if (!overlaps(pb, ob)) continue;
 
+      if (o.kind === 'habit') {
+        this.hitHabit(o);
+        continue;
+      }
       const isPost = o.kind === 'post' || o.kind === 'movingPost';
       // Side hit: we were already alongside the post last tick, and only the
       // lateral axis started overlapping. That's a stumble, not a crash.
@@ -223,10 +311,19 @@ export class World {
         this.stumble();
         return;
       }
-      this.phase = 'dead';
       this.events.push({ type: 'crash', kind: o.kind });
+      this.lose('crash');
       return;
     }
+  }
+
+  private hitHabit(o: Obstacle): void {
+    const h = this.t.habit;
+    o.hit = true;
+    this.habitsHit++;
+    this.dopamine -= h.cost;
+    this.slowT = h.slowTime;
+    this.events.push({ type: 'habit', id: o.id, habit: o.variant, cost: h.cost });
   }
 
   private stumble(): void {
@@ -254,7 +351,10 @@ export class World {
       if (pk.y + r < p.y || pk.y - r > p.y + h) continue;
       pk.taken = true;
       this.pickupsTaken++;
-      this.events.push({ type: 'pickup', id: pk.id });
+      const gain = this.gainFor(pk.type);
+      this.dopamine = Math.min(t.dopamine.max, this.dopamine + gain);
+      this.tolerance[pk.type] = Math.max(t.content.toleranceFloor, this.tolerance[pk.type] * t.content.toleranceDecay);
+      this.events.push({ type: 'pickup', id: pk.id, content: pk.type, gain, tolerance: this.tolerance[pk.type] });
     }
   }
 

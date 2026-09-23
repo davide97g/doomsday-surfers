@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { laneX, type ObstacleKind, type SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
 import { Post } from './post';
-import { makeAd, makeFeedPost, makeHeart, makeNotification, makeReel, makeReelFront } from './textures';
+import { makeAd, makeBookCover, makeContent, makeFeedPost, makeMumCall, makeNotification, makeReel, makeReelFront } from './textures';
 
 const VARIANTS = 8;
 const TILE_LEN = 4.4;
@@ -38,7 +38,8 @@ export class GameRenderer {
   private readonly tileBezels: THREE.InstancedMesh;
   private readonly towerCells: THREE.InstancedMesh[] = [];
   private readonly towerBacks: THREE.InstancedMesh;
-  private readonly pickupMesh: THREE.InstancedMesh;
+  private readonly pickupMeshes: THREE.InstancedMesh[] = [];
+  private readonly phoneMat: THREE.MeshBasicMaterial;
   private readonly player = new THREE.Group();
   private readonly playerParts: {
     body: THREE.Mesh;
@@ -47,6 +48,7 @@ export class GameRenderer {
     legR: THREE.Object3D;
     armL: THREE.Object3D;
     armR: THREE.Object3D;
+    phone: THREE.Mesh;
     rig: THREE.Group;
   };
   private readonly shadow: THREE.Mesh;
@@ -67,6 +69,16 @@ export class GameRenderer {
     pole: THREE.MeshStandardMaterial;
     warn: THREE.MeshBasicMaterial;
   };
+  // Healthy habits: matte, warm, un-neon. They should look boring.
+  private readonly habitMats: {
+    glass: THREE.MeshStandardMaterial;
+    water: THREE.MeshStandardMaterial;
+    books: THREE.MeshStandardMaterial[];
+    cover: THREE.MeshStandardMaterial;
+    sole: THREE.MeshStandardMaterial;
+    upper: THREE.MeshStandardMaterial;
+    call: THREE.MeshStandardMaterial;
+  };
 
   private runPhase = 0;
   private camX = 0;
@@ -74,6 +86,8 @@ export class GameRenderer {
   private shake = 0;
   private crashT = -1;
   private rollSpin = 0;
+  /** Smoothed dopamine level driving the colour grade (1 = neon, 0 = grey). */
+  private level = 1;
   private readonly visibleAhead: number;
 
   constructor(container: HTMLElement, visibleAhead: number) {
@@ -108,6 +122,17 @@ export class GameRenderer {
       white: new THREE.MeshStandardMaterial({ color: '#f4f2fa', roughness: 0.35 }),
       pole: new THREE.MeshStandardMaterial({ color: '#2a2535', roughness: 0.5, metalness: 0.6 }),
       warn: new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 0.25, 0.3) }),
+    };
+    const matte = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) =>
+      new THREE.MeshStandardMaterial({ color, roughness: 0.85, emissive: new THREE.Color(color), emissiveIntensity: 0.22, ...extra });
+    this.habitMats = {
+      glass: matte('#cfe6ee', { transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide }),
+      water: matte('#6fb4d2', { transparent: true, opacity: 0.8 }),
+      books: [matte('#7d5a44'), matte('#4f6b58'), matte('#8a7a5c')],
+      cover: new THREE.MeshStandardMaterial({ map: makeBookCover(), roughness: 0.9, emissive: new THREE.Color('#6b4a36'), emissiveIntensity: 0.25 }),
+      sole: matte('#e6e1d6'),
+      upper: matte('#5f8a74'),
+      call: new THREE.MeshStandardMaterial({ map: makeMumCall(), roughness: 0.6, emissive: new THREE.Color('#ffffff'), emissiveMap: null, emissiveIntensity: 0.12 }),
     };
 
     // --- track tiles (the ground is a feed of giant phone screens) ---
@@ -150,11 +175,15 @@ export class GameRenderer {
     this.towerBacks.frustumCulled = false;
     this.scene.add(this.towerBacks);
 
-    // --- pickups ---
-    const heartMat = new THREE.MeshBasicMaterial({ map: makeHeart(), transparent: true, alphaTest: 0.3, color: new THREE.Color(2.2, 1.2, 1.6), side: THREE.DoubleSide });
-    this.pickupMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.85, 0.85), heartMat, 128);
-    this.pickupMesh.frustumCulled = false;
-    this.scene.add(this.pickupMesh);
+    // --- pickups: one instanced mesh per content type; brightness follows tolerance ---
+    const pickupGeo = new THREE.PlaneGeometry(0.85, 0.85);
+    for (let type = 0; type < 4; type++) {
+      const mat = new THREE.MeshBasicMaterial({ map: makeContent(type), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide });
+      const m = new THREE.InstancedMesh(pickupGeo, mat, 128);
+      m.frustumCulled = false;
+      this.pickupMeshes.push(m);
+      this.scene.add(m);
+    }
 
     // --- obstacles ---
     this.obstacleBuilders = {
@@ -162,6 +191,7 @@ export class GameRenderer {
       high: (v) => this.buildHigh(v),
       post: (v) => this.buildPost(v, false),
       movingPost: (v) => this.buildPost(v, true),
+      habit: (v) => this.buildHabit(v),
     };
 
     // --- player: faceless hoodie lit by their phone ---
@@ -172,7 +202,8 @@ export class GameRenderer {
     body.position.y = 1.0;
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 14, 10), skin);
     head.position.set(0, 1.58, -0.06);
-    const phone = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.3, 0.02), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 2.8, 3.2) }));
+    this.phoneMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 2.8, 3.2) });
+    const phone = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.3, 0.02), this.phoneMat);
     phone.position.set(0, 1.32, -0.38);
     phone.rotation.x = -0.7;
     const limb = (len: number, r: number): THREE.Object3D => {
@@ -195,7 +226,7 @@ export class GameRenderer {
     rig.add(body, head, phone, legL, legR, armL, armR);
     this.player.add(rig);
     this.scene.add(this.player);
-    this.playerParts = { body, head, legL, legR, armL, armR, rig };
+    this.playerParts = { body, head, legL, legR, armL, armR, phone, rig };
 
     const shadowTex = (() => {
       const c = document.createElement('canvas');
@@ -267,6 +298,60 @@ export class GameRenderer {
     return g;
   }
 
+  private buildHabit(v: number): THREE.Object3D {
+    const g = new THREE.Group();
+    const m = this.habitMats;
+    switch (v % 4) {
+      case 0: {
+        // A giant glass of water.
+        const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.36, 1.0, 18, 1, true), m.glass);
+        glass.position.y = 0.5;
+        const water = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.35, 0.7, 18), m.water);
+        water.position.y = 0.37;
+        g.add(water, glass);
+        break;
+      }
+      case 1: {
+        // A stack of books.
+        const geo = new THREE.BoxGeometry(1.1, 0.3, 0.8);
+        const rot = [0.1, -0.08, 0.16];
+        for (let i = 0; i < 3; i++) {
+          const b = m.books[i];
+          const mats = i === 2 ? [b, b, m.cover, b, b, b] : b;
+          const book = new THREE.Mesh(geo, mats);
+          book.position.y = 0.15 + i * 0.3;
+          book.rotation.y = rot[i];
+          g.add(book);
+        }
+        break;
+      }
+      case 2: {
+        // A running shoe, side on.
+        const sole = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.16, 0.46), m.sole);
+        sole.position.y = 0.08;
+        const upper = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.5, 0.42), m.upper);
+        upper.position.set(-0.2, 0.41, 0);
+        const toe = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.26, 0.42), m.upper);
+        toe.position.set(0.33, 0.29, 0);
+        const laces = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.05, 0.3), m.sole);
+        laces.position.set(0.05, 0.45, 0);
+        laces.rotation.z = -0.35;
+        g.add(sole, upper, toe, laces);
+        g.scale.setScalar(1.15);
+        break;
+      }
+      default: {
+        // Mum is calling. The phone stands up and rings.
+        const d = this.mats.dark;
+        const phone = new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.0, 0.08), [d, d, d, d, m.call, d]);
+        phone.position.y = 0.5;
+        phone.name = 'ring';
+        g.add(phone);
+      }
+    }
+    return g;
+  }
+
   private acquire(kind: ObstacleKind, variant: number): THREE.Object3D {
     const pool = this.pools.get(kind) ?? [];
     this.pools.set(kind, pool);
@@ -312,6 +397,8 @@ export class GameRenderer {
   render(w: World, dt: number): void {
     const d = w.d;
     const time = performance.now() / 1000;
+    const target = Math.min(1, Math.max(0, w.dopamine / w.t.dopamine.fullColourAt));
+    this.level += (target - this.level) * (1 - Math.exp(-dt * 3));
     this.syncTrack(d);
     this.syncTowers(d);
     this.syncObstacles(w);
@@ -319,6 +406,8 @@ export class GameRenderer {
     this.syncPlayer(w, dt);
     this.syncCamera(w, dt);
 
+    this.post.grade.uniforms.dopamine.value = this.level;
+    this.post.bloom.strength = 0.6 * (0.2 + 0.8 * this.level);
     this.post.grade.uniforms.time.value = time;
     this.post.grade.uniforms.shake.value = this.shake;
     this.shake = Math.max(0, this.shake - dt * 2.5);
@@ -412,6 +501,14 @@ export class GameRenderer {
           warn.position.z = o.length / 2 - 0.1;
           warn.visible = !o.active || Math.floor(performance.now() / 120) % 2 === 0;
         }
+      } else if (o.kind === 'habit') {
+        obj.visible = !o.hit;
+        obj.position.set(x, 0, -(o.s - w.d));
+        const ring = obj.getObjectByName('ring');
+        if (ring) {
+          const t = performance.now() / 1000;
+          ring.rotation.z = Math.floor(t * 1.6) % 2 === 0 ? Math.sin(t * 55) * 0.07 : 0;
+        }
       } else {
         obj.position.set(x, 0, -(o.s - w.d));
       }
@@ -425,17 +522,21 @@ export class GameRenderer {
   }
 
   private syncPickups(w: World, time: number): void {
-    let n = 0;
+    const counts = [0, 0, 0, 0];
     for (const p of w.pickups) {
-      if (p.taken || p.s - w.d > this.visibleAhead || n >= 128) continue;
+      if (p.taken || p.s - w.d > this.visibleAhead || counts[p.type] >= 128) continue;
       this.dummy.position.set(laneX(p.lane), p.y + Math.sin(time * 4 + p.s) * 0.08, -(p.s - w.d));
       this.dummy.rotation.set(0, time * 2.5 + p.s * 0.3, 0);
       this.dummy.scale.set(1, 1, 1);
       this.dummy.updateMatrix();
-      this.pickupMesh.setMatrixAt(n++, this.dummy.matrix);
+      this.pickupMeshes[p.type].setMatrixAt(counts[p.type]++, this.dummy.matrix);
     }
-    this.pickupMesh.count = n;
-    this.pickupMesh.instanceMatrix.needsUpdate = true;
+    this.pickupMeshes.forEach((m, type) => {
+      m.count = counts[type];
+      m.instanceMatrix.needsUpdate = true;
+      // Tolerance made visible: content you've had too much of stops glowing.
+      (m.material as THREE.MeshBasicMaterial).color.setScalar(0.45 + 1.35 * w.tolerance[type]);
+    });
   }
 
   private syncPlayer(w: World, dt: number): void {
@@ -449,7 +550,14 @@ export class GameRenderer {
     const targetX = laneX(p.lane);
     this.player.rotation.z = THREE.MathUtils.lerp(this.player.rotation.z, (p.x - targetX) * 0.18, 0.3);
 
-    if (w.phase === 'dead') {
+    // Dopamine ran out: the arms drop, the phone goes dark.
+    const present = w.cause === 'empty' ? Math.min(1, w.fadeT / w.t.reality.fadeTime) : 0;
+    this.phoneMat.color.setRGB(2.4, 2.8, 3.2).multiplyScalar(1 - 0.97 * present);
+    parts.armL.rotation.x = parts.armR.rotation.x = THREE.MathUtils.lerp(-1.25, -0.12, present);
+    parts.phone.position.set(0, THREE.MathUtils.lerp(1.32, 0.78, present), THREE.MathUtils.lerp(-0.38, -0.3, present));
+    parts.phone.rotation.x = THREE.MathUtils.lerp(-0.7, 0, present);
+
+    if (w.cause === 'crash') {
       // Faceplant.
       if (this.crashT >= 0) this.crashT += dt;
       const k = Math.min(1, Math.max(0, this.crashT) * 3);
@@ -461,7 +569,9 @@ export class GameRenderer {
     parts.rig.rotation.x = 0;
 
     const rolling = p.rollT > 0;
-    if (w.phase === 'running') this.runPhase += dt * (6 + w.speed * 0.32);
+    const v = w.runSpeed;
+    const moving = Math.min(1, v / 6);
+    this.runPhase += dt * (6 + v * 0.32) * moving;
     const s = Math.sin(this.runPhase);
     if (rolling) {
       this.rollSpin += dt * 14;
@@ -475,7 +585,7 @@ export class GameRenderer {
       parts.legR.rotation.x = 0.4;
     } else {
       parts.rig.scale.set(1, 1, 1);
-      const amp = w.phase === 'running' ? 0.85 : 0.08;
+      const amp = w.phase === 'ready' ? 0.08 : 0.85 * moving;
       parts.legL.rotation.x = s * amp;
       parts.legR.rotation.x = -s * amp;
       parts.body.position.y = 1.0 + Math.abs(Math.cos(this.runPhase)) * 0.06;
