@@ -1,0 +1,20 @@
+{
+  "lanes": { "count": 3, "width": 2.2 },
+  "speed": { "start": 14, "max": 32, "accel": 0.18 },
+  "player": { "halfWidth": 0.35, "halfDepth": 0.4, "height": 1.7, "rollHeight": 0.8 },
+  "laneSwitchTime": 0.13,
+  "jump": { "velocity": 11, "gravity": 32, "fastFall": 28 },
+  "roll": { "duration": 0.62 },
+  "stumble": { "duration": 0.5 },
+  "spawn": {
+    "ahead": 170,
+    "safeStart": 45,
+    "gapSecondsMax": 1.5,
+    "gapSecondsMin": 0.85,
+    "difficultyDistance": 3000
+  },
+  "post": { "minLength": 10, "maxLength": 24, "height": 2.8, "halfWidth": 1.0 },
+  "movingPost": { "speed": 10, "trigger": 75, "length": 14, "minDifficulty": 0.12 },
+  "barrier": { "lowTop": 0.9, "highBottom": 1.05, "highTop": 3.2, "halfDepth": 0.15, "halfWidth": 0.95 },
+  "pickup": { "spacing": 2.6, "value": 10, "radius": 0.7 }
+}

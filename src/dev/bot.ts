@@ -1,0 +1,74 @@
+// A simple autopilot that reads the sim state and plays. Used for automated
+// fairness/soak tests (?bot=1) and later as an attract mode on the title screen.
+
+import { laneX, type Action } from '../sim/types';
+import type { World } from '../sim/world';
+
+export class Bot {
+  private cooldown = 0;
+
+  think(w: World, dt: number): Action[] {
+    if (w.phase !== 'running') return w.phase === 'ready' ? ['tap'] : [];
+    this.cooldown = Math.max(0, this.cooldown - dt);
+    const t = w.t;
+    const p = w.player;
+    const v = w.speed;
+    const lanes = t.lanes.count;
+
+    // How far until each lane is blocked by a post (0 = blocked right now).
+    const clearance = (lane: number): number => {
+      let best = Infinity;
+      for (const o of w.obstacles) {
+        if (o.lane !== lane || (o.kind !== 'post' && o.kind !== 'movingPost')) continue;
+        if (o.s + o.length < w.d - 0.5) continue;
+        if (o.s <= w.d + 0.6) return 0;
+        let dist = o.s - w.d;
+        if (o.kind === 'movingPost') dist *= v / (v + o.speed);
+        best = Math.min(best, dist);
+      }
+      return best;
+    };
+
+    const actions: Action[] = [];
+    const cur = p.lane;
+    const settled = Math.abs(p.x - laneX(cur, t)) < 0.05;
+
+    if (settled && this.cooldown === 0) {
+      const scores = Array.from({ length: lanes }, (_, l) => clearance(l));
+      const safe = v * 1.6;
+      if (scores[cur] < safe) {
+        let target = cur;
+        let bestScore = scores[cur];
+        for (let l = 0; l < lanes; l++) {
+          if (l === cur) continue;
+          const path = l > cur ? 1 : -1;
+          let reachable = true;
+          for (let m = cur + path; m !== l; m += path) if (scores[m] < 1) reachable = false;
+          const s = scores[l] - Math.abs(l - cur) * 2;
+          if (reachable && s > bestScore) {
+            bestScore = s;
+            target = l;
+          }
+        }
+        if (target !== cur) {
+          const next = cur + (target > cur ? 1 : -1);
+          if (clearance(next) > v * 0.3) {
+            actions.push(target > cur ? 'right' : 'left');
+            this.cooldown = t.laneSwitchTime + 0.02;
+          }
+        }
+      }
+    }
+
+    // Barriers in the current lane.
+    for (const o of w.obstacles) {
+      if (o.lane !== p.lane || (o.kind !== 'low' && o.kind !== 'high')) continue;
+      const dist = o.s - w.d;
+      if (dist < 0) continue;
+      const tti = dist / v;
+      if (o.kind === 'low' && p.grounded && tti < 0.3 && tti > 0.08) actions.push('up');
+      if (o.kind === 'high' && p.rollT <= 0.05 && tti < 0.25) actions.push('down');
+    }
+    return actions;
+  }
+}
