@@ -42,7 +42,7 @@ export class Hero {
         if (m.name === 'Screen') screen = m;
         // A little self-light so the hoodie reads against the dark feed.
         if (m.name === 'Hoodie' || m.name === 'HoodieDark') {
-          m.emissive = m.color.clone().multiplyScalar(0.5);
+          m.emissive = m.color.clone().multiplyScalar(0.15);
         }
       }
     });

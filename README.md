@@ -54,7 +54,7 @@ The runner is built by a Blender script, and the exported `.glb` is committed so
 npm run assets       # needs Blender (brew install --cask blender --appdir=~/Applications)
 ```
 
-`assets/blender/runner.py` builds the mesh, rig and clips (`run`, `idle`, `jump`, `roll`, `present`) into `public/assets/runner.glb`. Pass a folder as a second argument to also render preview PNGs. The app icon source is `assets/icon/icon.svg`.
+`assets/blender/runner.py` builds the runner into `public/assets/runner.glb`: one continuous skin-modifier body with fabric folds, a hood with real thickness around the face void, ribbed cuffs and hem, pocket, drawstrings, jointed fingers gripping a detailed phone, and layered sneakers, all auto-weighted to a 19-bone rig with `run`, `idle`, `jump`, `roll` and `present` clips. Budget: about 45k triangles and no textures (it prints a per-part triangle count). Pass a folder as a second argument to also render Eevee preview PNGs (front, side, back, hands). The app icon source is `assets/icon/icon.svg`.
 
 ### Day-1 perf gate
 
