@@ -70,10 +70,25 @@ for (let seed = 1; seed <= SEEDS; seed++) {
 results.sort((a, b) => a - b);
 const median = results[Math.floor(results.length / 2)];
 const reachedMax = results.filter((d) => d >= MAX_DIST).length;
+// Revive sanity: after dying, a revive must not re-kill you straight away.
+let reviveFailures = 0;
+for (let seed = 1; seed <= 10; seed++) {
+  const w = new World(seed);
+  const bot = new Bot();
+  for (let i = 0; i < 120 * 600 && w.phase !== 'dead'; i++) w.step(DT, bot.think(w, DT));
+  w.revive();
+  for (let i = 0; i < 120 * 1.5; i++) w.step(DT, []);
+  if (w.phase !== 'running') {
+    reviveFailures++;
+    console.log(`seed ${seed}: died within 1.5s of reviving (${w.cause})`);
+  }
+}
+
 times.sort((a, b) => a - b);
 const medianTime = times[Math.floor(times.length / 2)];
 console.log(`all-lanes-blocked failures: ${blockedFailures}`);
 console.log(`habit-in-only-lane failures: ${habitFailures}`);
 console.log(`bot distance — min ${results[0].toFixed(0)}m, median ${median.toFixed(0)}m, max ${results[results.length - 1].toFixed(0)}m, reached ${MAX_DIST}m: ${reachedMax}/${SEEDS}`);
 console.log(`bot run time — min ${times[0].toFixed(0)}s, median ${medianTime.toFixed(0)}s, max ${times[times.length - 1].toFixed(0)}s · ended by: empty ${causes.empty}, crash ${causes.crash}`);
-if (blockedFailures > 0 || habitFailures > 0) process.exit(1);
+console.log(`revive failures: ${reviveFailures}`);
+if (blockedFailures > 0 || habitFailures > 0 || reviveFailures > 0) process.exit(1);

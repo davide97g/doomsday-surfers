@@ -30,5 +30,15 @@
     "weight": 0.1,
     "weightByDifficulty": 0.14
   },
-  "reality": { "fadeTime": 2.5 }
+  "reality": { "fadeTime": 2.5 },
+  "revive": { "perRun": 1, "dopamine": 40, "clearAhead": 40, "adSeconds": 5 },
+  "ui": {
+    "notifyMin": 7,
+    "notifyMax": 14,
+    "notifyShow": 2.8,
+    "bannerEvery": 40,
+    "bannerShow": 6,
+    "bannerCloseAfter": 3,
+    "keepGoingEvery": 180
+  }
 }

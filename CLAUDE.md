@@ -10,6 +10,7 @@ Davide owns the product decisions; Claude builds. Discuss design changes before 
 - Death copy: "You are present. … Disgusting." → [SCROLL AGAIN].
 - Hidden ending: stay idle on the death screen for 60s and something happens (still to be designed).
 - Crashing into a barrier/post drops dopamine to zero (one death screen). Tolerance never recovers within a run. Dopamine meter is a phone battery.
+- Comedy layer: fake push notifications, banner ads, streak guilt, confirmshaming declines, a "keep going?" prompt that pauses the run ([YES] [yes]), one fake-ad revive per run (+40 dopamine, tolerance kept), and a screen-time report on death. No fake shop/currency yet.
 - Monetization is pure parody: fake ads, invented brands only, no real money.
 - Tone: Black Mirror cold, funny because it hurts. Complicit, not preachy.
 - No runtime LLM. Content comes from a pre-written bank + templates.
@@ -28,5 +29,5 @@ Art: procedural grey box now; Blender-scripted .glb assets later.
 ## Roadmap
 - Day 1: controls, track, obstacles, perf gate ✅ (iPhone 14 native build: 60 fps, swipes clean)
 - Day 2: dopamine meter + drain, content pickups with tolerance, healthy-habit obstacles, grade/audio tied to dopamine, death-into-reality sequence ✅ (pending on-device feel check)
-- Day 3: comedy layer (content bank, fake ads, manipulative UI, end-of-run report, sound)
+- Day 3: comedy layer (content bank, fake ads, manipulative UI, end-of-run report, sound) ✅ (pending on-device check)
 - Day 4: first Blender hero assets, juice (haptics, particles), TestFlight

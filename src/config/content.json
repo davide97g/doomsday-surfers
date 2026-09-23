@@ -1,8 +1,50 @@
 {
+  "pools": {
+    "handle": [
+      "@grindset.guru", "@pov_you_exist", "@slop.daily", "@ai_bae_9000", "@ragebait.hq", "@just1more",
+      "@cortisol.cafe", "@link.in.bio", "@unhinged.mom", "@hustle.lord", "@main.character", "@sigma.snacks",
+      "@trad.wife.tech", "@deinfluencer.inc", "@crypto.kid", "@quiet.quitter"
+    ],
+    "year": ["2012", "2014", "2016", "2019"],
+    "thing": ["cold showers", "your ex", "seed oils", "the economy", "this raccoon", "5am", "your posture", "AI girlfriends", "protein coffee", "Mercury"],
+    "number": ["3", "7", "12", "47", "99", "300"]
+  },
+  "feed": {
+    "captions": [
+      "POV: you have 4 min of battery",
+      "WAIT FOR IT",
+      "only 1% can watch this",
+      "this changed my life (not clickbait)",
+      "part {number}",
+      "you won't believe #{number}",
+      "morning routine (5am) (cold)",
+      "sound on",
+      "the truth about {thing}",
+      "why {thing} is ruining you",
+      "I tried {thing} for {number} days",
+      "doctors hate {thing}",
+      "{thing} but it's 3am",
+      "rating {thing} out of 10",
+      "nobody talks about {thing}",
+      "stop scrolling. (don't)"
+    ],
+    "reelTitles": ["WATCH TILL THE END", "POV:", "PART 2 →", "WAIT...", "NO WAY", "STORYTIME"],
+    "notificationTitles": ["New follower", "3 new likes", "Someone replied", "You were tagged", "Streak ending!", "Trending now"]
+  },
+  "brands": [
+    { "name": "SlopCola", "line": "Taste the Content", "bg": "#ff2e2e", "fg": "#fff5c2", "jingle": [0, 4, 7, 12] },
+    { "name": "GrindsetGPT", "line": "Hustle while you sleep", "bg": "#111111", "fg": "#ffcc00", "jingle": [0, 0, 7, 5] },
+    { "name": "DopaMint", "line": "Now 40% more mint", "bg": "#1fff8f", "fg": "#0a2a1a", "jingle": [7, 4, 0, 4] },
+    { "name": "FOMOfone", "line": "You are missing out", "bg": "#7b2eff", "fg": "#ffffff", "jingle": [0, 2, 4, 11] },
+    { "name": "BrainFog", "line": "Energy drink. Focus is overrated.", "bg": "#ff7a1f", "fg": "#1a0b00", "jingle": [12, 7, 3, 0] },
+    { "name": "Lonely.ai", "line": "She's always online", "bg": "#ff8ad8", "fg": "#2a0020", "jingle": [0, 3, 7, 10] },
+    { "name": "NapLess", "line": "Sleep is for the unsubscribed", "bg": "#0a1a3a", "fg": "#9fd2ff", "jingle": [0, 5, 9, 12] },
+    { "name": "Serotonin+", "line": "0% serotonin. 100% plus.", "bg": "#00e1ff", "fg": "#002a33", "jingle": [4, 7, 12, 16] }
+  ],
   "contentTypes": [
-    { "id": "like", "name": "Like" },
-    { "id": "notification", "name": "Notification" },
-    { "id": "reel", "name": "Reel" },
+    { "id": "like", "name": "Likes" },
+    { "id": "notification", "name": "Notifications" },
+    { "id": "reel", "name": "Reels" },
     { "id": "outrage", "name": "Outrage" }
   ],
   "habits": [
@@ -27,6 +69,63 @@
       "popups": ["You picked up. Mum is so proud. Ew.", "Real conversation detected.", "She just wanted to hear your voice. Weird."]
     }
   ],
+  "notifications": {
+    "app": "FEED",
+    "lines": [
+      "{handle} liked your photo from {year}",
+      "{number} people viewed your profile. You'll never know who.",
+      "Your ex posted. Don't look. (Look.)",
+      "{handle} is live! You're missing it.",
+      "You have {number} unread messages from nobody",
+      "Someone you don't know mentioned you",
+      "Reminder: you haven't posted in {number} hours",
+      "Your screen time is up {number}%. Congrats!",
+      "{handle} started following you. Follow back?",
+      "Your streak ends in {number} minutes",
+      "{handle} posted about {thing}. You'll hate it.",
+      "Trending: {thing}. Have an opinion now."
+    ]
+  },
+  "banner": {
+    "tag": "Ad",
+    "clicked": "Thanks for clicking. Your data is on its way."
+  },
+  "streak": {
+    "first": "Start a streak. Everyone else has one.",
+    "danger": "Your {n}-day streak is in danger",
+    "safe": "{n}-day streak. Don't break it.",
+    "lost": "You lost your {n}-day streak. We're not angry. Just disappointed.",
+    "reward": "Day {n} reward: nothing. Come back tomorrow for more nothing.",
+    "claim": "CLAIM NOTHING",
+    "decline": "No thanks, I don't care about my streak"
+  },
+  "keepGoing": {
+    "title": "You've been scrolling for {m} minutes.",
+    "body": "Keep going?",
+    "yes": "YES",
+    "alsoYes": "yes"
+  },
+  "revive": {
+    "title": "Dopamine depleted.",
+    "body": "Watch a short ad to feel something again?",
+    "cta": "WATCH AD",
+    "decline": "No thanks, I'd rather be present",
+    "countdown": "Reward in {n}",
+    "skip": "Skip",
+    "skipDenied": "Skipping is a Premium feature."
+  },
+  "report": {
+    "title": "Your Screen Time Report",
+    "rows": [
+      "Screen time: {time}",
+      "Consumed: {likes} likes · {notifications} notifs · {reels} reels · {outrage} outrage",
+      "Most numbing: {numbest} (now {numbestPct}% as effective)",
+      "Healthy habits avoided: {dodged}. Mum calls ignored: {mum}.",
+      "Estimated attention span: {span}s",
+      "Advertisers who now own you: {ads}",
+      "You out-scrolled {rank}% of users."
+    ]
+  },
   "battery": { "label": "DOPAMINE", "low": "LOW DOPAMINE" },
   "death": { "line1": "You are present.", "line2": "… Disgusting.", "cta": "SCROLL AGAIN" }
 }

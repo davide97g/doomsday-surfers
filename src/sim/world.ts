@@ -21,6 +21,9 @@ import {
   type Tuning,
 } from './types';
 
+/** Habit type index of "Mum calling" (content.json habits[3]). */
+const MUM = 3;
+
 interface Box {
   x0: number;
   x1: number;
@@ -41,6 +44,12 @@ export class World {
   time = 0;
   pickupsTaken = 0;
   habitsHit = 0;
+  // Run stats for the end-of-run report.
+  takenByType: number[];
+  habitsDodged = 0;
+  mumIgnored = 0;
+  adsPassed = 0;
+  revivesLeft: number;
   dopamine: number;
   /** Per content type multiplier on gain, 1 = fresh. */
   tolerance: number[];
@@ -64,6 +73,8 @@ export class World {
     this.speed = t.speed.start;
     this.dopamine = t.dopamine.start;
     this.tolerance = new Array(t.content.types).fill(1);
+    this.takenByType = new Array(t.content.types).fill(0);
+    this.revivesLeft = t.revive.perRun;
     this.player = World.freshPlayer(t);
     this.gen = new Generator(seed, t);
     this.gen.fill(t.spawn.ahead, { speed: this.speed, difficulty: 0 }, this.obstacles, this.pickups);
@@ -82,6 +93,11 @@ export class World {
     this.speed = this.t.speed.start;
     this.pickupsTaken = 0;
     this.habitsHit = 0;
+    this.takenByType.fill(0);
+    this.habitsDodged = 0;
+    this.mumIgnored = 0;
+    this.adsPassed = 0;
+    this.revivesLeft = this.t.revive.perRun;
     this.dopamine = this.t.dopamine.start;
     this.tolerance.fill(1);
     this.slowT = 0;
@@ -168,8 +184,41 @@ export class World {
 
     this.gen.fill(this.d + t.spawn.ahead, { speed: this.speed, difficulty: this.difficulty }, this.obstacles, this.pickups);
     const behind = this.d - 20;
-    this.obstacles = this.obstacles.filter((o) => o.s + o.length > behind);
+    this.obstacles = this.obstacles.filter((o) => {
+      if (o.s + o.length > behind) return true;
+      if (o.kind === 'habit' && !o.hit) {
+        this.habitsDodged++;
+        if (o.variant === MUM) this.mumIgnored++;
+      }
+      if (o.kind === 'high') this.adsPassed++;
+      return false;
+    });
     this.pickups = this.pickups.filter((pk) => !pk.taken && pk.s > behind);
+  }
+
+  /** Watched the revive ad: back into the feed with some dopamine. Tolerance stays. */
+  revive(): void {
+    if (this.phase !== 'dead' || this.revivesLeft <= 0) return;
+    const t = this.t;
+    this.revivesLeft--;
+    this.phase = 'running';
+    this.cause = null;
+    this.fadeT = 0;
+    this.slowT = 0;
+    this.dopamine = t.revive.dopamine;
+    // Clear whatever killed you and the stretch right ahead, so the revive isn't an instant re-death.
+    const clearTo = this.d + t.revive.clearAhead;
+    this.obstacles = this.obstacles.filter((o) => o.s + o.length < this.d - 1 || o.s > clearTo);
+    const p = this.player;
+    p.x = laneX(p.lane, t);
+    p.prevLane = p.lane;
+    p.y = 0;
+    p.vy = 0;
+    p.grounded = true;
+    p.rollT = 0;
+    p.rollQueued = false;
+    p.stumbleT = 0;
+    this.events.push({ type: 'revive' });
   }
 
   /** Slowing into reality: no input, no collisions, the feed stops moving. */
@@ -351,6 +400,7 @@ export class World {
       if (pk.y + r < p.y || pk.y - r > p.y + h) continue;
       pk.taken = true;
       this.pickupsTaken++;
+      this.takenByType[pk.type]++;
       const gain = this.gainFor(pk.type);
       this.dopamine = Math.min(t.dopamine.max, this.dopamine + gain);
       this.tolerance[pk.type] = Math.max(t.content.toleranceFloor, this.tolerance[pk.type] * t.content.toleranceDecay);

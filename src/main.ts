@@ -5,7 +5,11 @@ import { Input } from './input/input';
 import { GameRenderer } from './render/renderer';
 import { TUNING } from './sim/types';
 import { World } from './sim/world';
+import { Death } from './ui/death';
 import { Hud } from './ui/hud';
+import { KeepGoing } from './ui/keepGoing';
+import { Nags } from './ui/nags';
+import { Title } from './ui/title';
 
 const STEP = 1 / 120;
 const params = new URLSearchParams(location.search);
@@ -26,7 +30,12 @@ const hud = new Hud(document.body, {
   noDrain: false,
 });
 const audio = new GameAudio();
-hud.onRestart = () => world.reset(seedParam ? Number(seedParam) : Date.now());
+const title = new Title(hud.root, audio);
+const nags = new Nags(hud.root, audio);
+const keepGoing = new KeepGoing(hud.root, audio);
+const death = new Death(hud.root, audio);
+death.onRevive = () => world.revive();
+death.onRestart = () => world.reset(seedParam ? Number(seedParam) : Date.now());
 hud.onPerfChange = (p) => {
   view.post.settings.bloom = p.bloom;
   view.post.settings.grade = p.grade;
@@ -38,7 +47,7 @@ hud.onPerfChange = (p) => {
 };
 
 // Expose for automated tests / debugging in the console.
-(window as unknown as { game: unknown }).game = { world, view, input, audio };
+(window as unknown as { game: unknown }).game = { world, view, input, audio, nags, keepGoing, death };
 
 let last = performance.now();
 let acc = 0;
@@ -54,7 +63,8 @@ function frame(now: number): void {
 
   // Restart is button-only, so a panicked swipe on the death screen can't skip it.
   let actions = input.drain();
-  acc += dt;
+  // The keep-going prompt freezes the run; swipes made meanwhile are dropped.
+  acc = keepGoing.paused ? 0 : acc + dt;
   while (acc >= STEP) {
     if (bot) actions = actions.concat(bot.think(world, STEP));
     world.step(STEP, actions);
@@ -65,11 +75,16 @@ function frame(now: number): void {
   view.handleEvents(events);
   audio.handle(events);
   hud.handle(events);
+  if (events.some((e) => e.type === 'start')) title.onRunStart();
 
   view.renderer.info.reset();
   view.render(world, dt);
   audio.update(world, dt);
   hud.update(world, dt);
+  title.update(world.phase);
+  nags.update(world, dt, keepGoing.paused);
+  if (!bot) keepGoing.update(world, dt);
+  death.update(world, dt, nags);
 
   cpuAcc += performance.now() - cpuStart;
   fpsFrames++;

@@ -3,27 +3,16 @@
 // sell the idea that you're running on top of an endless feed.
 
 import * as THREE from 'three';
+import content from '../config/content.json';
+import { fill, seeded } from '../content/templates';
 
 const PALETTE = ['#ff2e88', '#7b2eff', '#00e1ff', '#ffcc00', '#ff5a1f', '#1fff8f', '#ff3b3b', '#4d7cff'];
 
-const HANDLES = ['@grindset.guru', '@pov_you_exist', '@slop.daily', '@ai_bae_9000', '@ragebait.hq', '@just1more', '@cortisol.cafe', '@link.in.bio'];
-const CAPTIONS = [
-  'POV: you have 4 min of battery',
-  'WAIT FOR IT',
-  'only 1% can watch this',
-  'this changed my life (not clickbait)',
-  'part 47',
-  'you won’t believe #3',
-  'morning routine (5am) (cold)',
-  'sound on \u{1F50A}',
-];
+const HANDLES = content.pools.handle;
+const ADS = content.brands;
 
-const ADS = [
-  { brand: 'SlopCola', line: 'Taste the Content', bg: '#ff2e2e', fg: '#fff5c2' },
-  { brand: 'GrindsetGPT', line: 'Hustle while you sleep', bg: '#111111', fg: '#ffcc00' },
-  { brand: 'DopaMint', line: 'Now 40% more mint', bg: '#1fff8f', fg: '#0a2a1a' },
-  { brand: 'FOMOfone', line: 'You are missing out', bg: '#7b2eff', fg: '#ffffff' },
-];
+/** Feed posts live in one atlas so the ground and towers draw in one call each. */
+export const FEED_ATLAS = { cols: 4, rows: 4, cellW: 256, cellH: 540 };
 
 function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement('canvas');
@@ -57,13 +46,26 @@ function heart(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): 
   ctx.fill();
 }
 
-/** A vertical social post (the ground tiles and tower faces). */
-export function makeFeedPost(i: number): THREE.CanvasTexture {
-  const W = 256;
-  const H = 540;
-  const [c, ctx] = canvas(W, H);
+/** All feed posts (ground tiles and tower faces), one per atlas cell, row-major from the top. */
+export function makeFeedAtlas(): THREE.CanvasTexture {
+  const { cols, rows, cellW, cellH } = FEED_ATLAS;
+  const [c, ctx] = canvas(cols * cellW, rows * cellH);
+  const rand = seeded(1234);
+  for (let i = 0; i < cols * rows; i++) {
+    ctx.save();
+    ctx.translate((i % cols) * cellW, Math.floor(i / cols) * cellH);
+    const caption = fill(content.feed.captions[i % content.feed.captions.length], {}, rand);
+    drawFeedPost(ctx, i, HANDLES[i % HANDLES.length], caption);
+    ctx.restore();
+  }
+  return tex(c);
+}
+
+function drawFeedPost(ctx: CanvasRenderingContext2D, i: number, handle: string, caption: string): void {
+  const W = FEED_ATLAS.cellW;
+  const H = FEED_ATLAS.cellH;
   const a = PALETTE[i % PALETTE.length];
-  const b = PALETTE[(i * 3 + 2) % PALETTE.length];
+  const b = PALETTE[(i * 3 + 2 + Math.floor(i / PALETTE.length)) % PALETTE.length];
 
   ctx.fillStyle = '#0d0b14';
   ctx.fillRect(0, 0, W, H);
@@ -75,7 +77,7 @@ export function makeFeedPost(i: number): THREE.CanvasTexture {
   ctx.fill();
   ctx.fillStyle = '#e9e6f5';
   ctx.font = 'bold 17px system-ui, sans-serif';
-  ctx.fillText(HANDLES[i % HANDLES.length], 56, 38);
+  ctx.fillText(handle, 56, 38);
 
   // Media block with gradient + shapes.
   const g = ctx.createLinearGradient(0, 60, W, 400);
@@ -119,14 +121,12 @@ export function makeFeedPost(i: number): THREE.CanvasTexture {
   // Caption lines.
   ctx.fillStyle = '#c9c4dd';
   ctx.font = '16px system-ui, sans-serif';
-  ctx.fillText(CAPTIONS[i % CAPTIONS.length], 14, 466);
+  ctx.fillText(caption, 14, 466, W - 28);
   ctx.fillStyle = '#4a4560';
   roundRect(ctx, 14, 482, 170, 10, 5);
   ctx.fill();
   roundRect(ctx, 14, 502, 110, 10, 5);
   ctx.fill();
-
-  return tex(c);
 }
 
 /** Low barrier: a fat notification pill lying across the lane. */
@@ -140,7 +140,7 @@ export function makeNotification(i: number): THREE.CanvasTexture {
   ctx.fill();
   ctx.fillStyle = '#16131f';
   ctx.font = 'bold 34px system-ui, sans-serif';
-  const titles = ['New follower', '3 new likes', 'Someone replied', 'You were tagged', 'Streak ending!', 'Trending now'];
+  const titles = content.feed.notificationTitles;
   ctx.fillText(titles[i % titles.length], 124, 62);
   ctx.fillStyle = '#6b6680';
   ctx.font = '26px system-ui, sans-serif';
@@ -164,10 +164,10 @@ export function makeAd(i: number): THREE.CanvasTexture {
   ctx.fillRect(0, 0, 512, 256);
   ctx.fillStyle = ad.fg;
   ctx.textAlign = 'center';
-  ctx.font = '900 78px system-ui, sans-serif';
-  ctx.fillText(ad.brand, 256, 130);
+  ctx.font = `900 ${ad.name.length > 9 ? 62 : 78}px system-ui, sans-serif`;
+  ctx.fillText(ad.name, 256, 130, 480);
   ctx.font = 'bold 30px system-ui, sans-serif';
-  ctx.fillText(ad.line, 256, 186);
+  ctx.fillText(ad.line, 256, 186, 480);
   ctx.textAlign = 'left';
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   roundRect(ctx, 14, 14, 58, 30, 6);
@@ -202,7 +202,7 @@ export function makeReel(i: number): THREE.CanvasTexture {
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(8, 242, 60 + ((i * 131) % 380), 6);
   ctx.font = '900 44px system-ui, sans-serif';
-  ctx.fillText(['WATCH TILL THE END', 'POV:', 'PART 2 →', 'WAIT...', 'NO WAY', 'STORYTIME'][i % 6], 26, 70);
+  ctx.fillText(content.feed.reelTitles[i % content.feed.reelTitles.length], 26, 70);
   ctx.font = 'bold 22px system-ui, sans-serif';
   ctx.fillText(HANDLES[(i + 3) % HANDLES.length], 26, 234);
   return tex(c);

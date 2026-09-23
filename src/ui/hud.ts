@@ -5,6 +5,7 @@
 import content from '../config/content.json';
 import type { Phase, SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
+import { restartAnimation } from './nags';
 
 export interface PerfToggles {
   bloom: boolean;
@@ -16,14 +17,11 @@ export interface PerfToggles {
 const LOW = 25;
 
 export class Hud {
-  private readonly root: HTMLElement;
+  readonly root: HTMLElement;
   private readonly distEl: HTMLElement;
   private readonly scoreEl: HTMLElement;
   private readonly fpsEl: HTMLElement;
   private readonly perfEl: HTMLElement;
-  private readonly readyEl: HTMLElement;
-  private readonly deadEl: HTMLElement;
-  private readonly deadStats: HTMLElement;
   private readonly battery: HTMLElement;
   private readonly batFill: HTMLElement;
   private readonly batPct: HTMLElement;
@@ -33,8 +31,6 @@ export class Hud {
   private low = false;
   private shownPct = -1;
   private phase: Phase | null = null;
-  private deadAt = 0;
-  onRestart: () => void = () => {};
   onPerfChange: (p: PerfToggles) => void = () => {};
   perf: PerfToggles;
 
@@ -67,17 +63,6 @@ export class Hud {
         <label><input type="checkbox" id="pf-nodrain"> no drain</label>
         <div class="perf-stats" id="pf-stats"></div>
       </div>
-      <div class="overlay ready" id="ready">
-        <div class="logo">DOOMSDAY<br>SURFERS</div>
-        <div class="hint">swipe to start scrolling</div>
-        <div class="controls">&larr; &rarr; switch &middot; &uarr; jump &middot; &darr; roll</div>
-      </div>
-      <div class="overlay dead hidden" id="dead">
-        <div class="dead-line one">${content.death.line1}</div>
-        <div class="dead-line two">${content.death.line2}</div>
-        <div class="dead-stats" id="dead-stats"></div>
-        <button class="cta" id="again" data-ui>${content.death.cta}</button>
-      </div>
     `;
     parent.appendChild(this.root);
     const $ = <T extends HTMLElement>(id: string) => this.root.querySelector<T>('#' + id)!;
@@ -85,9 +70,6 @@ export class Hud {
     this.scoreEl = $('score');
     this.fpsEl = $('fps');
     this.perfEl = $('perf');
-    this.readyEl = $('ready');
-    this.deadEl = $('dead');
-    this.deadStats = $('dead-stats');
     this.battery = $('battery');
     this.batFill = $('bat-fill');
     this.batPct = $('bat-pct');
@@ -95,10 +77,6 @@ export class Hud {
     this.toast = $('toast');
 
     this.fpsEl.addEventListener('click', () => this.perfEl.classList.toggle('hidden'));
-    // Ignore taps until the button has faded in (matches the CSS delay).
-    $('again').addEventListener('click', () => {
-      if (performance.now() - this.deadAt > 3800) this.onRestart();
-    });
 
     const bloom = $<HTMLInputElement>('pf-bloom');
     const grade = $<HTMLInputElement>('pf-grade');
@@ -118,10 +96,8 @@ export class Hud {
 
   update(w: World, dt: number): void {
     const phase = w.phase;
-    const dist = w.d;
-    const score = w.score;
-    this.distEl.textContent = `${Math.floor(dist)}m`;
-    this.scoreEl.textContent = score.toLocaleString('en-US');
+    this.distEl.textContent = `${Math.floor(w.d)}m`;
+    this.scoreEl.textContent = w.score.toLocaleString('en-US');
 
     // Battery: only touch the DOM when the shown value changes.
     const pct = Math.max(0, Math.ceil((w.dopamine / w.t.dopamine.max) * 100));
@@ -144,16 +120,10 @@ export class Hud {
 
     if (phase !== this.phase) {
       this.phase = phase;
-      this.readyEl.classList.toggle('hidden', phase !== 'ready');
-      this.deadEl.classList.toggle('hidden', phase !== 'dead');
       this.battery.classList.toggle('hidden', phase === 'dead');
       if (phase !== 'running') {
         this.toast.classList.add('hidden');
         this.toastTimer = 0;
-      }
-      if (phase === 'dead') {
-        this.deadAt = performance.now();
-        this.deadStats.innerHTML = `<div><b>${Math.floor(dist)}m</b> scrolled</div><div><b>${score.toLocaleString('en-US')}</b> engagement</div>`;
       }
     }
   }
@@ -164,10 +134,7 @@ export class Hud {
         const lines = content.habits[e.habit % content.habits.length].popups;
         this.toast.textContent = lines[Math.floor(Math.random() * lines.length)];
         this.toast.classList.remove('hidden');
-        // Restart the pop-in animation.
-        this.toast.style.animation = 'none';
-        void this.toast.offsetWidth;
-        this.toast.style.animation = '';
+        restartAnimation(this.toast);
         this.toastTimer = 1.6;
       }
     }

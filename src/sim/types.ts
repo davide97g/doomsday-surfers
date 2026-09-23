@@ -68,6 +68,7 @@ export type SimEvent =
   | { type: 'habit'; id: number; habit: number; cost: number }
   | { type: 'crash'; kind: ObstacleKind }
   | { type: 'empty' }
+  | { type: 'revive' }
   | { type: 'dead'; cause: DeathCause };
 
 export function laneX(lane: number, t: Tuning = TUNING): number {

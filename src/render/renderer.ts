@@ -6,9 +6,10 @@ import * as THREE from 'three';
 import { laneX, type ObstacleKind, type SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
 import { Post } from './post';
-import { makeAd, makeBookCover, makeContent, makeFeedPost, makeMumCall, makeNotification, makeReel, makeReelFront } from './textures';
+import { FEED_ATLAS, makeAd, makeBookCover, makeContent, makeFeedAtlas, makeMumCall, makeNotification, makeReel, makeReelFront } from './textures';
 
 const VARIANTS = 8;
+const FEED_CELLS = FEED_ATLAS.cols * FEED_ATLAS.rows;
 const TILE_LEN = 4.4;
 const TOWER_STEP = 3.6;
 const CELL_W = 2.2; // along track
@@ -16,6 +17,29 @@ const CELL_H = CELL_W * 2.1;
 
 export interface RenderSettings {
   pixelRatio: number;
+}
+
+/** Basic material that samples one atlas cell per instance (the `cell` attribute). */
+function atlasMaterial(map: THREE.Texture, color: THREE.Color): THREE.MeshBasicMaterial {
+  const { cols, rows } = FEED_ATLAS;
+  const m = new THREE.MeshBasicMaterial({ map, color });
+  m.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float cell;')
+      .replace(
+        '#include <uv_vertex>',
+        `#include <uv_vertex>
+        vMapUv = (vMapUv + vec2(mod(cell, ${cols}.0), ${rows - 1}.0 - floor(cell / ${cols}.0))) / vec2(${cols}.0, ${rows}.0);`,
+      );
+  };
+  return m;
+}
+
+function cellAttribute(geo: THREE.BufferGeometry, count: number): THREE.InstancedBufferAttribute {
+  const attr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
+  attr.setUsage(THREE.DynamicDrawUsage);
+  geo.setAttribute('cell', attr);
+  return attr;
 }
 
 function hash(a: number, b: number): number {
@@ -34,9 +58,11 @@ export class GameRenderer {
   settings: RenderSettings;
 
   private readonly dummy = new THREE.Object3D();
-  private readonly tileScreens: THREE.InstancedMesh[] = [];
+  private readonly tileScreens: THREE.InstancedMesh;
+  private readonly tileCells: THREE.InstancedBufferAttribute;
   private readonly tileBezels: THREE.InstancedMesh;
-  private readonly towerCells: THREE.InstancedMesh[] = [];
+  private readonly towerCells: THREE.InstancedMesh;
+  private readonly towerCellIds: THREE.InstancedBufferAttribute;
   private readonly towerBacks: THREE.InstancedMesh;
   private readonly pickupMeshes: THREE.InstancedMesh[] = [];
   private readonly phoneMat: THREE.MeshBasicMaterial;
@@ -58,8 +84,8 @@ export class GameRenderer {
   private readonly obstacleBuilders: Record<ObstacleKind, (variant: number) => THREE.Object3D>;
 
   private readonly mats: {
-    feed: THREE.MeshBasicMaterial[];
-    tower: THREE.MeshBasicMaterial[];
+    feed: THREE.MeshBasicMaterial;
+    tower: THREE.MeshBasicMaterial;
     notif: THREE.MeshStandardMaterial[];
     ad: THREE.MeshBasicMaterial[];
     reel: THREE.MeshBasicMaterial[];
@@ -109,11 +135,11 @@ export class GameRenderer {
     this.scene.add(sun);
 
     // --- materials ---
-    const feedTex = Array.from({ length: VARIANTS }, (_, i) => makeFeedPost(i));
+    const feedAtlas = makeFeedAtlas();
     this.mats = {
       // Ground screens are dimmer than towers and obstacles so hazards pop.
-      feed: feedTex.map((t) => new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(0.55, 0.55, 0.6) })),
-      tower: feedTex.map((t) => new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(0.8, 0.8, 0.85) })),
+      feed: atlasMaterial(feedAtlas, new THREE.Color(0.55, 0.55, 0.6)),
+      tower: atlasMaterial(feedAtlas, new THREE.Color(0.8, 0.8, 0.85)),
       notif: Array.from({ length: VARIANTS }, (_, i) => new THREE.MeshStandardMaterial({ map: makeNotification(i), emissiveMap: null, roughness: 0.4, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.15 })),
       ad: Array.from({ length: VARIANTS }, (_, i) => new THREE.MeshBasicMaterial({ map: makeAd(i), color: new THREE.Color(1.0, 1.0, 1.0) })),
       reel: Array.from({ length: VARIANTS }, (_, i) => new THREE.MeshBasicMaterial({ map: makeReel(i), color: new THREE.Color(0.8, 0.8, 0.8) })),
@@ -140,12 +166,10 @@ export class GameRenderer {
     const tilesPerLane = Math.ceil((visibleAhead + 30) / TILE_LEN) + 2;
     const maxTiles = lanes * tilesPerLane;
     const screenGeo = new THREE.PlaneGeometry(1.92, TILE_LEN - 0.34).rotateX(-Math.PI / 2);
-    for (let v = 0; v < VARIANTS; v++) {
-      const m = new THREE.InstancedMesh(screenGeo, this.mats.feed[v], maxTiles);
-      m.frustumCulled = false;
-      this.tileScreens.push(m);
-      this.scene.add(m);
-    }
+    this.tileCells = cellAttribute(screenGeo, maxTiles);
+    this.tileScreens = new THREE.InstancedMesh(screenGeo, this.mats.feed, maxTiles);
+    this.tileScreens.frustumCulled = false;
+    this.scene.add(this.tileScreens);
     this.tileBezels = new THREE.InstancedMesh(new THREE.BoxGeometry(2.1, 0.16, TILE_LEN - 0.14), this.mats.dark, maxTiles);
     this.tileBezels.frustumCulled = false;
     this.scene.add(this.tileBezels);
@@ -165,12 +189,10 @@ export class GameRenderer {
     const towerSlots = 2 * (Math.ceil((visibleAhead + 30) / TOWER_STEP) + 2);
     const maxCells = towerSlots * 6;
     const cellGeo = new THREE.PlaneGeometry(CELL_W - 0.25, CELL_H - 0.3);
-    for (let v = 0; v < VARIANTS; v++) {
-      const m = new THREE.InstancedMesh(cellGeo, this.mats.tower[v], maxCells);
-      m.frustumCulled = false;
-      this.towerCells.push(m);
-      this.scene.add(m);
-    }
+    this.towerCellIds = cellAttribute(cellGeo, maxCells);
+    this.towerCells = new THREE.InstancedMesh(cellGeo, this.mats.tower, maxCells);
+    this.towerCells.frustumCulled = false;
+    this.scene.add(this.towerCells);
     this.towerBacks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), this.mats.dark, towerSlots);
     this.towerBacks.frustumCulled = false;
     this.scene.add(this.towerBacks);
@@ -389,7 +411,7 @@ export class GameRenderer {
         this.shake = 1.2;
         this.crashT = 0;
       }
-      if (e.type === 'start') this.crashT = -1;
+      if (e.type === 'start' || e.type === 'revive') this.crashT = -1;
       if (e.type === 'roll') this.rollSpin = 0;
     }
   }
@@ -418,35 +440,33 @@ export class GameRenderer {
   private syncTrack(d: number): void {
     const first = Math.floor((d - 12) / TILE_LEN);
     const last = Math.floor((d + this.visibleAhead) / TILE_LEN);
-    const counts = new Array(VARIANTS).fill(0);
-    let bezels = 0;
+    let n = 0;
     for (let i = first; i <= last; i++) {
       const z = -(i * TILE_LEN + TILE_LEN / 2 - d);
       for (let lane = 0; lane < 3; lane++) {
         const x = laneX(lane);
-        const v = Math.floor(hash(i, lane) * VARIANTS);
         this.dummy.position.set(x, 0.011, z);
         this.dummy.rotation.set(0, 0, 0);
         this.dummy.scale.set(1, 1, 1);
         this.dummy.updateMatrix();
-        this.tileScreens[v].setMatrixAt(counts[v]++, this.dummy.matrix);
+        this.tileScreens.setMatrixAt(n, this.dummy.matrix);
+        this.tileCells.setX(n, Math.floor(hash(i, lane) * FEED_CELLS));
         this.dummy.position.y = -0.07;
         this.dummy.updateMatrix();
-        this.tileBezels.setMatrixAt(bezels++, this.dummy.matrix);
+        this.tileBezels.setMatrixAt(n++, this.dummy.matrix);
       }
     }
-    this.tileScreens.forEach((m, v) => {
-      m.count = counts[v];
-      m.instanceMatrix.needsUpdate = true;
-    });
-    this.tileBezels.count = bezels;
+    this.tileScreens.count = n;
+    this.tileScreens.instanceMatrix.needsUpdate = true;
+    this.tileCells.needsUpdate = true;
+    this.tileBezels.count = n;
     this.tileBezels.instanceMatrix.needsUpdate = true;
   }
 
   private syncTowers(d: number): void {
     const first = Math.floor((d - 12) / TOWER_STEP);
     const last = Math.floor((d + this.visibleAhead) / TOWER_STEP);
-    const counts = new Array(VARIANTS).fill(0);
+    let n = 0;
     let backs = 0;
     for (let i = first; i <= last; i++) {
       for (const side of [-1, 1]) {
@@ -465,17 +485,16 @@ export class GameRenderer {
         this.dummy.scale.set(1, 1, 1);
         this.dummy.rotation.set(0, side < 0 ? Math.PI / 2 : -Math.PI / 2, 0);
         for (let c = 0; c < cells; c++) {
-          const v = Math.floor(hash(i * 13 + c, side) * VARIANTS);
           this.dummy.position.set(xFace, c * CELL_H + CELL_H / 2, z);
           this.dummy.updateMatrix();
-          this.towerCells[v].setMatrixAt(counts[v]++, this.dummy.matrix);
+          this.towerCells.setMatrixAt(n, this.dummy.matrix);
+          this.towerCellIds.setX(n++, Math.floor(hash(i * 13 + c, side) * FEED_CELLS));
         }
       }
     }
-    this.towerCells.forEach((m, v) => {
-      m.count = counts[v];
-      m.instanceMatrix.needsUpdate = true;
-    });
+    this.towerCells.count = n;
+    this.towerCells.instanceMatrix.needsUpdate = true;
+    this.towerCellIds.needsUpdate = true;
     this.towerBacks.count = backs;
     this.towerBacks.instanceMatrix.needsUpdate = true;
   }

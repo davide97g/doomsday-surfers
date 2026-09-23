@@ -107,14 +107,108 @@ html, body {
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px) scale(.96); } }
 
 .dead { background: rgba(12,12,14,.72); backdrop-filter: grayscale(1) blur(2px); -webkit-backdrop-filter: grayscale(1) blur(2px); }
-/* The death copy lands slowly, and the button comes last so a panicked swipe can't skip it. */
-.dead-line { font-size: 30px; font-weight: 900; color: #d9d9de; opacity: 0; animation: fade-in .8s ease-out forwards; }
-.dead-line.one { animation-delay: .4s; }
-.dead-line.two { animation-delay: 2.2s; }
-.dead-stats { color: #8e8e96; line-height: 1.7; opacity: 0; animation: fade-in .8s ease-out 3.4s forwards; }
-.dead .cta { opacity: 0; animation: fade-in .6s ease-out 3.8s forwards; }
-@keyframes fade-in { to { opacity: 1; } }
-.dead-stats b { color: var(--ink); font-size: 20px; }
+/* Death copy and report are revealed by death.ts adding .on on a timer. */
+.final [data-at], .final .report-row, .final .cta { opacity: 0; transition: opacity .7s ease-out; }
+.final .on { opacity: 1; }
+.dead-line { font-size: 30px; font-weight: 900; color: #d9d9de; }
+.final { gap: 12px; }
+.report {
+  width: min(100%, 360px); margin-top: 6px; padding: 12px 14px; border-radius: 14px;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); text-align: left;
+}
+.report-title { font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #8e8e96; margin-bottom: 6px; }
+.report-row { font-size: 13px; line-height: 1.45; color: #c4c4cc; padding: 3px 0; border-top: 1px solid rgba(255,255,255,.06); font-variant-numeric: tabular-nums; }
+
+/* ---------- shared prompt card (revive offer, keep-going) ---------- */
+.prompt { background: rgba(7,4,15,.55); }
+.prompt-card {
+  width: min(100%, 330px); padding: 22px 20px; border-radius: 20px;
+  background: rgba(24,20,34,.96); border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+.prompt-title { font-size: 20px; font-weight: 900; }
+.prompt-body { color: var(--muted); font-size: 15px; }
+.prompt-buttons { display: flex; gap: 10px; }
+.cta.small { padding: 12px 22px; font-size: 15px; margin-top: 0; }
+.cta.alt { background: rgba(255,255,255,.12); box-shadow: none; }
+.decline {
+  border: 0; background: none; color: #77728a; font: 600 12px system-ui, sans-serif;
+  text-decoration: underline; padding: 6px;
+}
+
+/* ---------- streak guilt on the title screen ---------- */
+.streak {
+  margin-top: 18px; width: min(100%, 320px); padding: 14px 16px; border-radius: 18px;
+  background: rgba(24,20,34,.9); border: 1px solid rgba(255,122,31,.45);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.streak-line { font-weight: 900; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.streak-reward { font-size: 12px; color: var(--muted); }
+.flame {
+  width: 14px; height: 18px; flex: none;
+  background: linear-gradient(180deg, #ffcc00, #ff5a1f);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  box-shadow: 0 0 10px rgba(255,90,31,.8);
+}
+
+/* ---------- fake push notification ---------- */
+.notif {
+  position: absolute; left: 12px; right: 12px; top: calc(var(--safe-top) + 94px);
+  display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 18px;
+  background: rgba(40,36,52,.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35); pointer-events: none;
+  animation: notif-in .35s cubic-bezier(.2,.9,.3,1.2);
+}
+@keyframes notif-in { from { transform: translateY(-120%); opacity: 0; } }
+.notif-icon { width: 34px; height: 34px; border-radius: 9px; flex: none; background: linear-gradient(135deg, var(--hot), #7b2eff 60%, var(--acid)); }
+.notif-body { min-width: 0; }
+.notif-head { display: flex; gap: 8px; font-size: 11px; color: var(--muted); letter-spacing: .06em; }
+.notif-head b { color: var(--ink); }
+.notif-text { font-size: 14px; font-weight: 600; }
+
+/* ---------- banner ad (below the runner) ---------- */
+.banner {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 10px 44px calc(var(--safe-bottom) + 10px) 12px;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--ad-bg); color: var(--ad-fg);
+  box-shadow: 0 -6px 24px rgba(0,0,0,.35);
+  animation: banner-in .3s ease-out;
+}
+@keyframes banner-in { from { transform: translateY(100%); } }
+.banner-tag {
+  font: 800 10px system-ui, sans-serif; padding: 3px 6px; border-radius: 5px;
+  background: rgba(0,0,0,.5); color: #fff; letter-spacing: .08em;
+}
+.banner-copy { display: flex; flex-direction: column; min-width: 0; }
+.banner-copy b { font-size: 18px; font-weight: 900; }
+.banner-copy span { font-size: 12px; font-weight: 700; opacity: .85; }
+.banner-x {
+  position: absolute; right: 10px; top: 8px; width: 20px; height: 20px; padding: 0;
+  border: 0; border-radius: 50%; background: rgba(0,0,0,.35); color: #fff; font-size: 13px; line-height: 20px;
+}
+
+/* ---------- unskippable revive ad ---------- */
+.fake-ad { background: var(--ad-bg); color: var(--ad-fg); gap: 10px; }
+.fake-ad .banner-tag { position: absolute; left: 16px; top: calc(var(--safe-top) + 16px); }
+.ad-count {
+  position: absolute; right: 16px; top: calc(var(--safe-top) + 12px);
+  font: 800 13px system-ui, sans-serif; padding: 6px 10px; border-radius: 999px; background: rgba(0,0,0,.45); color: #fff;
+}
+.ad-product {
+  width: 120px; height: 190px; border-radius: 26px 26px 18px 18px;
+  background: linear-gradient(160deg, rgba(255,255,255,.55), rgba(255,255,255,0) 45%), var(--ad-fg);
+  box-shadow: 0 20px 50px rgba(0,0,0,.35); animation: bob 1.6s ease-in-out infinite;
+}
+@keyframes bob { 50% { transform: translateY(-10px) rotate(3deg); } }
+.ad-brand { font-size: clamp(40px, 13vw, 64px); font-weight: 900; letter-spacing: -.02em; }
+.ad-line { font-size: 17px; font-weight: 700; }
+.ad-skip {
+  position: absolute; right: 16px; bottom: calc(var(--safe-bottom) + 20px);
+  border: 1px solid rgba(255,255,255,.4); background: rgba(0,0,0,.45); color: #fff;
+  font: 700 13px system-ui, sans-serif; padding: 8px 14px; border-radius: 8px;
+}
 .cta {
   margin-top: 8px; border: 0; border-radius: 999px; padding: 16px 34px;
   font: 900 18px system-ui, sans-serif; letter-spacing: .06em; color: #fff;

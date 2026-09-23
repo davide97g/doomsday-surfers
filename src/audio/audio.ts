@@ -141,6 +141,49 @@ export class GameAudio {
     }
   }
 
+  // ---------- UI sounds (called by the comedy layer) ----------
+
+  private get ready(): boolean {
+    return !!this.ctx && this.ctx.state === 'running';
+  }
+
+  /** Fake push notification: the two-note ping everyone's nervous system knows. */
+  chime(): void {
+    if (!this.ready) return;
+    this.tone(1568, 1568, 0.09, 'sine', 0.12);
+    this.tone(2093, 2093, 0.16, 'sine', 0.1, 0.1);
+  }
+
+  /** A brand's four-note sting (semitones above C5). */
+  jingle(notes: readonly number[]): void {
+    if (!this.ready) return;
+    notes.forEach((n, i) => {
+      const f = 523.25 * Math.pow(2, n / 12);
+      this.tone(f, f, 0.22, 'square', 0.05, i * 0.16);
+      this.tone(f / 2, f / 2, 0.22, 'triangle', 0.08, i * 0.16);
+    });
+  }
+
+  /** Report row reveal. */
+  tick(): void {
+    if (!this.ready) return;
+    this.tone(2400, 1800, 0.03, 'square', 0.04);
+  }
+
+  click(): void {
+    if (!this.ready) return;
+    this.tone(900, 600, 0.05, 'triangle', 0.08);
+  }
+
+  /** Revive granted: a cheap slot-machine sparkle. */
+  reward(): void {
+    if (!this.ready) return;
+    [0, 4, 7, 12, 16].forEach((n, i) => {
+      const f = 659.25 * Math.pow(2, n / 12);
+      this.tone(f, f * 1.01, 0.12, 'square', 0.05, i * 0.06);
+    });
+  }
+
   // ---------- music ----------
 
   private scheduleStep(t: number, i: number): void {
