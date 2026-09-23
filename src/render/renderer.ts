@@ -3,8 +3,11 @@
 // primitives + canvas textures, to be swapped for Blender .glb assets later.
 
 import * as THREE from 'three';
-import { laneX, type ObstacleKind, type SimEvent } from '../sim/types';
+import content from '../config/content.json';
+import { laneX, zoneLook, type ObstacleKind, type SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
+import { atlasMaterial, cellAttribute, hash } from './atlas';
+import { Gate } from './gate';
 import { Hero } from './hero';
 import { Particles } from './particles';
 import { Post } from './post';
@@ -17,40 +20,23 @@ const TILE_LEN = 4.4;
 const TOWER_STEP = 3.6;
 const CELL_W = 2.2; // along track
 const CELL_H = CELL_W * 2.1;
+/** Track kept behind the runner: a little normally, more while the gate camera looks back. */
+const BEHIND = 12;
+const BEHIND_ORBIT = 45;
+
+interface ZoneLook {
+  seam: THREE.Color;
+  sky: THREE.Color;
+  light: THREE.Color;
+}
+const ZONES: ZoneLook[] = content.zones.map((z) => ({
+  seam: new THREE.Color(z.seam[0], z.seam[1], z.seam[2]),
+  sky: new THREE.Color(z.sky),
+  light: new THREE.Color(z.light),
+}));
 
 export interface RenderSettings {
   pixelRatio: number;
-}
-
-/** Basic material that samples one atlas cell per instance (the `cell` attribute). */
-function atlasMaterial(map: THREE.Texture, color: THREE.Color): THREE.MeshBasicMaterial {
-  const { cols, rows } = FEED_ATLAS;
-  const m = new THREE.MeshBasicMaterial({ map, color });
-  m.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float cell;')
-      .replace(
-        '#include <uv_vertex>',
-        `#include <uv_vertex>
-        vMapUv = (vMapUv + vec2(mod(cell, ${cols}.0), ${rows - 1}.0 - floor(cell / ${cols}.0))) / vec2(${cols}.0, ${rows}.0);`,
-      );
-  };
-  return m;
-}
-
-function cellAttribute(geo: THREE.BufferGeometry, count: number): THREE.InstancedBufferAttribute {
-  const attr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
-  attr.setUsage(THREE.DynamicDrawUsage);
-  geo.setAttribute('cell', attr);
-  return attr;
-}
-
-function hash(a: number, b: number): number {
-  let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x632be5ab, 0xc2b2ae35);
-  h ^= h >>> 13;
-  h = Math.imul(h, 0x27d4eb2f);
-  h ^= h >>> 15;
-  return (h >>> 0) / 4294967296;
 }
 
 export class GameRenderer {
@@ -84,6 +70,12 @@ export class GameRenderer {
     rig: THREE.Group;
   };
   private readonly shadow: THREE.Mesh;
+  private readonly gate: Gate;
+  private readonly seamMat: THREE.MeshBasicMaterial;
+  private readonly hemi: THREE.HemisphereLight;
+  private readonly sky = new THREE.Color();
+  private readonly tmpV = new THREE.Vector3();
+  private readonly lookV = new THREE.Vector3();
 
   private readonly pools = new Map<ObstacleKind, THREE.Object3D[]>();
   private readonly active = new Map<number, { kind: ObstacleKind; obj: THREE.Object3D }>();
@@ -120,6 +112,10 @@ export class GameRenderer {
   private rollSpin = 0;
   /** Smoothed dopamine level driving the colour grade (1 = neon, 0 = grey). */
   private level = 1;
+  /** Portrait/landscape field of view before the gate camera's zoom. */
+  private baseFov = 70;
+  /** Seconds since the last gate crossing, for the camera's zoom kick. */
+  private gateKick = 99;
   private readonly visibleAhead: number;
 
   constructor(container: HTMLElement, visibleAhead: number) {
@@ -135,7 +131,8 @@ export class GameRenderer {
     this.scene.background = new THREE.Color('#07040f');
     this.scene.fog = new THREE.Fog('#07040f', 45, visibleAhead);
 
-    this.scene.add(new THREE.HemisphereLight('#a58cff', '#150a24', 1.3));
+    this.hemi = new THREE.HemisphereLight('#a58cff', '#150a24', 1.3);
+    this.scene.add(this.hemi);
     const sun = new THREE.DirectionalLight('#ffffff', 1.6);
     sun.position.set(4, 10, 6);
     this.scene.add(sun);
@@ -169,7 +166,7 @@ export class GameRenderer {
 
     // --- track tiles (the ground is a feed of giant phone screens) ---
     const lanes = 3;
-    const tilesPerLane = Math.ceil((visibleAhead + 30) / TILE_LEN) + 2;
+    const tilesPerLane = Math.ceil((visibleAhead + BEHIND_ORBIT + 20) / TILE_LEN) + 2;
     const maxTiles = lanes * tilesPerLane;
     const screenGeo = new THREE.PlaneGeometry(1.92, TILE_LEN - 0.34).rotateX(-Math.PI / 2);
     this.tileCells = cellAttribute(screenGeo, maxTiles);
@@ -184,15 +181,15 @@ export class GameRenderer {
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#0b0812', roughness: 0.9 }));
     floor.position.set(0, -0.15, -150);
     this.scene.add(floor);
-    const seamMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 0.25, 1.6) });
+    this.seamMat = new THREE.MeshBasicMaterial({ color: ZONES[0].seam.clone() });
     for (const x of [-3.3, -1.1, 1.1, 3.3]) {
-      const seam = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 400), seamMat);
+      const seam = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 400), this.seamMat);
       seam.position.set(x, 0.03, -170);
       this.scene.add(seam);
     }
 
     // --- towers: walls of vertical feeds on both sides ---
-    const towerSlots = 2 * (Math.ceil((visibleAhead + 30) / TOWER_STEP) + 2);
+    const towerSlots = 2 * (Math.ceil((visibleAhead + BEHIND_ORBIT + 20) / TOWER_STEP) + 2);
     const maxCells = towerSlots * 6;
     const cellGeo = new THREE.PlaneGeometry(CELL_W - 0.25, CELL_H - 0.3);
     this.towerCellIds = cellAttribute(cellGeo, maxCells);
@@ -202,6 +199,8 @@ export class GameRenderer {
     this.towerBacks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), this.mats.dark, towerSlots);
     this.towerBacks.frustumCulled = false;
     this.scene.add(this.towerBacks);
+
+    this.gate = new Gate(this.scene, feedAtlas, this.mats.dark, this.seamMat, visibleAhead);
 
     // --- pickups: one instanced mesh per content type; brightness follows tolerance ---
     const pickupGeo = new THREE.PlaneGeometry(0.85, 0.85);
@@ -412,7 +411,8 @@ export class GameRenderer {
     this.renderer.setPixelRatio(this.settings.pixelRatio);
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
-    this.camera.fov = w / h < 1 ? 70 : 55;
+    this.baseFov = w / h < 1 ? 70 : 55;
+    this.camera.fov = this.baseFov;
     this.camera.updateProjectionMatrix();
     this.post.setSize(w, h, this.settings.pixelRatio);
   }
@@ -436,23 +436,33 @@ export class GameRenderer {
       }
       if (e.type === 'start' || e.type === 'revive') this.crashT = -1;
       if (e.type === 'roll') this.rollSpin = 0;
+      if (e.type === 'gate') {
+        this.gateKick = 0;
+        this.shake = Math.max(this.shake, 0.35);
+        fx.burst(p.x, 1.2, 0, 40, '#00e1ff', { speed: 6, size: 0.22, life: 1.2, gravity: 0, bright: 2.2, up: 0.5 });
+      }
     }
   }
 
   render(w: World, dt: number): void {
     const d = w.d;
     const time = performance.now() / 1000;
+    // Sim-time step: animation and particles slow down with the gate's bullet time.
+    const sdt = dt * w.timeScale;
     const target = Math.min(1, Math.max(0, w.dopamine / w.t.dopamine.fullColourAt));
     this.level += (target - this.level) * (1 - Math.exp(-dt * 3));
-    this.syncTrack(d);
-    this.syncTowers(d);
+    const behind = w.gateT >= 0 ? BEHIND_ORBIT : BEHIND;
+    this.syncTrack(d, behind);
+    this.syncTowers(d, behind);
     this.syncObstacles(w);
     this.syncPickups(w, time);
-    this.syncPlayer(w, dt);
+    this.syncPlayer(w, sdt);
+    this.gate.update(w, time);
+    this.syncZone(w);
     this.syncCamera(w, dt);
 
-    const lines = w.phase === 'running' ? Math.min(1, Math.max(0, (this.level - 0.6) / 0.4)) * Math.min(1, 0.3 + (w.speed - w.t.speed.start) / 10) : 0;
-    this.particles.update(dt, w.runSpeed * dt, this.camera, lines, w.runSpeed);
+    const lines = w.phase === 'running' && w.gateT < 0 ? Math.min(1, Math.max(0, (this.level - 0.6) / 0.4)) * Math.min(1, 0.3 + (w.speed - w.t.speed.start) / 10) : 0;
+    this.particles.update(sdt, w.runSpeed * sdt, this.camera, lines, w.runSpeed);
     this.post.grade.uniforms.dopamine.value = this.level;
     this.post.bloom.strength = 0.6 * (0.2 + 0.8 * this.level);
     this.post.grade.uniforms.time.value = time;
@@ -462,8 +472,8 @@ export class GameRenderer {
     this.post.render(dt);
   }
 
-  private syncTrack(d: number): void {
-    const first = Math.floor((d - 12) / TILE_LEN);
+  private syncTrack(d: number, behind: number): void {
+    const first = Math.floor((d - behind) / TILE_LEN);
     const last = Math.floor((d + this.visibleAhead) / TILE_LEN);
     let n = 0;
     for (let i = first; i <= last; i++) {
@@ -488,8 +498,8 @@ export class GameRenderer {
     this.tileBezels.instanceMatrix.needsUpdate = true;
   }
 
-  private syncTowers(d: number): void {
-    const first = Math.floor((d - 12) / TOWER_STEP);
+  private syncTowers(d: number, behind: number): void {
+    const first = Math.floor((d - behind) / TOWER_STEP);
     const last = Math.floor((d + this.visibleAhead) / TOWER_STEP);
     let n = 0;
     let backs = 0;
@@ -652,6 +662,18 @@ export class GameRenderer {
     parts.head.position.y = parts.body.position.y + 0.58;
   }
 
+  /** The feed re-skins to the new zone while the gate camera is round the front. */
+  private syncZone(w: World): void {
+    const to = ZONES[zoneLook(w.zone) % ZONES.length];
+    const from = ZONES[zoneLook(Math.max(0, w.zone - 1)) % ZONES.length];
+    const k = w.gateT >= 0 ? THREE.MathUtils.smoothstep(w.gateT / w.t.gate.duration, 0.3, 0.7) : 1;
+    this.seamMat.color.copy(from.seam).lerp(to.seam, k);
+    this.hemi.color.copy(from.light).lerp(to.light, k);
+    this.sky.copy(from.sky).lerp(to.sky, k);
+    (this.scene.background as THREE.Color).copy(this.sky);
+    this.scene.fog!.color.copy(this.sky);
+  }
+
   private syncCamera(w: World, dt: number): void {
     const p = w.player;
     const k = 1 - Math.pow(0.0008, dt);
@@ -660,8 +682,38 @@ export class GameRenderer {
     const shake = this.shake * this.shake;
     const jx = (Math.random() - 0.5) * shake * 0.5;
     const jy = (Math.random() - 0.5) * shake * 0.5;
-    this.camera.position.set(this.camX + jx, 3.5 + this.camY + jy, 6.4);
-    this.camera.lookAt(this.camX * 1.1, 1.1 + this.camY * 0.5, -9);
+    const cam = this.camera;
+    cam.position.set(this.camX + jx, 3.5 + this.camY + jy, 6.4);
+    const look = this.lookV.set(this.camX * 1.1, 1.1 + this.camY * 0.5, -9);
+    let fov = this.baseFov;
+    let roll = 0;
+
+    if (w.gateT >= 0) {
+      // Ride the gate's rail: one full turn round the runner, starting and
+      // ending on the chase view, dipping lower and closer on the far side.
+      const g = w.t.gate;
+      const o = THREE.MathUtils.smootherstep(w.gateT, 0.2, g.duration - 0.5);
+      const theta = o * Math.PI * 2;
+      const bump = Math.sin(Math.PI * o);
+      const r = 6.4 - 1.2 * bump;
+      const focus = THREE.MathUtils.smoothstep(o, 0, 0.15) * (1 - THREE.MathUtils.smoothstep(o, 0.85, 1));
+      // Orbit the runner, not the lagging chase-camera x.
+      const ox = THREE.MathUtils.lerp(this.camX, p.x, focus);
+      cam.position.set(ox + Math.sin(theta) * r + jx, 3.5 + this.camY - 1.2 * bump + jy, Math.cos(theta) * r);
+      look.lerp(this.tmpV.set(ox, 1.0 + p.y * 0.6, 0), focus);
+      fov -= 8 * bump;
+      roll = 0.12 * bump * Math.sin(theta);
+    }
+    // Zoom punch as the gate grabs you.
+    this.gateKick += dt;
+    fov += 10 * Math.exp(-this.gateKick * 5);
+
+    cam.lookAt(look);
+    if (roll !== 0) cam.rotateZ(roll);
+    if (Math.abs(cam.fov - fov) > 0.01) {
+      cam.fov = fov;
+      cam.updateProjectionMatrix();
+    }
   }
 
   stats(): { calls: number; tris: number } {

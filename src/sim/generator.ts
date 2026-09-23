@@ -11,11 +11,18 @@
 // post row leaves free. Each pickup line is one content type; parallel lines of
 // different types make tolerance a lane choice.
 //
+// Checkpoint gates get an empty stretch (gate.clearBefore .. gate.clearAfter).
+// A chunk that would reach into it is thrown away and the cursor jumps past
+// the gate. Past each gate the new zone leans on its favourite content type.
+//
 // Later this is where "the Algorithm" plugs in: chunk weights and content
 // types will be biased by what the player grabs.
 
 import { Rng } from './rng';
-import { TUNING, type Obstacle, type ObstacleKind, type Pickup, type Tuning } from './types';
+import { TUNING, gateS, zoneLook, type Obstacle, type ObstacleKind, type Pickup, type Tuning } from './types';
+
+/** Habit rows start their pickup line this far before the habit. */
+const HABIT_LEAD = 8;
 
 type ChunkKind = 'barrierRow' | 'doubleBarrier' | 'postRow' | 'movingPost' | 'pickupRun' | 'habitRow';
 
@@ -26,6 +33,8 @@ export interface GenContext {
 
 export class Generator {
   cursor: number;
+  /** Gates the cursor has passed, i.e. the zone chunks are being built for. */
+  private gate = 0;
   private nextId = 1;
   private readonly rng: Rng;
   private readonly t: Tuning;
@@ -37,9 +46,29 @@ export class Generator {
   }
 
   fill(untilS: number, ctx: GenContext, obstacles: Obstacle[], pickups: Pickup[]): void {
+    const g = this.t.gate;
     while (this.cursor < untilS) {
+      const clearFrom = gateS(this.gate, this.t) - g.clearBefore;
+      const clearTo = gateS(this.gate, this.t) + g.clearAfter;
+      if (this.cursor >= clearFrom) {
+        this.skipGate(clearTo);
+        continue;
+      }
+      const o0 = obstacles.length;
+      const p0 = pickups.length;
       this.chunk(ctx, obstacles, pickups);
+      if (reach(obstacles, o0, pickups, p0) > clearFrom) {
+        obstacles.length = o0;
+        pickups.length = p0;
+        this.skipGate(clearTo);
+      }
     }
+  }
+
+  private skipGate(clearTo: number): void {
+    // Leave room for chunks that reach back behind the cursor (habit rows).
+    this.cursor = Math.max(this.cursor, clearTo + HABIT_LEAD);
+    this.gate++;
   }
 
   private gap(ctx: GenContext): number {
@@ -53,6 +82,9 @@ export class Generator {
   }
 
   private contentType(): number {
+    const g = this.t.gate;
+    const favour = g.zoneFavour[zoneLook(this.gate, this.t)];
+    if (favour >= 0 && this.rng.chance(g.favourChance)) return favour;
     return this.rng.int(0, this.t.content.types - 1);
   }
 
@@ -142,7 +174,7 @@ export class Generator {
           o.variant = this.rng.int(0, this.t.habit.types - 1);
           obstacles.push(o);
         }
-        if (this.rng.chance(0.6)) this.pickupLine(pickups, order[n], s - 8, s + 8);
+        if (this.rng.chance(0.6)) this.pickupLine(pickups, order[n], s - HABIT_LEAD, s + HABIT_LEAD);
         this.cursor = s + this.gap(ctx);
         break;
       }
@@ -164,6 +196,14 @@ export class Generator {
       if (k) obstacles.push(this.obstacle(k, lane, s));
     });
   }
+}
+
+/** Furthest track distance touched by the obstacles/pickups added since o0/p0. */
+function reach(obstacles: Obstacle[], o0: number, pickups: Pickup[], p0: number): number {
+  let max = -Infinity;
+  for (let i = o0; i < obstacles.length; i++) max = Math.max(max, obstacles[i].s + obstacles[i].length);
+  for (let i = p0; i < pickups.length; i++) max = Math.max(max, pickups[i].s);
+  return max;
 }
 
 function range(n: number): number[] {

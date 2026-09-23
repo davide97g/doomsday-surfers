@@ -69,8 +69,21 @@ export type SimEvent =
   | { type: 'crash'; kind: ObstacleKind }
   | { type: 'empty' }
   | { type: 'revive' }
+  /** Crossed a checkpoint gate: bullet time + scan begin, the feed moves to `zone`. */
+  | { type: 'gate'; zone: number }
+  | { type: 'gateEnd'; zone: number }
   | { type: 'dead'; cause: DeathCause };
 
 export function laneX(lane: number, t: Tuning = TUNING): number {
   return (lane - (t.lanes.count - 1) / 2) * t.lanes.width;
+}
+
+/** Track distance of checkpoint gate `k` (0-based). */
+export function gateS(k: number, t: Tuning = TUNING): number {
+  return t.gate.first + k * t.gate.every;
+}
+
+/** Zone look/content index for a zone count that keeps climbing each gate. */
+export function zoneLook(zone: number, t: Tuning = TUNING): number {
+  return zone % t.gate.zones;
 }

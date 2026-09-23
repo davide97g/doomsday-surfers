@@ -39,6 +39,12 @@ export class GameHaptics {
         case 'empty':
           void H.notification({ type: NotificationType.Error });
           break;
+        case 'gate':
+          void H.impact({ style: ImpactStyle.Heavy });
+          break;
+        case 'gateEnd':
+          void H.notification({ type: NotificationType.Success });
+          break;
         case 'revive':
           void H.notification({ type: NotificationType.Success });
           break;

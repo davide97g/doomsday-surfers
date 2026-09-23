@@ -6,10 +6,16 @@
 // gives less every time you take it (tolerance, never recovers within a run).
 // Healthy habits drain it and slow you down. At zero, or on a crash, the run
 // enters `fading`: you slow to a stop in grey reality, then `dead`.
+//
+// Checkpoint gates sit at fixed distances (gateS). Crossing one starts a
+// bullet-time scan (`gateT` counts real seconds): the sim runs slowed by
+// `timeScale`, input is ignored, the drain pauses, and the feed moves to the
+// next zone. The generator keeps the stretch around each gate empty.
 
 import { Generator } from './generator';
 import {
   TUNING,
+  gateS,
   laneX,
   type Action,
   type DeathCause,
@@ -58,6 +64,12 @@ export class World {
   cause: DeathCause | null = null;
   /** Seconds into the fade to reality. */
   fadeT = 0;
+  /** Feed zone: goes up by one per gate crossed. */
+  zone = 0;
+  /** Index of the next gate ahead. */
+  nextGate = 0;
+  /** Real seconds into the current gate scan, -1 when not scanning. */
+  gateT = -1;
   /** Dev toggle: stop the drain (perf testing, screenshots). */
   noDrain = false;
   obstacles: Obstacle[] = [];
@@ -103,6 +115,9 @@ export class World {
     this.slowT = 0;
     this.cause = null;
     this.fadeT = 0;
+    this.zone = 0;
+    this.nextGate = 0;
+    this.gateT = -1;
     this.obstacles = [];
     this.pickups = [];
     this.player = World.freshPlayer(this.t);
@@ -140,6 +155,14 @@ export class World {
     return this.speed * slow;
   }
 
+  /** Sim speed multiplier: dips to gate.timeScale during a gate scan. */
+  get timeScale(): number {
+    if (this.gateT < 0) return 1;
+    const g = this.t.gate;
+    const k = Math.min(smooth(this.gateT / g.easeIn), smooth((g.duration - this.gateT) / g.easeOut));
+    return 1 + (g.timeScale - 1) * k;
+  }
+
   /** Gain the next pickup of this content type would give. */
   gainFor(type: number): number {
     return this.t.content.gain * this.tolerance[type];
@@ -160,6 +183,14 @@ export class World {
     }
 
     const t = this.t;
+    if (this.gateT >= 0) {
+      // The scan holds you: swipes are dropped until it lets go.
+      actions = [];
+      this.gateT += dt;
+      if (this.gateT >= t.gate.duration) this.endGate();
+    }
+    // Everything below runs on sim time, which a gate scan slows down.
+    dt *= this.timeScale;
     this.time += dt;
     this.speed = Math.min(t.speed.max, this.speed + t.speed.accel * dt);
 
@@ -177,7 +208,8 @@ export class World {
       }
     }
 
-    if (!this.noDrain) this.dopamine -= this.drainRate * dt;
+    if (this.gateT < 0 && this.d >= gateS(this.nextGate, t)) this.startGate();
+    if (!this.noDrain && this.gateT < 0) this.dopamine -= this.drainRate * dt;
     this.collide(prevBox);
     if (this.phase === 'running') this.collect();
     if (this.phase === 'running' && this.dopamine <= 0) this.lose('empty');
@@ -219,6 +251,19 @@ export class World {
     p.rollQueued = false;
     p.stumbleT = 0;
     this.events.push({ type: 'revive' });
+  }
+
+  private startGate(): void {
+    this.nextGate++;
+    this.zone++;
+    this.gateT = 0;
+    this.events.push({ type: 'gate', zone: this.zone });
+  }
+
+  private endGate(): void {
+    this.gateT = -1;
+    this.speed = Math.min(this.t.speed.max, this.speed + this.t.gate.speedStep);
+    this.events.push({ type: 'gateEnd', zone: this.zone });
   }
 
   /** Slowing into reality: no input, no collisions, the feed stops moving. */
@@ -413,6 +458,11 @@ export class World {
     this.events = [];
     return e;
   }
+}
+
+function smooth(x: number): number {
+  const k = Math.min(1, Math.max(0, x));
+  return k * k * (3 - 2 * k);
 }
 
 function overlaps(a: Box, b: Box): boolean {

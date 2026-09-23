@@ -105,6 +105,13 @@ export class Nags {
     }
   }
 
+  /** Clear whatever is on screen (the gate scan wants it). */
+  hideAll(): void {
+    this.note.classList.add('hidden');
+    this.noteLeft = 0;
+    this.hideBanner();
+  }
+
   private showBanner(): void {
     const brand = pick(content.brands);
     this.banner.style.setProperty('--ad-bg', brand.bg);

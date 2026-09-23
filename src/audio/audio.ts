@@ -3,6 +3,7 @@
 //   - Music brightness (low-pass cutoff), volume and pitch follow dopamine.
 //   - Pickup blips drop in pitch as that content type's tolerance builds.
 //   - Grey reality: the music fades out, leaving a faint room hum.
+//   - Gate bullet time: the music sags in pitch and goes muffled.
 // iOS only allows audio to start inside a user gesture, so the context is
 // created on the first touch or key press.
 
@@ -96,14 +97,15 @@ export class GameAudio {
     this.level += (target - this.level) * (1 - Math.exp(-dt * 3));
     const gone = w.phase === 'fading' || w.phase === 'dead';
     // Tape-stop feel: pitch sags as the run slows into reality.
-    const pitchTarget = w.phase === 'fading' && w.speed > 0 ? 0.7 + 0.3 * (w.runSpeed / Math.max(1, w.speed)) : 1;
+    const slowMo = w.timeScale;
+    const pitchTarget = (w.phase === 'fading' && w.speed > 0 ? 0.7 + 0.3 * (w.runSpeed / Math.max(1, w.speed)) : 1) * (0.6 + 0.4 * slowMo);
     this.pitch += (pitchTarget - this.pitch) * (1 - Math.exp(-dt * 4));
 
     const now = ctx.currentTime;
     const l = this.level;
     const musicTarget = w.phase === 'dead' ? 0 : w.phase === 'ready' ? 0.18 : 0.08 + 0.3 * l;
     this.musicGain.gain.setTargetAtTime(musicTarget, now, gone ? 0.5 : 0.15);
-    this.musicFilter.frequency.setTargetAtTime(250 + 11000 * l * l, now, 0.1);
+    this.musicFilter.frequency.setTargetAtTime((250 + 11000 * l * l) * (0.15 + 0.85 * slowMo), now, 0.1);
     this.humGain.gain.setTargetAtTime(gone ? 0.05 : 0, now, 0.8);
 
     while (this.nextNote < now + LOOKAHEAD) {
@@ -134,6 +136,16 @@ export class GameAudio {
           break;
         case 'empty':
           this.tone(440, 110, 1.6, 'sawtooth', 0.12);
+          break;
+        case 'gate':
+          // Time drops out, then the scanner hums up the body.
+          this.noiseHit(0.7, 2400, 0.35);
+          this.tone(900, 90, 0.7, 'sawtooth', 0.1);
+          this.tone(220, 1760, 2.2, 'sine', 0.05, 0.5);
+          break;
+        case 'gateEnd':
+          this.noiseHit(0.3, 3200, 0.25);
+          this.tone(140, 880, 0.35, 'sawtooth', 0.08);
           break;
         default:
           break;

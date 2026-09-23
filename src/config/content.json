@@ -127,5 +127,29 @@
     ]
   },
   "battery": { "label": "DOPAMINE", "low": "LOW DOPAMINE" },
+  "gate": {
+    "tag": "PERSONALIZATION CHECKPOINT",
+    "header": "SCANNING SUBJECT #{id}",
+    "lines": [
+      "Attention span: {span}s (declining)",
+      "Top craving: {top}",
+      "Mum calls ignored: {mum}",
+      "Healthy habits dodged: {dodged}",
+      "Thumb speed: {thumb} swipes/min. Elite.",
+      "Resale value: ${value}",
+      "Last blink: {blink}s ago",
+      "Inner monologue: buffering",
+      "Personality: {thing}"
+    ],
+    "final": "Free will: not detected",
+    "verdict": "PROFILE SOLD TO {n} ADVERTISERS",
+    "kicker": "FEED UPDATED"
+  },
+  "zones": [
+    { "name": "FOR YOU", "tagline": "Curated. By us. For us.", "seam": [0.6, 0.25, 1.6], "sky": "#07040f", "light": "#a58cff" },
+    { "name": "RABBIT HOLE", "tagline": "Reels only now. You chose this.", "seam": [0.2, 1.3, 1.5], "sky": "#02090c", "light": "#7fd6ff" },
+    { "name": "OUTRAGE", "tagline": "Stay mad. Stay here.", "seam": [1.7, 0.25, 0.2], "sky": "#0f0305", "light": "#ff8a7a" },
+    { "name": "3 AM", "tagline": "Tomorrow is a rumour.", "seam": [0.3, 0.45, 1.8], "sky": "#010209", "light": "#6f7dff" }
+  ],
   "death": { "line1": "You are present.", "line2": "… Disgusting.", "cta": "SCROLL AGAIN" }
 }

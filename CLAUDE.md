@@ -10,6 +10,7 @@ Davide owns the product decisions; Claude builds. Discuss design changes before 
 - Death copy: "You are present. … Disgusting." → [SCROLL AGAIN].
 - Hidden ending: stay idle on the death screen for 60s and something happens (still to be designed).
 - Crashing into a barrier/post drops dopamine to zero (one death screen). Tolerance never recovers within a run. Dopamine meter is a phone battery.
+- Checkpoint gates (every `gate.every` m): a giant foldable phone unfolds over the track; crossing it starts bullet time, its panels form a halo, the camera rides the rail 360° round the runner while a profiling log types out, then the feed moves to a new zone (colour + favoured content type + speed step). No dopamine change; drain paused and input dropped during the scan.
 - Comedy layer: fake push notifications, banner ads, streak guilt, confirmshaming declines, a "keep going?" prompt that pauses the run ([YES] [yes]), one fake-ad revive per run (+40 dopamine, tolerance kept), and a screen-time report on death. No fake shop/currency yet.
 - Monetization is pure parody: fake ads, invented brands only, no real money.
 - Tone: Black Mirror cold, funny because it hurts. Complicit, not preachy.

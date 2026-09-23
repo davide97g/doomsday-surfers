@@ -329,3 +329,19 @@ export function makeBookCover(): THREE.CanvasTexture {
   ctx.strokeRect(22, 22, 212, 212);
   return tex(c);
 }
+
+/** The checkpoint gate's sign: a long thin strip of cold white type on black. */
+export function makeGateSign(text: string): THREE.CanvasTexture {
+  const [c, ctx] = canvas(1024, 96);
+  ctx.fillStyle = '#05030a';
+  ctx.fillRect(0, 0, 1024, 96);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(6, 6, 1012, 84);
+  ctx.fillStyle = '#f4f2fa';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '800 46px ui-monospace, Menlo, monospace';
+  ctx.fillText(text, 512, 50);
+  return tex(c);
+}

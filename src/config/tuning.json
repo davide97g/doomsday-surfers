@@ -31,6 +31,20 @@
     "weightByDifficulty": 0.14
   },
   "reality": { "fadeTime": 2.5 },
+  "gate": {
+    "first": 700,
+    "every": 1100,
+    "clearBefore": 60,
+    "clearAfter": 30,
+    "duration": 3.4,
+    "easeIn": 0.3,
+    "easeOut": 0.45,
+    "timeScale": 0.1,
+    "speedStep": 1.2,
+    "zones": 4,
+    "zoneFavour": [-1, 2, 3, 1],
+    "favourChance": 0.5
+  },
   "revive": { "perRun": 1, "dopamine": 40, "clearAhead": 40, "adSeconds": 5 },
   "ui": {
     "notifyMin": 7,

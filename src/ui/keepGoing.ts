@@ -39,7 +39,7 @@ export class KeepGoing {
 
   /** Counts real playing time across the whole session. */
   update(w: World, dt: number): void {
-    if (this.paused || w.phase !== 'running') return;
+    if (this.paused || w.phase !== 'running' || w.gateT >= 0) return;
     this.played += dt;
     if (this.played < this.next) return;
     this.next += TUNING.ui.keepGoingEvery;

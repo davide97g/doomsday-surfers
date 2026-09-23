@@ -7,6 +7,7 @@ import { GameRenderer } from './render/renderer';
 import { TUNING } from './sim/types';
 import { World } from './sim/world';
 import { Death } from './ui/death';
+import { GateScan } from './ui/gate';
 import { Hud } from './ui/hud';
 import { KeepGoing } from './ui/keepGoing';
 import { Nags } from './ui/nags';
@@ -48,6 +49,7 @@ const title = new Title(hud.root, sfx);
 const nags = new Nags(hud.root, sfx);
 const keepGoing = new KeepGoing(hud.root, sfx);
 const death = new Death(hud.root, sfx);
+const gateScan = new GateScan(hud.root, sfx);
 death.onRevive = () => world.revive();
 death.onRestart = () => world.reset(seedParam ? Number(seedParam) : Date.now());
 hud.onPerfChange = (p) => {
@@ -90,6 +92,8 @@ function frame(now: number): void {
   audio.handle(events);
   haptics.handle(events);
   hud.handle(events);
+  gateScan.handle(events, world);
+  if (events.some((e) => e.type === 'gate')) nags.hideAll();
   if (events.some((e) => e.type === 'start')) title.onRunStart();
 
   view.renderer.info.reset();
@@ -98,7 +102,9 @@ function frame(now: number): void {
   haptics.update(world, dt);
   hud.update(world, dt);
   title.update(world.phase);
-  nags.update(world, dt, keepGoing.paused);
+  // The gate scan owns the screen: no nags, and the keep-going prompt waits.
+  nags.update(world, dt, keepGoing.paused || world.gateT >= 0);
+  gateScan.update(world, dt);
   if (!bot) keepGoing.update(world, dt);
   death.update(world, dt, nags);
 
