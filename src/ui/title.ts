@@ -1,4 +1,7 @@
-// Title screen + streak guilt. The character select (select.ts) mounts in `slot`. The streak lives in localStorage (a per-device
+// Title screen, dressed as the lock screen of the phone you're about to
+// doomscroll on: date, clock, the streak nag as a lock-screen notification,
+// the character select as a widget, and "swipe up" to unlock (start the run).
+// The character select (select.ts) mounts in `slot`. The streak lives in localStorage (a per-device
 // convenience, nothing depends on it) and the card shows once per session.
 
 import content from '../config/content.json';
@@ -37,8 +40,11 @@ function save(s: Streak): void {
 export class Title {
   private readonly el: HTMLElement;
   private readonly card: HTMLElement;
-  /** Where the character select sits, between the logo and the start hint. */
+  /** Where the character select sits, above the unlock prompt. */
   readonly slot: HTMLElement;
+  private readonly time: HTMLElement;
+  private readonly date: HTMLElement;
+  private shownTime = '';
   private phase: Phase | null = null;
 
   constructor(parent: HTMLElement, private readonly sfx: Sfx) {
@@ -61,29 +67,45 @@ export class Title {
     }
 
     this.el = document.createElement('div');
-    this.el.className = 'overlay ready';
+    this.el.className = 'lock';
     this.el.innerHTML = `
-      <div class="logo">DOOMSDAY<br>SURFERS</div>
-      <div class="title-bottom">
-        <div class="title-slot"></div>
-        <div class="hint">swipe up to start scrolling</div>
-        <div class="controls">&larr; &rarr; switch &middot; &uarr; jump &middot; &darr; roll</div>
+      <header class="lock-top">
+        <div class="lock-date"></div>
+        <div class="lock-time"></div>
+        <h1 class="lock-brand">Doomsday Surfers</h1>
+      </header>
+      <div class="lock-note" data-ui>
+        <div class="note-icon"><span class="flame"></span></div>
+        <div class="note-body">
+          <div class="note-head"><b>${s.app}</b><span>now</span></div>
+          <div class="note-title">${line}</div>
+          <div class="note-text">${fill(s.reward, { n: rewardDay })}</div>
+          <div class="note-actions">
+            <button class="note-claim" data-act="claim">${s.claim}</button>
+            <button class="note-decline" data-act="decline">${s.decline}</button>
+          </div>
+        </div>
       </div>
-      <div class="streak" data-ui>
-        <div class="streak-line"><span class="flame"></span>${line}</div>
-        <div class="streak-reward">${fill(s.reward, { n: rewardDay })}</div>
-        <button class="cta small" data-act="claim">${s.claim}</button>
-        <button class="decline" data-act="decline">${s.decline}</button>
-      </div>
+      <footer class="lock-bottom">
+        <div class="lock-slot"></div>
+        <div class="unlock">
+          <span class="unlock-label">${content.select.unlock}</span>
+          <span class="home-bar"></span>
+        </div>
+        <div class="keys"><span>&larr; &rarr; pick</span><span>&uarr; start, jump</span><span>&darr; roll</span></div>
+      </footer>
     `;
     parent.appendChild(this.el);
-    this.card = this.el.querySelector('.streak')!;
-    this.slot = this.el.querySelector('.title-slot')!;
+    this.card = this.el.querySelector('.lock-note')!;
+    this.slot = this.el.querySelector('.lock-slot')!;
+    this.time = this.el.querySelector('.lock-time')!;
+    this.date = this.el.querySelector('.lock-date')!;
+    this.tick();
     this.card.addEventListener('click', (e) => {
       const act = (e.target as HTMLElement).dataset.act;
       if (act === 'claim') {
         this.sfx.reward();
-        this.card.querySelector('.streak-reward')!.textContent = 'Claimed. You now have nothing.';
+        this.card.querySelector('.note-text')!.textContent = 'Claimed. You now have nothing.';
         setTimeout(() => this.card.classList.add('hidden'), 1200);
       } else if (act === 'decline') {
         this.sfx.click();
@@ -93,11 +115,28 @@ export class Title {
   }
 
   update(phase: Phase): void {
+    if (phase === 'ready') this.tick();
     if (phase === this.phase) return;
     // The card is a first-launch thing; after the first run it stays gone.
     if (this.phase === 'ready' && phase === 'running') this.card.classList.add('hidden');
     this.phase = phase;
     this.el.classList.toggle('hidden', phase !== 'ready');
+  }
+
+  /** The lock-screen clock shows the real time: it's later than you think. */
+  private tick(): void {
+    const now = new Date();
+    // Lock-screen style: no AM/PM, whatever the locale's clock.
+    const time = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' })
+      .formatToParts(now)
+      .filter((p) => p.type !== 'dayPeriod')
+      .map((p) => p.value)
+      .join('')
+      .trim();
+    if (time === this.shownTime) return;
+    this.shownTime = time;
+    this.time.textContent = time;
+    this.date.textContent = now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
   }
 
   /** A run started: keep (or restart) the streak. */

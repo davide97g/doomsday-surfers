@@ -5,6 +5,7 @@
 import content from '../config/content.json';
 import { fill } from '../content/templates';
 import { TUNING, type Action } from '../sim/types';
+import { restartAnimation } from './nags';
 import type { Sfx } from './sfx';
 
 const KEY = 'ds.character';
@@ -69,6 +70,10 @@ export class Select {
     save(this.index);
     this.sfx.click();
     this.render();
+    // Slide the new profile in from the side you swiped toward.
+    this.el.dataset.dir = dir > 0 ? 'next' : 'prev';
+    restartAnimation(this.el.querySelector('.select-card')!);
+    restartAnimation(this.el.querySelector('.select-name')!);
     this.onChange(this.index);
   }
 

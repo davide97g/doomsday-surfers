@@ -741,7 +741,7 @@ export class GameRenderer {
       this.turn += dt * 0.45;
       this.introT = -1;
       cam.position.set(p.x + Math.sin(this.turn) * 3.6, 1.5, Math.cos(this.turn) * 3.6);
-      look.set(p.x, 0.8, 0);
+      look.set(p.x, 0.9, 0);
     } else if (this.introT >= 0) {
       // Run started: finish the lap into the chase view.
       this.introT += dt;
@@ -749,7 +749,7 @@ export class GameRenderer {
       const theta = THREE.MathUtils.lerp(this.introFrom, Math.PI * 2, b);
       const r = THREE.MathUtils.lerp(3.6, 6.4, b);
       cam.position.set(this.camX + Math.sin(theta) * r + jx, THREE.MathUtils.lerp(1.5, 3.5 + this.camY, b) + jy, Math.cos(theta) * r);
-      look.lerp(this.tmpV.set(p.x, 0.8, 0), 1 - b);
+      look.lerp(this.tmpV.set(p.x, 0.9, 0), 1 - b);
       if (this.introT >= INTRO) this.introT = -1;
     } else if (w.gateT >= 0) {
       // Ride the gate's rail: one full turn round the runner, starting and

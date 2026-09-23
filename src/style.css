@@ -63,29 +63,6 @@ html, body {
   align-items: center; justify-content: center; gap: 16px; text-align: center;
   padding: 24px;
 }
-.ready {
-  justify-content: space-between;
-  padding: calc(var(--safe-top) + 28px) 16px calc(var(--safe-bottom) + 20px);
-  background: linear-gradient(180deg, rgba(7,4,15,.55), rgba(7,4,15,0) 30%, rgba(7,4,15,0) 50%, rgba(7,4,15,.85));
-}
-.ready .logo { font-size: clamp(38px, 11vw, 72px); }
-.title-bottom { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
-.hud.title .top, .hud.title .battery { display: none; }
-/* The streak nag hangs compactly under the logo until dealt with. */
-.ready .streak {
-  position: absolute; top: calc(var(--safe-top) + 122px); left: 50%; transform: translateX(-50%);
-  margin: 0; padding: 10px 14px; gap: 4px; box-shadow: 0 20px 60px rgba(0,0,0,.6);
-}
-.ready .streak .cta.small { padding: 8px 18px; font-size: 13px; }
-.ready .streak .decline { padding: 2px; }
-.logo {
-  font-size: clamp(44px, 14vw, 84px); font-weight: 900; line-height: .9; letter-spacing: -.02em;
-  background: linear-gradient(90deg, var(--hot), #7b2eff 55%, var(--acid));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  filter: drop-shadow(0 6px 24px rgba(255,46,136,.35));
-}
-.hint { font-weight: 800; font-size: 16px; animation: pulse 1.2s ease-in-out infinite; }
-.controls { font-size: 12px; color: var(--muted); }
 @keyframes pulse { 50% { opacity: .35; } }
 
 .battery {
@@ -149,21 +126,6 @@ html, body {
 .decline {
   border: 0; background: none; color: #77728a; font: 600 12px system-ui, sans-serif;
   text-decoration: underline; padding: 6px;
-}
-
-/* ---------- streak guilt on the title screen ---------- */
-.streak {
-  margin-top: 18px; width: min(100%, 320px); padding: 14px 16px; border-radius: 18px;
-  background: rgba(24,20,34,.9); border: 1px solid rgba(255,122,31,.45);
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-}
-.streak-line { font-weight: 900; font-size: 15px; display: flex; align-items: center; gap: 8px; }
-.streak-reward { font-size: 12px; color: var(--muted); }
-.flame {
-  width: 14px; height: 18px; flex: none;
-  background: linear-gradient(180deg, #ffcc00, #ff5a1f);
-  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  box-shadow: 0 0 10px rgba(255,90,31,.8);
 }
 
 /* ---------- fake push notification ---------- */
@@ -269,26 +231,106 @@ html, body {
 }
 .zone-tag { margin-top: 6px; font-weight: 700; font-size: 15px; color: var(--ink); text-shadow: 0 2px 8px rgba(0,0,0,.7); }
 
-/* ---------- character select (title screen) ---------- */
-.select { display: flex; flex-direction: column; align-items: center; gap: 8px; width: min(100%, 340px); }
-.select-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+
+/* ---------- title: the lock screen ----------
+   One accent (--hot), one radius scale: 22px panels, pill controls. */
+.lock {
+  position: absolute; inset: 0; display: grid; grid-template-rows: auto auto 1fr auto;
+  justify-items: center; text-align: center;
+  padding: calc(var(--safe-top) + 20px) 16px calc(var(--safe-bottom) + 10px);
+  background: linear-gradient(180deg, rgba(7,4,15,.7), rgba(7,4,15,0) 28%, rgba(7,4,15,0) 55%, rgba(7,4,15,.88) 82%);
+}
+.hud.title .top, .hud.title .battery, .hud.title .fps { display: none; }
+
+.lock-top { display: grid; justify-items: center; gap: 2px; text-shadow: 0 2px 20px rgba(7,4,15,.55); }
+.lock-date { font: 600 17px/1.2 system-ui, -apple-system, sans-serif; color: rgba(244,242,250,.8); }
+.lock-time {
+  font: 700 clamp(64px, 20vw, 100px)/.95 ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, sans-serif;
+  letter-spacing: -.035em; font-variant-numeric: tabular-nums; color: rgba(244,242,250,.94);
+}
+.lock-brand {
+  margin: 6px 0 0; white-space: nowrap; text-transform: uppercase;
+  font: 900 clamp(20px, 6.6vw, 30px)/1 system-ui, -apple-system, sans-serif; letter-spacing: .01em;
+  background: linear-gradient(90deg, var(--hot), #7b2eff 55%, var(--acid));
+  -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none;
+}
+
+/* The streak nag, as a lock-screen notification. */
+.lock-note {
+  margin-top: 14px; width: min(100%, 360px); display: flex; gap: 10px; padding: 10px 12px 12px;
+  text-align: left; border-radius: 22px;
+  background: rgba(34,30,46,.72); border: 1px solid rgba(255,255,255,.08);
+  backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 12px 36px rgba(7,4,15,.45);
+  animation: notif-in .45s cubic-bezier(.2,.9,.3,1.15) .3s both;
+}
+.note-icon {
+  flex: none; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+  background: #2a1a12;
+}
+.flame {
+  width: 13px; height: 17px; background: linear-gradient(180deg, #ffcc00, #ff5a1f);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+}
+.note-body { min-width: 0; flex: 1; }
+.note-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.note-head b { color: var(--ink); font-weight: 600; }
+.note-title { margin-top: 1px; font-size: 14px; font-weight: 700; line-height: 1.25; }
+.note-text { font-size: 12px; line-height: 1.3; color: rgba(244,242,250,.72); }
+.note-actions { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.note-claim {
+  flex: none; border: 0; border-radius: 999px; padding: 6px 12px; background: var(--hot); color: #fff;
+  font: 700 13px system-ui, -apple-system, sans-serif;
+}
+.note-decline {
+  border: 0; background: none; padding: 4px 0; text-align: left; line-height: 1.25; color: #8e88a3; text-decoration: underline;
+  font: 500 11px system-ui, -apple-system, sans-serif;
+}
+.note-claim:active, .select-arrow:active { transform: scale(.96); }
+
+.lock-bottom { grid-row: 4; width: min(100%, 360px); display: grid; justify-items: center; gap: 12px; }
+.lock-slot { width: 100%; }
+
+/* Character select: a lock-screen widget. */
+.select { display: grid; gap: 8px; width: 100%; }
+.select-row { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 8px; }
 .select-name {
-  font-size: 26px; font-weight: 900; letter-spacing: .02em; text-align: center;
-  text-shadow: 0 0 18px rgba(255,46,136,.55), 0 2px 8px rgba(0,0,0,.7);
+  font: 900 24px/1.05 system-ui, -apple-system, sans-serif; letter-spacing: .01em;
+  text-shadow: 0 2px 14px rgba(7,4,15,.8);
 }
 .select-arrow {
-  width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2);
-  background: rgba(24,20,34,.7); color: var(--ink); font: 700 28px/1 system-ui, sans-serif; padding: 0 0 4px;
+  width: 44px; height: 44px; border-radius: 999px; padding: 0 0 3px;
+  border: 1px solid rgba(255,255,255,.14); background: rgba(34,30,46,.6); color: var(--ink);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  font: 600 26px/1 system-ui, -apple-system, sans-serif;
 }
-.select-arrow:active { transform: scale(.94); }
 .select-card {
-  width: 100%; padding: 10px 14px; border-radius: 14px; text-align: left;
-  background: rgba(24,20,34,.78); border: 1px solid rgba(255,255,255,.1);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  padding: 12px 14px; border-radius: 22px; text-align: left;
+  background: rgba(34,30,46,.72); border: 1px solid rgba(255,255,255,.08);
+  backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
-.select-bio { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
-.select-stats { font: 12px/1.5 ui-monospace, Menlo, monospace; color: var(--muted); }
-.select-craving { margin-top: 6px; font-size: 12px; font-weight: 800; color: var(--acid); }
-.select-dots { display: flex; gap: 6px; }
-.select-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.25); }
-.select-dots i.on { background: var(--hot); box-shadow: 0 0 8px var(--hot); }
+.select-bio { font-size: 14px; font-weight: 600; line-height: 1.3; }
+.select-stats { margin-top: 8px; display: grid; gap: 2px; font: 12px/1.4 ui-monospace, Menlo, monospace; color: #a39dba; }
+.select-craving { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.08); font-size: 12px; font-weight: 700; color: var(--hot); }
+.select-dots { display: flex; justify-content: center; gap: 6px; }
+.select-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.28); transition: background .2s, transform .2s; }
+.select-dots i.on { background: var(--ink); transform: scale(1.25); }
+.select[data-dir="next"] .select-card, .select[data-dir="next"] .select-name { animation: swap-next .28s cubic-bezier(.16,1,.3,1); }
+.select[data-dir="prev"] .select-card, .select[data-dir="prev"] .select-name { animation: swap-prev .28s cubic-bezier(.16,1,.3,1); }
+@keyframes swap-next { from { opacity: .2; transform: translateX(14px); } }
+@keyframes swap-prev { from { opacity: .2; transform: translateX(-14px); } }
+
+/* Swipe up to unlock: the home bar nudges upward to teach the gesture. */
+.unlock { display: grid; justify-items: center; gap: 10px; margin-top: 4px; }
+.unlock-label { font: 600 15px system-ui, -apple-system, sans-serif; color: rgba(244,242,250,.86); }
+.home-bar { width: 134px; height: 5px; border-radius: 999px; background: rgba(244,242,250,.9); animation: nudge 1.8s cubic-bezier(.45,0,.2,1) infinite; }
+@keyframes nudge { 0%, 55%, 100% { transform: translateY(0); } 25% { transform: translateY(-7px); } }
+.keys { display: none; gap: 14px; font-size: 12px; color: var(--muted); }
+@media (hover: hover) and (pointer: fine) { .keys { display: flex; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .home-bar, .lock-note, .select[data-dir] .select-card, .select[data-dir] .select-name { animation: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .lock-note, .select-card, .select-arrow { background: rgb(30,26,40); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
