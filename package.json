@@ -13,7 +13,7 @@
     "ios:open": "npx cap open ios",
     "ios:run": "npm run build && npx cap run ios",
     "ios:testflight": "sh scripts/testflight.sh",
-    "assets": "blender -b -P assets/blender/runner.py -- public/assets/runner.glb"
+    "assets": "sh scripts/assets.sh"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.2",

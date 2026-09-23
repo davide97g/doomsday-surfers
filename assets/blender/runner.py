@@ -1,7 +1,11 @@
-# Builds the runner hero asset: a faceless figure in an oversized hoodie,
-# hunched over a glowing phone, skinned to a small rig, with its animations.
+# Builds a playable doomscroller: a faceless figure hunched over a glowing
+# screen, skinned to a small rig, with its animations. Every character shares
+# the rig, the clips and most of the body; CHARACTERS picks the outfit, head,
+# props, colours and how the screen is held.
 #
-#   blender -b -P assets/blender/runner.py -- public/assets/runner.glb [preview_dir]
+#   blender -b -P assets/blender/runner.py -- [out.glb] [preview_dir] [--character goblin]
+#
+# `npm run assets` builds every character into public/assets/characters/<id>.glb.
 #
 # Everything is procedural so the asset can be rebuilt (and ported) from this
 # file alone:
@@ -18,7 +22,7 @@
 # Budget: one character on an iPhone 14 at 60 fps, so ~40k triangles, no textures.
 #
 # Animations (glTF clip names): run, idle, jump, roll, present.
-# Material names the game looks up: Screen (phone light), Hoodie, HoodieDark.
+# Material names the game looks up: Screen* (screen light), Hoodie, HoodieDark.
 
 import math
 import os
@@ -29,8 +33,65 @@ import bpy
 from mathutils import Matrix, Quaternion, Vector
 
 argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
-OUT = argv[0] if argv else "public/assets/runner.glb"
+CHAR = "goblin"
+if "--character" in argv:
+    i = argv.index("--character")
+    CHAR = argv[i + 1]
+    del argv[i : i + 2]
+OUT = argv[0] if argv else f"public/assets/characters/{CHAR}.glb"
 PREVIEW = argv[1] if len(argv) > 1 else None
+
+
+# ================================================================ characters
+#
+# head:   "hood" (hood up around the face void) or "bare" (a smooth head with
+#         a void where the face should be), scaled by head_scale.
+# arms:   "sleeve" (hoodie sleeves + ribbed cuffs) or "bare" (skin below a
+#         short trimmed sleeve: a muscle tee).
+# hem:    material of the ribbed band at the waist (False for none).
+# bulk:   thickness of chest, shoulders and arms. belly: front-back girth of
+#         the waist.
+# hold:   key into HOLDS (how the arms carry the screen).
+# props:  extra parts, see the builders under "props".
+# colours: material overrides (linear RGB).
+
+CHARACTERS = {
+    "goblin": dict(head="hood", arms="sleeve", hem=True, pocket=True, strings=True, props=("phone",), hold="scroll"),
+    "bro": dict(
+        head="bare", arms="bare", bulk=1.18, hem="Pants", pocket=False, strings=False, hold="double",
+        props=("phone", "phone.L", "cap", "airpods", "fannypack"),
+        colours={"Hoodie": (0.82, 0.82, 0.85), "HoodieDark": (0.5, 0.5, 0.53), "Pants": (0.12, 0.12, 0.14), "Accent": (1.0, 0.35, 0.02)},
+    ),
+    "kid": dict(
+        head="bare", head_scale=1.3, arms="sleeve", hem=True, pocket=True, strings=False, hold="tablet",
+        props=("tablet", "headphones", "hood.down"),
+        colours={"Hoodie": (0.8, 0.52, 0.03), "HoodieDark": (0.45, 0.28, 0.02), "Pants": (0.05, 0.08, 0.2), "Accent": (0.02, 0.7, 0.85)},
+    ),
+    "uncle": dict(
+        head="bare", arms="sleeve", bulk=1.08, belly=1.4, hem="HoodieDark", pocket=False, strings=False, hold="far",
+        props=("tablet.far", "glasses", "belt", "shawl"),
+        colours={"Hoodie": (0.16, 0.025, 0.035), "HoodieDark": (0.09, 0.012, 0.018), "Pants": (0.2, 0.3, 0.45),
+                 "Upper": (0.28, 0.16, 0.08), "Midsole": (0.22, 0.13, 0.06), "Accent": (0.28, 0.16, 0.08)},
+    ),
+    "influencer": dict(
+        head="bare", arms="sleeve", hem=True, pocket=False, strings=False, hold="selfie",
+        props=("selfie", "bun", "ringlight"),
+        colours={"Hoodie": (0.95, 0.3, 0.55), "HoodieDark": (0.6, 0.12, 0.3), "Pants": (0.85, 0.8, 0.75), "Hair": (0.7, 0.5, 0.22), "Accent": (0.95, 0.3, 0.55)},
+    ),
+    "wellness": dict(
+        head="bare", arms="sleeve", hem=True, pocket=False, strings=False, hold="sip",
+        props=("phone", "matcha", "ponytail", "yogamat"),
+        colours={"Hoodie": (0.22, 0.36, 0.25), "HoodieDark": (0.14, 0.24, 0.16), "Pants": (0.2, 0.14, 0.34), "Hair": (0.12, 0.07, 0.04), "Accent": (0.5, 0.3, 0.7)},
+    ),
+    "doomer": dict(
+        head="bare", arms="sleeve", hem="HoodieDark", pocket=False, strings=False, hold="double",
+        props=("phone", "phone.L.news", "phone.L.news2", "collar.up", "belt", "beanie"),
+        colours={"Hoodie": (0.2, 0.15, 0.07), "HoodieDark": (0.12, 0.09, 0.04), "Pants": (0.06, 0.06, 0.07), "Accent": (0.03, 0.03, 0.035)},
+    ),
+}
+C = CHARACTERS[CHAR]
+BULK = C.get("bulk", 1.0)
+HEAD_SCALE = C.get("head_scale", 1.0)
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene
@@ -71,7 +132,19 @@ MATS = {
     "Phone": material("Phone", (0.02, 0.02, 0.025), rough=0.25, metal=0.6),
     "Glass": material("Glass", (0.01, 0.01, 0.015), rough=0.05, metal=0.2),
     "Screen": material("Screen", (0.6, 0.85, 1.0), rough=0.15, emit=(0.6, 0.85, 1.0), strength=6.0),
+    # A second screen showing green candles (the Bro's crypto phone).
+    "ScreenAlt": material("ScreenAlt", (0.2, 1.0, 0.45), rough=0.15, emit=(0.2, 1.0, 0.45), strength=5.0),
+    # Breaking-news red (the Doomer's other phones) and the ring light.
+    "ScreenNews": material("ScreenNews", (1.0, 0.15, 0.1), rough=0.15, emit=(1.0, 0.15, 0.1), strength=5.0),
+    "ScreenRing": material("ScreenRing", (1.0, 0.95, 0.9), rough=0.3, emit=(1.0, 0.95, 0.9), strength=2.0),
+    "Hair": material("Hair", (0.05, 0.03, 0.02), rough=0.55, sheen=0.4),
+    "Matcha": material("Matcha", (0.45, 0.65, 0.25), rough=0.4),
 }
+for _name, _rgb in C.get("colours", {}).items():
+    # Replace, keeping the exact name: the game finds materials by name.
+    _rough = MATS[_name].node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value
+    bpy.data.materials.remove(MATS[_name])
+    MATS[_name] = material(_name, _rgb, rough=_rough)
 
 
 # ================================================================ helpers
@@ -262,12 +335,13 @@ for side, s in (("R", 1), ("L", -1)):
 # ================================================================ body (hoodie + sleeves + joggers)
 
 names = ["pelvis", "spine", "chest", "upper", "neck"]
-radii = [(0.17, 0.125), (0.19, 0.14), (0.215, 0.145), (0.225, 0.145), (0.08, 0.075)]
+BELLY = C.get("belly", 1.0)
+radii = [(0.17, 0.125 * (1 + (BELLY - 1) * 0.6)), (0.19 * (1 + (BELLY - 1) * 0.2), 0.14 * BELLY), (0.215 * BULK, 0.145 * BULK * (1 + (BELLY - 1) * 0.4)), (0.225 * BULK, 0.145 * BULK), (0.08, 0.075)]
 edges = [(0, 1), (1, 2), (2, 3), (3, 4)]
 for side in ("R", "L"):
     for name, r, parent in (
-        (f"shoulder.{side}", (0.095, 0.09), "upper"),
-        (f"elbow.{side}", (0.072, 0.07), f"shoulder.{side}"),
+        (f"shoulder.{side}", (0.095 * BULK, 0.09 * BULK), "upper"),
+        (f"elbow.{side}", (0.072 * BULK, 0.07 * BULK), f"shoulder.{side}"),
         (f"wrist.{side}", (0.055, 0.052), f"elbow.{side}"),
         (f"hip.{side}", (0.105, 0.105), "pelvis"),
         (f"knee.{side}", (0.078, 0.082), f"hip.{side}"),
@@ -279,13 +353,6 @@ for side in ("R", "L"):
 body = skin("Runner", [J[n] for n in names], edges, radii)
 add_modifier(body, "SUBSURF", levels=3, render_levels=3)
 bake(body)
-
-# Materials by region: joggers below the hem (legs only), hoodie elsewhere.
-body.data.materials.append(MATS["Hoodie"])
-body.data.materials.append(MATS["Pants"])
-for poly in body.data.polygons:
-    c = poly.center
-    poly.material_index = 1 if (c.z < 0.935 and abs(c.x) < 0.2) else 0
 
 # Fabric: soft, low-frequency folds (baked into the geometry, no textures).
 folds = bpy.data.textures.new("folds", "CLOUDS")
@@ -348,67 +415,144 @@ for v in body.data.vertices:
         hips_g.add([v.index], moved + next((g.weight for g in v.groups if g.group == hips_g.index), 0.0), "REPLACE")
 
 
-# ================================================================ hood
+# Materials by region: joggers below the hem (legs only), top elsewhere, and
+# bare arms below the sleeve for a muscle tee (needs the auto weights, so it
+# runs after skinning).
+body.data.materials.append(MATS["Hoodie"])
+body.data.materials.append(MATS["Pants"])
+body.data.materials.append(MATS["Skin"])
 
-hood = primitive("uv_sphere", segments=28, ring_count=16, radius=1)
-for v in hood.data.vertices:
-    x, y, z = v.co
-    if z < 0:
-        z *= 1.45  # drape down onto the neck and shoulders
-    if y < 0:
-        y *= 1.18  # fabric bunched at the back
-        z += 0.12 * max(0.0, -y) * max(0.0, z)  # a soft peak at the back-top
-    v.co = (x * 0.19, y * 0.2, z * 0.2)
-hood.location = (0, 0.0, 1.645)
-opening = primitive("uv_sphere", segments=32, ring_count=20, radius=1, location=(0, 0.17, 1.625))
-opening.scale = (0.125, 0.15, 0.148)
-add_modifier(hood, "BOOLEAN", operation="DIFFERENCE", object=opening, solver="EXACT")
-add_modifier(hood, "SOLIDIFY", thickness=0.022, offset=-1, use_rim=True)
-add_modifier(hood, "SUBSURF", levels=1, render_levels=1)
-add_modifier(hood, "DISPLACE", texture=folds, strength=0.006, mid_level=0.5, texture_coords="GLOBAL")
-attach(hood, "Hoodie", blend("chest", "head", 2, 1.46, 1.56))
-bpy.data.objects.remove(opening)
+BARE_FROM = 0.13  # metres down the arm from the shoulder joint
 
-void = primitive("uv_sphere", segments=24, ring_count=16, radius=1, location=(0, 0.035, 1.63))
-void.scale = (0.14, 0.13, 0.155)
-attach(void, "Void", "head")
+
+def on_bare_arm(c):
+    """Past the shoulder along the arm, and close to the arm's axis. Measured
+    along the limb so the edge follows the skin mesh's rings (a clean line)."""
+    side = "R" if c.x > 0 else "L"
+    sh = Vector(J[f"shoulder.{side}"])
+    down = (Vector(J[f"wrist.{side}"]) - sh).normalized()
+    t = (c - sh).dot(down)
+    return t > BARE_FROM
+
+
+ARM_GROUPS = {body.vertex_groups[f"{b}.{s}"].index for b in ("upperArm", "forearm", "hand") for s in ("R", "L")}
+
+
+def arm_weight(poly):
+    """Average share of the arm bones in this face's vertices (0 = torso)."""
+    vs = body.data.vertices
+    return sum(sum(g.weight for g in vs[i].groups if g.group in ARM_GROUPS) for i in poly.vertices) / len(poly.vertices)
+
+
+for poly in body.data.polygons:
+    c = poly.center
+    if c.z < 0.935 and abs(c.x) < 0.2:
+        poly.material_index = 1
+    elif C["arms"] == "bare" and arm_weight(poly) > 0.5 and on_bare_arm(c):
+        poly.material_index = 2
+    else:
+        poly.material_index = 0
+
+
+# ================================================================ head
+
+def hood_up():
+    hood = primitive("uv_sphere", segments=28, ring_count=16, radius=1)
+    for v in hood.data.vertices:
+        x, y, z = v.co
+        if z < 0:
+            z *= 1.45  # drape down onto the neck and shoulders
+        if y < 0:
+            y *= 1.18  # fabric bunched at the back
+            z += 0.12 * max(0.0, -y) * max(0.0, z)  # a soft peak at the back-top
+        v.co = (x * 0.19, y * 0.2, z * 0.2)
+    hood.location = (0, 0.0, 1.645)
+    opening = primitive("uv_sphere", segments=32, ring_count=20, radius=1, location=(0, 0.17, 1.625))
+    opening.scale = (0.125, 0.15, 0.148)
+    add_modifier(hood, "BOOLEAN", operation="DIFFERENCE", object=opening, solver="EXACT")
+    add_modifier(hood, "SOLIDIFY", thickness=0.022, offset=-1, use_rim=True)
+    add_modifier(hood, "SUBSURF", levels=1, render_levels=1)
+    add_modifier(hood, "DISPLACE", texture=folds, strength=0.006, mid_level=0.5, texture_coords="GLOBAL")
+    attach(hood, "Hoodie", blend("chest", "head", 2, 1.46, 1.56))
+    bpy.data.objects.remove(opening)
+
+    void = primitive("uv_sphere", segments=24, ring_count=16, radius=1, location=(0, 0.035, 1.63))
+    void.scale = (0.14, 0.13, 0.155)
+    attach(void, "Void", "head")
+
+
+# Bare head: centre and radii, so hats and headphones can sit on it.
+HEAD_R = Vector((0.112, 0.122, 0.135)) * HEAD_SCALE
+HEAD_C = Vector((0, 0.02, 1.5 + HEAD_R.z * 0.95))
+
+
+def bare_head():
+    head = primitive("uv_sphere", segments=28, ring_count=16, radius=1, location=HEAD_C)
+    head.scale = HEAD_R
+    attach(head, "Skin", blend("neck", "head", 2, 1.5, 1.58))
+    # The face is a smooth black void, like the hood's.
+    face = primitive("uv_sphere", segments=24, ring_count=14, radius=1, location=HEAD_C + Vector((0, HEAD_R.y * 0.6, HEAD_R.z * 0.08)))
+    face.scale = (HEAD_R.x * 0.8, HEAD_R.y * 0.45, HEAD_R.z * 0.66)
+    attach(face, "Void", "head")
+
+
+if C["head"] == "hood":
+    hood_up()
+else:
+    bare_head()
 
 # Drawstrings from the hood opening down the chest, with metal aglets.
-for s in (1, -1):
-    pts = [(s * 0.06, 0.155, 1.53), (s * 0.058, 0.17, 1.47), (s * 0.055, 0.172, 1.4), (s * 0.052, 0.168, 1.34)]
-    rope = skin("string", pts, [(0, 1), (1, 2), (2, 3)], [(0.0045, 0.0045)] * 4)
-    add_modifier(rope, "SUBSURF", levels=1)
-    attach(rope, "String", blend("chest", "neck", 2, 1.45, 1.52))
-    tip = primitive("cylinder", vertices=12, radius=0.0055, depth=0.022, location=(s * 0.052, 0.168, 1.325))
-    attach(tip, "Metal", "chest")
+if C.get("strings"):
+    for s in (1, -1):
+        pts = [(s * 0.06, 0.155, 1.53), (s * 0.058, 0.17, 1.47), (s * 0.055, 0.172, 1.4), (s * 0.052, 0.168, 1.34)]
+        rope = skin("string", pts, [(0, 1), (1, 2), (2, 3)], [(0.0045, 0.0045)] * 4)
+        add_modifier(rope, "SUBSURF", levels=1)
+        attach(rope, "String", blend("chest", "neck", 2, 1.45, 1.52))
+        tip = primitive("cylinder", vertices=12, radius=0.0055, depth=0.022, location=(s * 0.052, 0.168, 1.325))
+        attach(tip, "Metal", "chest")
 
 
 # ================================================================ hoodie details
 
 # Ribbed hem band and kangaroo pocket.
-attach(band("hem", (0, -0.005, 0.95), (0, 0, 1), 0.185, 0.137, 0.065, ribs=44, rib=0.012), "HoodieDark", (BODY, "thigh"))
+if C.get("hem"):
+    hem_mat = C["hem"] if isinstance(C["hem"], str) else "HoodieDark"
+    attach(band("hem", (0, -0.005, 0.95), (0, 0, 1), 0.185, 0.137, 0.065, ribs=44, rib=0.012), hem_mat, (BODY, "thigh"))
 
-pocket = primitive("plane", size=1, location=(0, 0.2, 1.06), rotation=(math.radians(90), 0, 0))
-pocket.scale = (0.25, 0.13, 1)
-bake(pocket)
-bm = bmesh.new()
-bm.from_mesh(pocket.data)
-bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=8, use_grid_fill=True)
-for v in bm.verts:  # trapezoid: narrower at the top, openings slant on the sides
-    t = (v.co.z - 0.995) / 0.13
-    v.co.x *= 1.0 - 0.18 * t
-bm.to_mesh(pocket.data)
-bm.free()
-add_modifier(pocket, "SHRINKWRAP", target=body, wrap_method="PROJECT", use_project_y=True, use_negative_direction=True, offset=0.004)
-add_modifier(pocket, "SOLIDIFY", thickness=0.008, offset=1)
-add_modifier(pocket, "SUBSURF", levels=1)
-attach(pocket, "Hoodie", (BODY, "thigh"))
+
+def kangaroo_pocket():
+    pocket = primitive("plane", size=1, location=(0, 0.2, 1.06), rotation=(math.radians(90), 0, 0))
+    pocket.scale = (0.25, 0.13, 1)
+    bake(pocket)
+    bm = bmesh.new()
+    bm.from_mesh(pocket.data)
+    bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=8, use_grid_fill=True)
+    for v in bm.verts:  # trapezoid: narrower at the top, openings slant on the sides
+        t = (v.co.z - 0.995) / 0.13
+        v.co.x *= 1.0 - 0.18 * t
+    bm.to_mesh(pocket.data)
+    bm.free()
+    add_modifier(pocket, "SHRINKWRAP", target=body, wrap_method="PROJECT", use_project_y=True, use_negative_direction=True, offset=0.004)
+    add_modifier(pocket, "SOLIDIFY", thickness=0.008, offset=1)
+    add_modifier(pocket, "SUBSURF", levels=1)
+    attach(pocket, "Hoodie", (BODY, "thigh"))
+
+
+if C.get("pocket"):
+    kangaroo_pocket()
 
 # Sleeve cuffs and jogger ankle cuffs.
 for side, s in (("R", 1), ("L", -1)):
     wrist = Vector(J[f"wrist.{side}"])
     axis = (Vector(J[f"elbow.{side}"]) - wrist).normalized()
-    attach(band(f"cuff.{side}", wrist + axis * 0.02, axis, 0.05, 0.048, 0.05, ribs=22, rib=0.03), "HoodieDark", BODY)
+    if C["arms"] == "sleeve":
+        attach(band(f"cuff.{side}", wrist + axis * 0.02, axis, 0.05, 0.048, 0.05, ribs=22, rib=0.03), "HoodieDark", BODY)
+    else:
+        # The tee's sleeve edge, hiding where fabric turns into skin.
+        sh = Vector(J[f"shoulder.{side}"])
+        down = (wrist - sh).normalized()
+        r = 0.092 * BULK
+        attach(band(f"sleeve.{side}", sh + down * BARE_FROM, down, r, r * 0.96, 0.03, ribs=22, rib=0.02), "HoodieDark", f"upperArm.{side}")
     ankle = Vector(J[f"ankle.{side}"])
     attach(band(f"ankle.{side}", ankle + Vector((0, 0, 0.035)), (0, 0, 1), 0.052, 0.054, 0.06, ribs=22, rib=0.03), "Pants", BODY)
 
@@ -454,34 +598,239 @@ def hand(side, s, grip):
     return place
 
 
-place_r = hand("R", 1, grip=(62, 58, 40))
-hand("L", -1, grip=(38, 45, 30))
+GRIP = (62, 58, 40)
+place_r = hand("R", 1, grip=GRIP)
+# The left hand grips too when it holds its own phone; otherwise it hovers.
+HOLDS_LEFT = ("phone.L", "phone.L.news", "matcha")
+place_l = hand("L", -1, grip=GRIP if any(p in C["props"] for p in HOLDS_LEFT) else (38, 45, 30))
 
 
-# ================================================================ phone (right hand)
+# ================================================================ screens
 
-def phone(place):
+def phone(place, s=1, screen_mat="Screen", size=1.0, name="phone", reach=0.0, fan=0.0):
+    """A phone in the hand frame of side `s` (palm at -X*s). `size` scales it
+    up into a tablet, growing away from the grip along the fingers. `reach`
+    pushes it out along the fingers (a selfie stick); `fan` slides it sideways
+    toward the thumb (a second phone in the same hand)."""
     parts = []
-    shell = rounded_box("phone", (0.0085, 0.074, 0.152), (-0.03, 0.012, -0.12), 0.0035, segments=5)
+    k = size
+    cz = -0.12 - 0.076 * (k - 1) - reach  # keep the bottom edge in the palm
+    cy = 0.012 + 0.02 * (k - 1) + fan
+    shell = rounded_box(name, (0.0085 * min(k, 1.4), 0.074 * k, 0.152 * k), (-0.03 * s, cy, cz), 0.0035 * k, segments=5)
     set_material(shell, "Phone")
     parts.append(shell)
-    screen = rounded_box("screen", (0.0012, 0.068, 0.146), (-0.0348, 0.012, -0.12), 0.0006, segments=2)
-    set_material(screen, "Screen")
+    sx = -(0.03 + 0.0048 * min(k, 1.4)) * s
+    screen = rounded_box("screen", (0.0012, 0.068 * k, 0.146 * k), (sx, cy, cz), 0.0006, segments=2)
+    set_material(screen, screen_mat)
     parts.append(screen)
-    bump = rounded_box("bump", (0.0022, 0.03, 0.03), (-0.0247, -0.006, -0.178), 0.001, segments=3)
+    bump = rounded_box("bump", (0.0022, 0.03, 0.03), (-(0.03 - 0.0053 * min(k, 1.4)) * s, cy - 0.018 * k, cz - 0.058 * k), 0.001, segments=3)
     set_material(bump, "Phone")
     parts.append(bump)
     for dy, dz in ((0.0, 0.007), (-0.012, 0.007), (-0.006, -0.006)):
-        lens = primitive("cylinder", vertices=16, radius=0.0045, depth=0.003, location=(-0.0232, dy, -0.178 + dz), rotation=(0, math.radians(90), 0))
+        lens = primitive("cylinder", vertices=16, radius=0.0045, depth=0.003, location=(-(0.03 - 0.0068 * min(k, 1.4)) * s, cy - 0.018 * k + dy, cz - 0.058 * k + dz), rotation=(0, math.radians(90), 0))
         set_material(lens, "Glass")
         parts.append(lens)
+    bone = "hand.R" if s > 0 else "hand.L"
     for p in parts:
         bake(p)
         p.data.transform(place)
-        attach(p, None, "hand.R")
+        attach(p, None, bone)
 
 
-phone(place_r)
+# ================================================================ props
+
+def cap():
+    """Baseball cap, worn backwards."""
+    crown = primitive("uv_sphere", segments=24, ring_count=12, radius=1, location=HEAD_C + Vector((0, -0.01, HEAD_R.z * 0.42)))
+    crown.scale = (HEAD_R.x * 1.06, HEAD_R.y * 1.04, HEAD_R.z * 0.66)
+    attach(crown, "Accent", "head")
+    brim = rounded_box("brim", (0.14, 0.085, 0.01), HEAD_C + Vector((0, -HEAD_R.y - 0.02, HEAD_R.z * 0.4)), 0.004, rot=(math.radians(-8), 0, 0))
+    attach(brim, "Accent", "head")
+    button = primitive("uv_sphere", segments=10, ring_count=6, radius=0.012, location=HEAD_C + Vector((0, -0.01, HEAD_R.z * 1.07)))
+    attach(button, "Accent", "head")
+
+
+def airpods():
+    for s in (1, -1):
+        bud = primitive("uv_sphere", segments=12, ring_count=8, radius=1, location=HEAD_C + Vector((s * HEAD_R.x * 1.02, 0.02, -0.01)))
+        bud.scale = (0.011, 0.013, 0.013)
+        attach(bud, "Midsole", "head")
+        stem = primitive("cylinder", vertices=8, radius=0.0045, depth=0.035, location=HEAD_C + Vector((s * HEAD_R.x * 1.03, 0.028, -0.03)))
+        attach(stem, "Midsole", "head")
+
+
+def headphones():
+    """Oversized over-ears: a band over the top, big cups on the sides."""
+    band_r = HEAD_R.x * 1.12
+    arc = primitive("torus", major_radius=band_r, minor_radius=0.014, major_segments=40, minor_segments=8, location=HEAD_C + Vector((0, 0, HEAD_R.z * 0.12)), rotation=(0, math.radians(90), math.radians(90)))
+    arc.scale = (1, 1, HEAD_R.z / HEAD_R.x)
+    attach(arc, "Phone", "head")
+    for s in (1, -1):
+        cup = primitive("cylinder", vertices=24, radius=0.06 * HEAD_SCALE, depth=0.045, location=HEAD_C + Vector((s * (HEAD_R.x + 0.012), 0.005, -0.005)), rotation=(0, math.radians(90), 0))
+        add_modifier(cup, "BEVEL", width=0.012, segments=3, limit_method="NONE")
+        attach(cup, "Accent", "head")
+
+
+def fannypack():
+    """Worn crossbody, high on the chest, the way it's done now."""
+    pack = rounded_box("pack", (0.21, 0.07, 0.085), (0.02, 0.2, 1.29), 0.03, rot=(0, math.radians(-22), 0))
+    add_modifier(pack, "SUBSURF", levels=1)
+    attach(pack, "Accent", "chest")
+    zip_ = rounded_box("zip", (0.18, 0.006, 0.008), (0.02, 0.237, 1.305), 0.003, rot=(0, math.radians(-22), 0))
+    attach(zip_, "Metal", "chest")
+    strap = skin("strap", [(0.12, 0.18, 1.33), (0.16, 0.08, 1.46), (0.1, -0.1, 1.44), (-0.12, -0.16, 1.22), (-0.14, 0.05, 1.12), (-0.08, 0.19, 1.25)],
+                 [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)], [(0.018, 0.005)] * 6)
+    attach(strap, "Outsole", "chest")
+
+
+def hood_down():
+    """The hood lies flat on the upper back, with a ribbed collar at the neck."""
+    hood = primitive("uv_sphere", segments=20, ring_count=12, radius=1, location=(0, -0.13, 1.43))
+    hood.scale = (0.15, 0.05, 0.11)
+    add_modifier(hood, "DISPLACE", texture=folds, strength=0.006, mid_level=0.5, texture_coords="GLOBAL")
+    attach(hood, "Hoodie", "chest")
+    attach(band("collar", (0, -0.01, 1.49), (0, 0, 1), 0.095, 0.088, 0.045, ribs=24, rib=0.03), "HoodieDark", blend("chest", "neck", 2, 1.46, 1.52))
+
+
+def glasses():
+    """Reading glasses, pushed up onto the head and forgotten there."""
+    top = HEAD_C + Vector((0, HEAD_R.y * 0.55, HEAD_R.z * 0.82))
+    for s in (1, -1):
+        lens = primitive("torus", major_radius=0.026, minor_radius=0.004, major_segments=20, minor_segments=6, location=top + Vector((s * 0.034, 0, 0)), rotation=(math.radians(-55), 0, 0))
+        attach(lens, "Phone", "head")
+        arm = primitive("cylinder", vertices=6, radius=0.003, depth=0.12, location=top + Vector((s * 0.062, -0.055, -0.01)), rotation=(math.radians(90 - 20), 0, 0))
+        attach(arm, "Phone", "head")
+    bridge = primitive("cylinder", vertices=6, radius=0.003, depth=0.018, location=top, rotation=(0, math.radians(90), 0))
+    attach(bridge, "Phone", "head")
+
+
+def belt():
+    """A tied fabric belt (bathrobe, trench coat) with a knot at the front."""
+    # The subdivided skin body comes out a little inside its skin radii.
+    rx, ry = 0.19 * (1 + (BELLY - 1) * 0.2) * 0.9, 0.14 * BELLY * 0.9
+    attach(band("belt", (0, 0, 1.02), (0, 0, 1), rx, ry, 0.045, ribs=30, rib=0.0), "HoodieDark", "spine")
+    knot = rounded_box("knot", (0.05, 0.035, 0.04), (0.04, ry + 0.012, 1.02), 0.012)
+    attach(knot, "HoodieDark", "spine")
+    for dx, rot in ((0.03, -12), (0.055, 10)):
+        tail = rounded_box("tail", (0.026, 0.012, 0.14), (dx, ry + 0.014, 0.95), 0.005, rot=(0, math.radians(rot), 0))
+        attach(tail, "HoodieDark", "spine")
+
+
+def shawl():
+    """Bathrobe lapels: a thick rolled collar crossing into a V on the chest."""
+    for s in (1, -1):
+        pts = [(s * 0.07, -0.06, 1.5), (s * 0.1, 0.05, 1.48), (s * 0.08, 0.14, 1.36), (s * 0.02, 0.17, 1.2), (-s * 0.03, 0.165, 1.1)]
+        lapel = skin("lapel", pts, [(0, 1), (1, 2), (2, 3), (3, 4)], [(0.03, 0.016)] * 5)
+        add_modifier(lapel, "SUBSURF", levels=1)
+        attach(lapel, "HoodieDark", "chest")
+
+
+def collar_up():
+    """Trench coat collar, popped, hiding the neck."""
+    attach(band("collar", (0, -0.015, 1.5), (0, 0.15, 1), 0.105, 0.1, 0.1, ribs=16, rib=0.0, bulge=0.12), "HoodieDark", blend("chest", "neck", 2, 1.46, 1.53))
+
+
+def beanie():
+    hat = primitive("uv_sphere", segments=24, ring_count=12, radius=1, location=HEAD_C + Vector((0, -0.015, HEAD_R.z * 0.45)))
+    hat.scale = (HEAD_R.x * 1.04, HEAD_R.y * 1.02, HEAD_R.z * 0.68)
+    attach(hat, "Accent", "head")
+    attach(band("cuff", HEAD_C + Vector((0, -0.015, HEAD_R.z * 0.42)), (0, 0.25, 1), HEAD_R.x * 1.05, HEAD_R.y * 1.03, 0.035, ribs=28, rib=0.03), "Accent", "head")
+
+
+def hair_sphere(loc, scale):
+    h = primitive("uv_sphere", segments=16, ring_count=10, radius=1, location=loc)
+    h.scale = scale
+    attach(h, "Hair", "head")
+
+
+def scalp():
+    """A hair cap over the top and back of the head."""
+    # Set back so the face void stays clear of it.
+    hair_sphere(HEAD_C + Vector((0, -0.03, HEAD_R.z * 0.14)), (HEAD_R.x * 1.05, HEAD_R.y * 1.0, HEAD_R.z * 0.97))
+
+
+def bun():
+    scalp()
+    hair_sphere(HEAD_C + Vector((0, -0.03, HEAD_R.z * 1.05)), (0.06, 0.06, 0.05))
+
+
+def ponytail():
+    scalp()
+    tail = skin("ponytail", [tuple(HEAD_C + Vector((0, -HEAD_R.y * 0.8, HEAD_R.z * 0.75))), tuple(HEAD_C + Vector((0, -HEAD_R.y * 1.35, HEAD_R.z * 0.35))), tuple(HEAD_C + Vector((0, -HEAD_R.y * 1.45, -HEAD_R.z * 0.4)))],
+                [(0, 1), (1, 2)], [(0.035, 0.03), (0.04, 0.035), (0.015, 0.015)])
+    add_modifier(tail, "SUBSURF", levels=1)
+    attach(tail, "Hair", "head")
+
+
+def selfie():
+    """A selfie stick out of the right fist, the phone on the end facing back."""
+    stick = primitive("cylinder", vertices=8, radius=0.008, depth=0.34, location=(-0.03, 0.012, -0.22))
+    bake(stick)
+    stick.data.transform(place_r)
+    attach(stick, "Metal", "hand.R")
+    phone(place_r, reach=0.3)
+
+
+def ringlight():
+    """A ring light on a pole out of a small backpack. Always on."""
+    attach(rounded_box("backpack", (0.22, 0.1, 0.26), (0, -0.2, 1.24), 0.04), "HoodieDark", "chest")
+    pole = primitive("cylinder", vertices=8, radius=0.01, depth=0.55, location=(0, -0.26, 1.58))
+    attach(pole, "Metal", "chest")
+    ring = primitive("torus", major_radius=0.17, minor_radius=0.018, major_segments=40, minor_segments=8, location=(0, -0.28, 1.86), rotation=(math.radians(80), 0, 0))
+    attach(ring, "ScreenRing", "chest")
+
+
+def matcha():
+    """Iced matcha in the left hand: clear-ish cup, green inside, a straw."""
+    parts = []
+    cup = primitive("cylinder", vertices=18, radius=0.034, depth=0.11, location=(0.035, 0.01, -0.1))
+    set_material(cup, "Matcha")
+    parts.append(cup)
+    lid = primitive("cylinder", vertices=18, radius=0.037, depth=0.012, location=(0.035, 0.01, -0.16))
+    set_material(lid, "Midsole")
+    parts.append(lid)
+    straw = primitive("cylinder", vertices=6, radius=0.005, depth=0.08, location=(0.035, 0.015, -0.2))
+    set_material(straw, "Midsole")
+    parts.append(straw)
+    for p in parts:
+        bake(p)
+        p.data.transform(place_l)
+        attach(p, None, "hand.L")
+
+
+def yogamat():
+    """A rolled yoga mat slung across the back. Unrolled once."""
+    mat = primitive("cylinder", vertices=20, radius=0.055, depth=0.6, location=(0, -0.2, 1.25), rotation=(0, math.radians(60), 0))
+    add_modifier(mat, "BEVEL", width=0.01, segments=2, limit_method="NONE")
+    attach(mat, "Accent", "chest")
+
+
+PROPS = {
+    "phone": lambda: phone(place_r),
+    "phone.L": lambda: phone(place_l, s=-1, screen_mat="ScreenAlt"),
+    "phone.L.news": lambda: phone(place_l, s=-1, screen_mat="ScreenNews"),
+    "phone.L.news2": lambda: phone(place_l, s=-1, screen_mat="ScreenNews", fan=0.05, reach=0.02),
+    "tablet": lambda: phone(place_r, size=2.1, name="tablet"),
+    "tablet.far": lambda: phone(place_r, size=1.8, name="tablet"),
+    "glasses": glasses,
+    "belt": belt,
+    "shawl": shawl,
+    "collar.up": collar_up,
+    "beanie": beanie,
+    "bun": bun,
+    "ponytail": ponytail,
+    "selfie": selfie,
+    "ringlight": ringlight,
+    "matcha": matcha,
+    "yogamat": yogamat,
+    "cap": cap,
+    "airpods": airpods,
+    "headphones": headphones,
+    "fannypack": fannypack,
+    "hood.down": hood_down,
+}
+for prop in C["props"]:
+    PROPS[prop]()
 
 
 # ================================================================ sneakers
@@ -616,9 +965,22 @@ def key(frame, poses, arms, hips_y=0.0):
     hips.keyframe_insert("location", frame=frame)
 
 
-# The doomscroll hold: elbows in, forearms forward, phone at chest height,
-# screen tilted up to the hood. Left hand hovers under it.
-HOLD = hold((0.12, 0.3, -1), (-0.35, 1, 0.3), (-0.2, 1, 0.75), (0.1, 0.25, -1), (-0.55, 1, 0.2), (-0.5, 1, 0.3))
+# Screen holds (arm aims). scroll: elbows in, forearms forward, phone at chest
+# height, screen tilted up to the face; left hand hovers under it. double: a
+# phone in each hand, spread apart. tablet: hands wider and lower, the left
+# one under the far edge.
+HOLDS = {
+    "scroll": hold((0.12, 0.3, -1), (-0.35, 1, 0.3), (-0.2, 1, 0.75), (0.1, 0.25, -1), (-0.55, 1, 0.2), (-0.5, 1, 0.3)),
+    "double": hold((0.2, 0.3, -1), (-0.15, 1, 0.35), (0.0, 1, 0.8), (0.2, 0.3, -1), (-0.15, 1, 0.35), (0.0, 1, 0.8)),
+    "tablet": hold((0.14, 0.35, -1), (-0.3, 1, 0.15), (-0.3, 1, 0.55), (0.14, 0.3, -1), (-0.45, 1, 0.1), (-0.4, 1, 0.4)),
+    # far: arms out straight, tablet at arm's length (reading glasses on the head).
+    "far": hold((0.1, 0.8, -0.6), (-0.15, 1, 0.1), (-0.25, 1, 0.45), (0.1, 0.75, -0.65), (-0.35, 1, 0.05), (-0.45, 1, 0.3)),
+    # selfie: right arm up and forward with the stick; left arm loose.
+    "selfie": hold((0.3, 0.8, 0.05), (-0.1, 1, 0.55), (-0.25, 1, 0.35), (0.12, 0.04, -1), (0.07, 0.14, -1), (0.04, 0.12, -1)),
+    # sip: phone in the right hand, the drink raised in the left.
+    "sip": hold((0.12, 0.3, -1), (-0.35, 1, 0.3), (-0.2, 1, 0.75), (0.15, 0.3, -1), (-0.1, 1, 0.6), (0.0, 0.5, 1)),
+}
+HOLD = HOLDS[C["hold"]]
 HANG = hold((0.12, 0.04, -1), (0.07, 0.14, -1), (0.04, 0.12, -1), (0.12, 0.04, -1), (0.07, 0.14, -1), (0.04, 0.12, -1))
 HUNCH = {"spine": (10, 0), "chest": (8, 0), "neck": (14, 0), "head": (16, 0), "shoulder.R": (0, -6), "shoulder.L": (0, -6)}
 
@@ -724,6 +1086,7 @@ bpy.ops.export_scene.gltf(
     export_apply=False,
     export_texcoords=False,
 )
+print(f"runner: {CHAR}")
 print(f"runner: wrote {OUT} ({os.path.getsize(OUT) // 1024} KB, {len(body.data.vertices)} verts, {tris} tris)")
 print("runner: tris by part", sorted(TRIS.items(), key=lambda kv: -kv[1]))
 

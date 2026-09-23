@@ -27,16 +27,16 @@ const BEHIND_ORBIT = 45;
 /** Seconds for the title turntable to swing round into the chase view. */
 const INTRO = 0.9;
 
-// Placeholder looks until each doomscroller has its own Blender mesh: the
-// same runner, recoloured (hoodie, hoodie trim) and scaled.
-const CHARACTER_LOOKS: { hoodie: string | null; dark: string | null; scale: number }[] = [
-  { hoodie: null, dark: null, scale: 1 }, // Hoodie Goblin: the runner as built
-  { hoodie: '#3a3d44', dark: '#1b1d22', scale: 1.06 }, // Grindset Bro
-  { hoodie: '#d9a91c', dark: '#7d5d0c', scale: 0.72 }, // iPad Kid
-  { hoodie: '#6b4f3a', dark: '#3b2a1e', scale: 1.04 }, // Outrage Uncle
-  { hoodie: '#ff5fa8', dark: '#8f2a5c', scale: 1 }, // Influencer
-  { hoodie: '#bfdcc8', dark: '#6f8f7a', scale: 0.98 }, // Wellness Girlie
-  { hoodie: '#6a6048', dark: '#3a3426', scale: 1.02 }, // News Doomer
+// Each doomscroller's Blender model (public/assets/characters/<model>.glb,
+// built by `npm run assets`) and display scale. The hitbox doesn't change.
+const CHARACTER_LOOKS: { model: string; scale: number }[] = [
+  { model: 'goblin', scale: 1 },
+  { model: 'bro', scale: 1 },
+  { model: 'kid', scale: 0.72 },
+  { model: 'uncle', scale: 1 },
+  { model: 'influencer', scale: 0.97 },
+  { model: 'wellness', scale: 0.95 },
+  { model: 'doomer', scale: 1.02 },
 ];
 
 interface ZoneLook {
@@ -60,8 +60,9 @@ export class GameRenderer {
   readonly camera: THREE.PerspectiveCamera;
   readonly post: Post;
   private readonly particles: Particles;
-  /** Blender hero runner; the grey-box rig stands in until it has loaded. */
+  /** The shown doomscroller; the grey-box rig stands in until it has loaded. */
   private hero: Hero | null = null;
+  private readonly heroes = new Map<string, Promise<Hero | null>>();
   settings: RenderSettings;
 
   private readonly dummy = new THREE.Object3D();
@@ -292,41 +293,36 @@ export class GameRenderer {
     this.scene.add(this.shadow);
 
     this.particles = new Particles(this.scene);
-    Hero.load(`${import.meta.env.BASE_URL}assets/runner.glb`)
-      .then((hero) => {
-        this.hero = hero;
-        this.player.remove(this.playerParts.rig);
-        this.player.add(hero.root);
-        this.applyCharacter();
-      })
-      .catch((err) => console.warn('runner.glb failed to load, keeping grey box', err));
     this.post = new Post(this.renderer, this.scene, this.camera);
     this.resize();
     window.addEventListener('resize', () => this.resize());
   }
 
-  /** Show the chosen doomscroller (placeholder recolour + scale for now). */
+  /** Show the chosen doomscroller, loading its model on first use. */
   setCharacter(i: number): void {
     this.character = i;
-    this.applyCharacter();
+    const look = CHARACTER_LOOKS[i] ?? CHARACTER_LOOKS[0];
+    void this.loadModel(look.model).then((hero) => {
+      if (!hero || this.character !== i) return;
+      this.player.remove(this.hero ? this.hero.root : this.playerParts.rig);
+      this.hero = hero;
+      this.player.add(hero.root);
+      // Warm the rest so flicking through the select screen is instant.
+      for (const l of CHARACTER_LOOKS) void this.loadModel(l.model);
+    });
+    this.player.scale.setScalar(look.scale);
   }
 
-  private applyCharacter(): void {
-    const look = CHARACTER_LOOKS[this.character] ?? CHARACTER_LOOKS[0];
-    this.player.scale.setScalar(look.scale);
-    const root = this.hero ? this.hero.root : this.playerParts.rig;
-    root.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      const mats = (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) as THREE.MeshStandardMaterial[];
-      for (const m of mats) {
-        const tint = m.name === 'Hoodie' ? look.hoodie : m.name === 'HoodieDark' ? look.dark : undefined;
-        if (tint === undefined) continue;
-        m.userData.baseColor ??= m.color.clone();
-        m.color.copy(tint ? new THREE.Color(tint) : m.userData.baseColor);
-        m.emissive.copy(m.color).multiplyScalar(0.15);
-      }
-    });
+  private loadModel(model: string): Promise<Hero | null> {
+    let p = this.heroes.get(model);
+    if (!p) {
+      p = Hero.load(`${import.meta.env.BASE_URL}assets/characters/${model}.glb`).catch((err) => {
+        console.warn(`${model}.glb failed to load, keeping grey box`, err);
+        return null;
+      });
+      this.heroes.set(model, p);
+    }
+    return p;
   }
 
   // ---------- obstacle builders ----------
