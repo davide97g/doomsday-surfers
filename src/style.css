@@ -63,7 +63,21 @@ html, body {
   align-items: center; justify-content: center; gap: 16px; text-align: center;
   padding: 24px;
 }
-.ready { background: linear-gradient(180deg, rgba(7,4,15,.2), rgba(7,4,15,.7)); }
+.ready {
+  justify-content: space-between;
+  padding: calc(var(--safe-top) + 28px) 16px calc(var(--safe-bottom) + 20px);
+  background: linear-gradient(180deg, rgba(7,4,15,.55), rgba(7,4,15,0) 30%, rgba(7,4,15,0) 50%, rgba(7,4,15,.85));
+}
+.ready .logo { font-size: clamp(38px, 11vw, 72px); }
+.title-bottom { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
+.hud.title .top, .hud.title .battery { display: none; }
+/* The streak nag hangs compactly under the logo until dealt with. */
+.ready .streak {
+  position: absolute; top: calc(var(--safe-top) + 122px); left: 50%; transform: translateX(-50%);
+  margin: 0; padding: 10px 14px; gap: 4px; box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+.ready .streak .cta.small { padding: 8px 18px; font-size: 13px; }
+.ready .streak .decline { padding: 2px; }
 .logo {
   font-size: clamp(44px, 14vw, 84px); font-weight: 900; line-height: .9; letter-spacing: -.02em;
   background: linear-gradient(90deg, var(--hot), #7b2eff 55%, var(--acid));
@@ -254,3 +268,27 @@ html, body {
   color: var(--zone); text-shadow: 0 0 28px var(--zone), 0 4px 18px rgba(0,0,0,.6);
 }
 .zone-tag { margin-top: 6px; font-weight: 700; font-size: 15px; color: var(--ink); text-shadow: 0 2px 8px rgba(0,0,0,.7); }
+
+/* ---------- character select (title screen) ---------- */
+.select { display: flex; flex-direction: column; align-items: center; gap: 8px; width: min(100%, 340px); }
+.select-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.select-name {
+  font-size: 26px; font-weight: 900; letter-spacing: .02em; text-align: center;
+  text-shadow: 0 0 18px rgba(255,46,136,.55), 0 2px 8px rgba(0,0,0,.7);
+}
+.select-arrow {
+  width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2);
+  background: rgba(24,20,34,.7); color: var(--ink); font: 700 28px/1 system-ui, sans-serif; padding: 0 0 4px;
+}
+.select-arrow:active { transform: scale(.94); }
+.select-card {
+  width: 100%; padding: 10px 14px; border-radius: 14px; text-align: left;
+  background: rgba(24,20,34,.78); border: 1px solid rgba(255,255,255,.1);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.select-bio { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.select-stats { font: 12px/1.5 ui-monospace, Menlo, monospace; color: var(--muted); }
+.select-craving { margin-top: 6px; font-size: 12px; font-weight: 800; color: var(--acid); }
+.select-dots { display: flex; gap: 6px; }
+.select-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.25); }
+.select-dots i.on { background: var(--hot); box-shadow: 0 0 8px var(--hot); }

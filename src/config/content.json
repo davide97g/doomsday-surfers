@@ -145,6 +145,24 @@
     "verdict": "PROFILE SOLD TO {n} ADVERTISERS",
     "kicker": "FEED UPDATED"
   },
+  "characters": [
+    {
+      "name": "HOODIE GOBLIN",
+      "bio": "Hasn't seen daylight since the last update. Hood up, brightness max.",
+      "stats": ["Screen time: 16h 40m / day", "Attention span: 1.2s", "Last touched grass: 2019"]
+    },
+    {
+      "name": "GRINDSET BRO",
+      "bio": "Up at 4am to scroll productively. Two phones. Zero thoughts.",
+      "stats": ["Screen time: 11h (at 2x speed)", "Attention span: 0.9s (optimised)", "Net worth: -$340 in memecoins"]
+    },
+    {
+      "name": "iPAD KID",
+      "bio": "Raised by autoplay. Has never known an ad-free minute.",
+      "stats": ["Screen time: yes", "Attention span: 0.4s", "Tablet stickiness: critical"]
+    }
+  ],
+  "select": { "craving": "Craves {type}: +50% hit, tolerance builds faster", "hint": "swipe \u2190 \u2192 to pick your doomscroller" },
   "zones": [
     { "name": "FOR YOU", "tagline": "Curated. By us. For us.", "seam": [0.6, 0.25, 1.6], "sky": "#07040f", "light": "#a58cff" },
     { "name": "RABBIT HOLE", "tagline": "Reels only now. You chose this.", "seam": [0.2, 1.3, 1.5], "sky": "#02090c", "light": "#7fd6ff" },

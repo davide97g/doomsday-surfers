@@ -24,6 +24,17 @@ const CELL_H = CELL_W * 2.1;
 const BEHIND = 12;
 const BEHIND_ORBIT = 45;
 
+/** Seconds for the title turntable to swing round into the chase view. */
+const INTRO = 0.9;
+
+// Placeholder looks until each doomscroller has its own Blender mesh: the
+// same runner, recoloured (hoodie, hoodie trim) and scaled.
+const CHARACTER_LOOKS: { hoodie: string | null; dark: string | null; scale: number }[] = [
+  { hoodie: null, dark: null, scale: 1 }, // Hoodie Goblin: the runner as built
+  { hoodie: '#3a3d44', dark: '#1b1d22', scale: 1.06 }, // Grindset Bro
+  { hoodie: '#d9a91c', dark: '#7d5d0c', scale: 0.72 }, // iPad Kid
+];
+
 interface ZoneLook {
   seam: THREE.Color;
   sky: THREE.Color;
@@ -114,6 +125,12 @@ export class GameRenderer {
   private level = 1;
   /** Portrait/landscape field of view before the gate camera's zoom. */
   private baseFov = 70;
+  private character = 0;
+  /** Title turntable angle (radians round the runner, 0 = chase view). */
+  private turn = Math.PI;
+  /** Seconds into the swing from turntable to chase view; -1 when not swinging. */
+  private introT = -1;
+  private introFrom = 0;
   /** Seconds since the last gate crossing, for the camera's zoom kick. */
   private gateKick = 99;
   private readonly visibleAhead: number;
@@ -276,11 +293,36 @@ export class GameRenderer {
         this.hero = hero;
         this.player.remove(this.playerParts.rig);
         this.player.add(hero.root);
+        this.applyCharacter();
       })
       .catch((err) => console.warn('runner.glb failed to load, keeping grey box', err));
     this.post = new Post(this.renderer, this.scene, this.camera);
     this.resize();
     window.addEventListener('resize', () => this.resize());
+  }
+
+  /** Show the chosen doomscroller (placeholder recolour + scale for now). */
+  setCharacter(i: number): void {
+    this.character = i;
+    this.applyCharacter();
+  }
+
+  private applyCharacter(): void {
+    const look = CHARACTER_LOOKS[this.character] ?? CHARACTER_LOOKS[0];
+    this.player.scale.setScalar(look.scale);
+    const root = this.hero ? this.hero.root : this.playerParts.rig;
+    root.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const mats = (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) as THREE.MeshStandardMaterial[];
+      for (const m of mats) {
+        const tint = m.name === 'Hoodie' ? look.hoodie : m.name === 'HoodieDark' ? look.dark : undefined;
+        if (tint === undefined) continue;
+        m.userData.baseColor ??= m.color.clone();
+        m.color.copy(tint ? new THREE.Color(tint) : m.userData.baseColor);
+        m.emissive.copy(m.color).multiplyScalar(0.15);
+      }
+    });
   }
 
   // ---------- obstacle builders ----------
@@ -435,6 +477,10 @@ export class GameRenderer {
         this.crashT = 0;
       }
       if (e.type === 'start' || e.type === 'revive') this.crashT = -1;
+      if (e.type === 'start') {
+        this.introT = 0;
+        this.introFrom = ((this.turn % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      }
       if (e.type === 'roll') this.rollSpin = 0;
       if (e.type === 'gate') {
         this.gateKick = 0;
@@ -451,7 +497,8 @@ export class GameRenderer {
     const sdt = dt * w.timeScale;
     const target = Math.min(1, Math.max(0, w.dopamine / w.t.dopamine.fullColourAt));
     this.level += (target - this.level) * (1 - Math.exp(-dt * 3));
-    const behind = w.gateT >= 0 ? BEHIND_ORBIT : BEHIND;
+    const orbiting = w.gateT >= 0 || w.phase === 'ready' || this.introT >= 0;
+    const behind = orbiting ? BEHIND_ORBIT : BEHIND;
     this.syncTrack(d, behind);
     this.syncTowers(d, behind);
     this.syncObstacles(w);
@@ -688,7 +735,23 @@ export class GameRenderer {
     let fov = this.baseFov;
     let roll = 0;
 
-    if (w.gateT >= 0) {
+    if (w.phase === 'ready') {
+      // Title turntable: a slow lap round the chosen doomscroller, framed high
+      // so the select card below doesn't cover them.
+      this.turn += dt * 0.45;
+      this.introT = -1;
+      cam.position.set(p.x + Math.sin(this.turn) * 3.6, 1.5, Math.cos(this.turn) * 3.6);
+      look.set(p.x, 0.8, 0);
+    } else if (this.introT >= 0) {
+      // Run started: finish the lap into the chase view.
+      this.introT += dt;
+      const b = THREE.MathUtils.smootherstep(this.introT, 0, INTRO);
+      const theta = THREE.MathUtils.lerp(this.introFrom, Math.PI * 2, b);
+      const r = THREE.MathUtils.lerp(3.6, 6.4, b);
+      cam.position.set(this.camX + Math.sin(theta) * r + jx, THREE.MathUtils.lerp(1.5, 3.5 + this.camY, b) + jy, Math.cos(theta) * r);
+      look.lerp(this.tmpV.set(p.x, 0.8, 0), 1 - b);
+      if (this.introT >= INTRO) this.introT = -1;
+    } else if (w.gateT >= 0) {
       // Ride the gate's rail: one full turn round the runner, starting and
       // ending on the chase view, dipping lower and closer on the far side.
       const g = w.t.gate;

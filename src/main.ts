@@ -11,6 +11,7 @@ import { GateScan } from './ui/gate';
 import { Hud } from './ui/hud';
 import { KeepGoing } from './ui/keepGoing';
 import { Nags } from './ui/nags';
+import { Select } from './ui/select';
 import type { Sfx } from './ui/sfx';
 import { Title } from './ui/title';
 
@@ -46,6 +47,13 @@ const sfx: Sfx = {
   reward: () => audio.reward(),
 };
 const title = new Title(hud.root, sfx);
+const select = new Select(title.slot, sfx);
+select.onChange = (i) => {
+  world.setCharacter(i);
+  view.setCharacter(i);
+};
+world.setCharacter(select.index);
+view.setCharacter(select.index);
 const nags = new Nags(hud.root, sfx);
 const keepGoing = new KeepGoing(hud.root, sfx);
 const death = new Death(hud.root, sfx);
@@ -79,6 +87,8 @@ function frame(now: number): void {
 
   // Restart is button-only, so a panicked swipe on the death screen can't skip it.
   let actions = input.drain();
+  // On the title screen left/right pick a character instead of starting the run.
+  if (world.phase === 'ready') actions = select.filter(actions);
   // The keep-going prompt freezes the run; swipes made meanwhile are dropped.
   acc = keepGoing.paused ? 0 : acc + dt;
   while (acc >= STEP) {

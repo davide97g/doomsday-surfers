@@ -121,6 +121,8 @@ export class Hud {
     if (phase !== this.phase) {
       this.phase = phase;
       this.battery.classList.toggle('hidden', phase === 'dead');
+      // The title screen has its own layout; run stats come in with the run.
+      this.root.classList.toggle('title', phase === 'ready');
       if (phase !== 'running') {
         this.toast.classList.add('hidden');
         this.toastTimer = 0;

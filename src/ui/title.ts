@@ -1,4 +1,4 @@
-// Title screen + streak guilt. The streak lives in localStorage (a per-device
+// Title screen + streak guilt. The character select (select.ts) mounts in `slot`. The streak lives in localStorage (a per-device
 // convenience, nothing depends on it) and the card shows once per session.
 
 import content from '../config/content.json';
@@ -37,6 +37,8 @@ function save(s: Streak): void {
 export class Title {
   private readonly el: HTMLElement;
   private readonly card: HTMLElement;
+  /** Where the character select sits, between the logo and the start hint. */
+  readonly slot: HTMLElement;
   private phase: Phase | null = null;
 
   constructor(parent: HTMLElement, private readonly sfx: Sfx) {
@@ -62,8 +64,11 @@ export class Title {
     this.el.className = 'overlay ready';
     this.el.innerHTML = `
       <div class="logo">DOOMSDAY<br>SURFERS</div>
-      <div class="hint">swipe to start scrolling</div>
-      <div class="controls">&larr; &rarr; switch &middot; &uarr; jump &middot; &darr; roll</div>
+      <div class="title-bottom">
+        <div class="title-slot"></div>
+        <div class="hint">swipe up to start scrolling</div>
+        <div class="controls">&larr; &rarr; switch &middot; &uarr; jump &middot; &darr; roll</div>
+      </div>
       <div class="streak" data-ui>
         <div class="streak-line"><span class="flame"></span>${line}</div>
         <div class="streak-reward">${fill(s.reward, { n: rewardDay })}</div>
@@ -73,6 +78,7 @@ export class Title {
     `;
     parent.appendChild(this.el);
     this.card = this.el.querySelector('.streak')!;
+    this.slot = this.el.querySelector('.title-slot')!;
     this.card.addEventListener('click', (e) => {
       const act = (e.target as HTMLElement).dataset.act;
       if (act === 'claim') {

@@ -7,6 +7,9 @@
 // Healthy habits drain it and slow you down. At zero, or on a crash, the run
 // enters `fading`: you slow to a stop in grey reality, then `dead`.
 //
+// Each character has a signature craving: its favourite content type gives
+// more (characters.cravingGain) but builds tolerance faster (cravingDecay).
+//
 // Checkpoint gates sit at fixed distances (gateS). Crossing one starts a
 // bullet-time scan (`gateT` counts real seconds): the sim runs slowed by
 // `timeScale`, input is ignored, the drain pauses, and the feed moves to the
@@ -64,6 +67,8 @@ export class World {
   cause: DeathCause | null = null;
   /** Seconds into the fade to reality. */
   fadeT = 0;
+  /** Selected character (index into tuning characters / content characters). */
+  character = 0;
   /** Feed zone: goes up by one per gate crossed. */
   zone = 0;
   /** Index of the next gate ahead. */
@@ -163,9 +168,20 @@ export class World {
     return 1 + (g.timeScale - 1) * k;
   }
 
+  /** The selected character's favourite content type. */
+  get favourite(): number {
+    return this.t.characters.favourite[this.character];
+  }
+
+  /** Pick a character. Only on the title screen: a run keeps who it started with. */
+  setCharacter(i: number): void {
+    if (this.phase === 'ready') this.character = i;
+  }
+
   /** Gain the next pickup of this content type would give. */
   gainFor(type: number): number {
-    return this.t.content.gain * this.tolerance[type];
+    const craving = type === this.favourite ? this.t.characters.cravingGain : 1;
+    return this.t.content.gain * this.tolerance[type] * craving;
   }
 
   step(dt: number, actions: readonly Action[]): void {
@@ -448,7 +464,8 @@ export class World {
       this.takenByType[pk.type]++;
       const gain = this.gainFor(pk.type);
       this.dopamine = Math.min(t.dopamine.max, this.dopamine + gain);
-      this.tolerance[pk.type] = Math.max(t.content.toleranceFloor, this.tolerance[pk.type] * t.content.toleranceDecay);
+      const decay = pk.type === this.favourite ? t.characters.cravingDecay : t.content.toleranceDecay;
+      this.tolerance[pk.type] = Math.max(t.content.toleranceFloor, this.tolerance[pk.type] * decay);
       this.events.push({ type: 'pickup', id: pk.id, content: pk.type, gain, tolerance: this.tolerance[pk.type] });
     }
   }
