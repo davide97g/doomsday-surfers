@@ -160,6 +160,27 @@
       "name": "iPAD KID",
       "bio": "Raised by autoplay. Has never known an ad-free minute.",
       "stats": ["Screen time: yes", "Attention span: 0.4s", "Tablet stickiness: critical"]
+    },
+    {
+      "name": "OUTRAGE UNCLE",
+      "bio": "Typing in all caps since 2009. Has never lost an argument he started.",
+      "stats": ["Screen time: all of retirement", "Comments today: 212", "Reading glasses: on his head"]
+    },
+    {
+      "name": "INFLUENCER",
+      "bio": "Documenting the run for 11 followers. Content first, body second.",
+      "stats": ["Screen time: 14h (front camera)", "Followers: 11 (4 are bots)", "Ring light: always on"]
+    },
+    {
+      "name": "WELLNESS GIRLIE",
+      "bio": "Seven apps about mindfulness. Opens all of them, mindlessly.",
+      "stats": ["Screen time: 9h (#digitaldetox)", "Matcha: 3rd today", "Yoga mat: unrolled once"],
+      "perk": "Healthy habits cost half: she only posts about them"
+    },
+    {
+      "name": "NEWS DOOMER",
+      "bio": "Knows everything happening everywhere. Nothing happening here.",
+      "stats": ["Screen time: since the last crisis", "Phones: 3", "Battery: 5%, forever"]
     }
   ],
   "select": { "craving": "Craves {type}: +50% hit, tolerance builds faster", "hint": "swipe \u2190 \u2192 to pick your doomscroller" },

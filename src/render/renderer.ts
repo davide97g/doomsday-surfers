@@ -33,6 +33,10 @@ const CHARACTER_LOOKS: { hoodie: string | null; dark: string | null; scale: numb
   { hoodie: null, dark: null, scale: 1 }, // Hoodie Goblin: the runner as built
   { hoodie: '#3a3d44', dark: '#1b1d22', scale: 1.06 }, // Grindset Bro
   { hoodie: '#d9a91c', dark: '#7d5d0c', scale: 0.72 }, // iPad Kid
+  { hoodie: '#6b4f3a', dark: '#3b2a1e', scale: 1.04 }, // Outrage Uncle
+  { hoodie: '#ff5fa8', dark: '#8f2a5c', scale: 1 }, // Influencer
+  { hoodie: '#bfdcc8', dark: '#6f8f7a', scale: 0.98 }, // Wellness Girlie
+  { hoodie: '#6a6048', dark: '#3a3426', scale: 1.02 }, // News Doomer
 ];
 
 interface ZoneLook {

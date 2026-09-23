@@ -73,12 +73,12 @@ export class Select {
   }
 
   private render(): void {
-    const c = content.characters[this.index];
-    const type = content.contentTypes[TUNING.characters.favourite[this.index]].name;
+    const c: { name: string; bio: string; stats: string[]; perk?: string } = content.characters[this.index];
+    const fav = TUNING.characters.favourite[this.index];
     this.el.querySelector('.select-name')!.textContent = c.name;
     this.el.querySelector('.select-bio')!.textContent = c.bio;
     this.el.querySelector('.select-stats')!.innerHTML = c.stats.map((s) => `<div>${s}</div>`).join('');
-    this.el.querySelector('.select-craving')!.textContent = fill(content.select.craving, { type });
+    this.el.querySelector('.select-craving')!.textContent = c.perk ?? fill(content.select.craving, { type: content.contentTypes[fav].name });
     this.el.querySelector('.select-dots')!.innerHTML = Array.from({ length: COUNT }, (_, i) => `<i class="${i === this.index ? 'on' : ''}"></i>`).join('');
   }
 }

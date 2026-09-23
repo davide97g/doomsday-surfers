@@ -9,6 +9,7 @@
 //
 // Each character has a signature craving: its favourite content type gives
 // more (characters.cravingGain) but builds tolerance faster (cravingDecay).
+// A character with no favourite (-1) has a habit perk instead (habitCost).
 //
 // Checkpoint gates sit at fixed distances (gateS). Crossing one starts a
 // bullet-time scan (`gateT` counts real seconds): the sim runs slowed by
@@ -168,7 +169,7 @@ export class World {
     return 1 + (g.timeScale - 1) * k;
   }
 
-  /** The selected character's favourite content type. */
+  /** The selected character's favourite content type, -1 for none. */
   get favourite(): number {
     return this.t.characters.favourite[this.character];
   }
@@ -429,11 +430,12 @@ export class World {
 
   private hitHabit(o: Obstacle): void {
     const h = this.t.habit;
+    const cost = h.cost * this.t.characters.habitCost[this.character];
     o.hit = true;
     this.habitsHit++;
-    this.dopamine -= h.cost;
+    this.dopamine -= cost;
     this.slowT = h.slowTime;
-    this.events.push({ type: 'habit', id: o.id, habit: o.variant, cost: h.cost });
+    this.events.push({ type: 'habit', id: o.id, habit: o.variant, cost });
   }
 
   private stumble(): void {
