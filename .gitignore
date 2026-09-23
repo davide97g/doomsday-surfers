@@ -5,3 +5,4 @@ ios/App/App/public
 ios/App/Pods
 ios/DerivedData
 *.log
+ios/build

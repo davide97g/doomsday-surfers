@@ -24,10 +24,10 @@ Davide owns the product decisions; Claude builds. Discuss design changes before 
 
 ## Target
 iPhone 14 at 60 fps. Pixel ratio capped at 2, instancing, half-res bloom.
-Art: procedural grey box now; Blender-scripted .glb assets later.
+Art: procedural grey box, plus Blender-scripted .glb hero assets (`assets/blender/*.py`, `npm run assets`); commit the exported .glb.
 
 ## Roadmap
 - Day 1: controls, track, obstacles, perf gate ✅ (iPhone 14 native build: 60 fps, swipes clean)
 - Day 2: dopamine meter + drain, content pickups with tolerance, healthy-habit obstacles, grade/audio tied to dopamine, death-into-reality sequence ✅ (pending on-device feel check)
 - Day 3: comedy layer (content bank, fake ads, manipulative UI, end-of-run report, sound) ✅ (pending on-device check)
-- Day 4: first Blender hero assets, juice (haptics, particles), TestFlight
+- Day 4: first Blender hero assets, juice (haptics, particles), TestFlight — runner asset, haptics, particles, icon, TestFlight script done; waiting on App Store Connect app record + on-device check. TestFlight internal only until the public name is decided ("Doomsday Surfers" risks a copycat rejection).

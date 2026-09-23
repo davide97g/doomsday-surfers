@@ -11,10 +11,13 @@
     "check:gen": "tsx scripts/check-generator.ts",
     "ios:sync": "npm run build && npx cap sync ios",
     "ios:open": "npx cap open ios",
-    "ios:run": "npm run build && npx cap run ios"
+    "ios:run": "npm run build && npx cap run ios",
+    "ios:testflight": "sh scripts/testflight.sh",
+    "assets": "blender -b -P assets/blender/runner.py -- public/assets/runner.glb"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.2",
+    "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.5.2",
     "three": "^0.186.0"
   },

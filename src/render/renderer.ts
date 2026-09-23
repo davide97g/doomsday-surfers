@@ -5,10 +5,13 @@
 import * as THREE from 'three';
 import { laneX, type ObstacleKind, type SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
+import { Hero } from './hero';
+import { Particles } from './particles';
 import { Post } from './post';
 import { FEED_ATLAS, makeAd, makeBookCover, makeContent, makeFeedAtlas, makeMumCall, makeNotification, makeReel, makeReelFront } from './textures';
 
 const VARIANTS = 8;
+const CONTENT_COLOURS = ['#ff2e63', '#ff2e3b', '#00e1ff', '#ff7a1f']; // like, notification, reel, outrage
 const FEED_CELLS = FEED_ATLAS.cols * FEED_ATLAS.rows;
 const TILE_LEN = 4.4;
 const TOWER_STEP = 3.6;
@@ -55,6 +58,9 @@ export class GameRenderer {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
   readonly post: Post;
+  private readonly particles: Particles;
+  /** Blender hero runner; the grey-box rig stands in until it has loaded. */
+  private hero: Hero | null = null;
   settings: RenderSettings;
 
   private readonly dummy = new THREE.Object3D();
@@ -265,6 +271,14 @@ export class GameRenderer {
     this.shadow.position.y = 0.04;
     this.scene.add(this.shadow);
 
+    this.particles = new Particles(this.scene);
+    Hero.load(`${import.meta.env.BASE_URL}assets/runner.glb`)
+      .then((hero) => {
+        this.hero = hero;
+        this.player.remove(this.playerParts.rig);
+        this.player.add(hero.root);
+      })
+      .catch((err) => console.warn('runner.glb failed to load, keeping grey box', err));
     this.post = new Post(this.renderer, this.scene, this.camera);
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -403,8 +417,17 @@ export class GameRenderer {
     this.post.setSize(w, h, this.settings.pixelRatio);
   }
 
-  handleEvents(events: SimEvent[]): void {
+  handleEvents(events: SimEvent[], w: World): void {
+    const p = w.player;
+    const fx = this.particles;
     for (const e of events) {
+      if (e.type === 'pickup') {
+        const t = e.tolerance;
+        fx.burst(p.x, p.y + 0.9, -0.4, Math.round(3 + 9 * t), CONTENT_COLOURS[e.content], { size: 0.18 + 0.2 * t, bright: 0.8 + 1.8 * t });
+      }
+      if (e.type === 'habit') fx.burst(p.x, 0.5, -0.6, 14, '#8a8a8a', { speed: 2.5, size: 0.5, life: 0.8, gravity: 0.5, bright: 0.5, up: 0.8 });
+      if (e.type === 'crash') fx.burst(p.x, 1.2, -0.7, 44, '#bfe9ff', { speed: 7, size: 0.16, life: 1, gravity: 14, bright: 2.2, up: 3 });
+      if (e.type === 'revive') fx.burst(p.x, 1, 0, 36, '#ff2e88', { speed: 5, size: 0.3, life: 0.8, gravity: 2, bright: 2.5, up: 2 });
       if (e.type === 'stumble') this.shake = Math.max(this.shake, 0.6);
       if (e.type === 'edge') this.shake = Math.max(this.shake, 0.15);
       if (e.type === 'crash') {
@@ -428,6 +451,8 @@ export class GameRenderer {
     this.syncPlayer(w, dt);
     this.syncCamera(w, dt);
 
+    const lines = w.phase === 'running' ? Math.min(1, Math.max(0, (this.level - 0.6) / 0.4)) * Math.min(1, 0.3 + (w.speed - w.t.speed.start) / 10) : 0;
+    this.particles.update(dt, w.runSpeed * dt, this.camera, lines, w.runSpeed);
     this.post.grade.uniforms.dopamine.value = this.level;
     this.post.bloom.strength = 0.6 * (0.2 + 0.8 * this.level);
     this.post.grade.uniforms.time.value = time;
@@ -568,6 +593,21 @@ export class GameRenderer {
 
     const targetX = laneX(p.lane);
     this.player.rotation.z = THREE.MathUtils.lerp(this.player.rotation.z, (p.x - targetX) * 0.18, 0.3);
+
+    if (this.hero) {
+      const root = this.hero.root;
+      if (w.cause === 'crash') {
+        if (this.crashT >= 0) this.crashT += dt;
+        const k = Math.min(1, Math.max(0, this.crashT) * 3);
+        root.rotation.x = -k * 1.35;
+        root.position.y = -k * 0.25;
+      } else {
+        root.rotation.x = 0;
+        root.position.y = 0;
+      }
+      this.hero.update(w, dt);
+      return;
+    }
 
     // Dopamine ran out: the arms drop, the phone goes dark.
     const present = w.cause === 'empty' ? Math.min(1, w.fadeT / w.t.reality.fadeTime) : 0;

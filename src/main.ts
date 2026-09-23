@@ -1,6 +1,7 @@
 import './style.css';
 import { GameAudio } from './audio/audio';
 import { Bot } from './dev/bot';
+import { GameHaptics } from './fx/haptics';
 import { Input } from './input/input';
 import { GameRenderer } from './render/renderer';
 import { TUNING } from './sim/types';
@@ -9,6 +10,7 @@ import { Death } from './ui/death';
 import { Hud } from './ui/hud';
 import { KeepGoing } from './ui/keepGoing';
 import { Nags } from './ui/nags';
+import type { Sfx } from './ui/sfx';
 import { Title } from './ui/title';
 
 const STEP = 1 / 120;
@@ -30,10 +32,22 @@ const hud = new Hud(document.body, {
   noDrain: false,
 });
 const audio = new GameAudio();
-const title = new Title(hud.root, audio);
-const nags = new Nags(hud.root, audio);
-const keepGoing = new KeepGoing(hud.root, audio);
-const death = new Death(hud.root, audio);
+const haptics = new GameHaptics();
+// UI sounds, plus the phone buzz that makes a fake notification feel real.
+const sfx: Sfx = {
+  chime: () => {
+    audio.chime();
+    haptics.buzz();
+  },
+  jingle: (notes) => audio.jingle(notes),
+  tick: () => audio.tick(),
+  click: () => audio.click(),
+  reward: () => audio.reward(),
+};
+const title = new Title(hud.root, sfx);
+const nags = new Nags(hud.root, sfx);
+const keepGoing = new KeepGoing(hud.root, sfx);
+const death = new Death(hud.root, sfx);
 death.onRevive = () => world.revive();
 death.onRestart = () => world.reset(seedParam ? Number(seedParam) : Date.now());
 hud.onPerfChange = (p) => {
@@ -72,14 +86,16 @@ function frame(now: number): void {
     acc -= STEP;
   }
   const events = world.drainEvents();
-  view.handleEvents(events);
+  view.handleEvents(events, world);
   audio.handle(events);
+  haptics.handle(events);
   hud.handle(events);
   if (events.some((e) => e.type === 'start')) title.onRunStart();
 
   view.renderer.info.reset();
   view.render(world, dt);
   audio.update(world, dt);
+  haptics.update(world, dt);
   hud.update(world, dt);
   title.update(world.phase);
   nags.update(world, dt, keepGoing.paused);
