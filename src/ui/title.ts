@@ -1,14 +1,19 @@
 // Title screen, dressed as the lock screen of the phone you're about to
-// doomscroll on: date, clock, the streak nag as a lock-screen notification,
-// the character select as a widget, and "swipe up" to unlock (start the run).
+// doomscroll on: date, clock, a lock-screen notification, the character
+// select as a widget, and "swipe up" to unlock (start an endless run).
+// The notification is Today's Feed (daily.ts): "⚠️ Time to Doom. ⚠️" with a
+// parody live counter and the streak nag; tap it to scroll today's feed. Once
+// played it turns into the result with a countdown to the next feed. It comes
+// back every time the lock screen does (a nag, on purpose).
 // A Focus pill above the clock switches Personal / Work mode (content.ts):
 // it flashes the iOS-style "Work Focus on" banner, then restarts the app.
-// The character select (select.ts) mounts in `slot`. The streak lives in localStorage (a per-device
-// convenience, nothing depends on it) and the card shows once per session.
+// The character select (select.ts) mounts in `slot`. The streak (days you
+// played the Daily) lives in localStorage, a per-device convenience.
 
 import { content, mode, switchMode, work } from '../content/content';
 import { fill } from '../content/templates';
 import type { Phase } from '../sim/types';
+import { countdown, liveCount, loadToday, today } from './daily';
 import type { Sfx } from './sfx';
 
 const KEY = 'ds.streak';
@@ -20,6 +25,11 @@ interface Streak {
 
 function day(offsetDays = 0): string {
   return new Date(Date.now() + offsetDays * 864e5).toLocaleDateString('en-CA');
+}
+
+/** Whole days from local date `a` to `b` (both YYYY-MM-DD). */
+function daysBetween(a: string, b: string): number {
+  return Math.round((new Date(`${b}T00:00`).getTime() - new Date(`${a}T00:00`).getTime()) / 864e5);
 }
 
 function load(): Streak | null {
@@ -49,25 +59,14 @@ export class Title {
   private shownTime = '';
   private phase: Phase | null = null;
 
-  constructor(parent: HTMLElement, private readonly sfx: Sfx) {
-    const s = content.streak;
-    const streak = load();
-    let line: string;
-    let rewardDay: number;
-    if (!streak) {
-      line = s.first;
-      rewardDay = 1;
-    } else if (streak.last === day()) {
-      line = fill(s.safe, { n: streak.n });
-      rewardDay = streak.n;
-    } else if (streak.last === day(-1)) {
-      line = fill(s.danger, { n: streak.n });
-      rewardDay = streak.n + 1;
-    } else {
-      line = fill(s.lost, { n: streak.n });
-      rewardDay = 1;
-    }
+  onDaily: () => void = () => {};
+  onShare: (text: string) => void = () => {};
+  private readonly note: { app: HTMLElement; title: HTMLElement; text: HTMLElement; primary: HTMLElement; decline: HTMLElement };
+  private cardDay = 0;
+  private cardDone = false;
+  private shownSec = -1;
 
+  constructor(parent: HTMLElement, private readonly sfx: Sfx) {
     this.el = document.createElement('div');
     this.el.className = 'lock';
     this.el.innerHTML = `
@@ -82,12 +81,12 @@ export class Title {
       <div class="lock-note" data-ui>
         <div class="note-icon"><span class="flame"></span></div>
         <div class="note-body">
-          <div class="note-head"><b>${s.app}</b><span>now</span></div>
-          <div class="note-title">${line}</div>
-          <div class="note-text">${fill(s.reward, { n: rewardDay })}</div>
+          <div class="note-head"><b class="note-app"></b><span>now</span></div>
+          <div class="note-title"></div>
+          <div class="note-text"></div>
           <div class="note-actions">
-            <button class="note-claim" data-act="claim">${s.claim}</button>
-            <button class="note-decline" data-act="decline">${s.decline}</button>
+            <button class="note-claim" data-act="primary"></button>
+            <button class="note-decline" data-act="decline"></button>
           </div>
         </div>
       </div>
@@ -102,6 +101,9 @@ export class Title {
     `;
     parent.appendChild(this.el);
     this.card = this.el.querySelector('.lock-note')!;
+    const q = (sel: string) => this.card.querySelector<HTMLElement>(sel)!;
+    this.note = { app: q('.note-app'), title: q('.note-title'), text: q('.note-text'), primary: q('.note-claim'), decline: q('.note-decline') };
+    this.renderCard();
     this.slot = this.el.querySelector('.lock-slot')!;
     this.time = this.el.querySelector('.lock-time')!;
     this.date = this.el.querySelector('.lock-date')!;
@@ -119,24 +121,97 @@ export class Title {
     });
     this.card.addEventListener('click', (e) => {
       const act = (e.target as HTMLElement).dataset.act;
-      if (act === 'claim') {
-        this.sfx.reward();
-        this.card.querySelector('.note-text')!.textContent = content.streak.claimed;
-        setTimeout(() => this.card.classList.add('hidden'), 1200);
-      } else if (act === 'decline') {
+      if (act === 'decline') {
+        if (this.cardDone) {
+          // "Claim nothing"
+          this.sfx.reward();
+          this.note.text.textContent = content.streak.claimed;
+          setTimeout(() => this.card.classList.add('hidden'), 1200);
+        } else {
+          this.sfx.click();
+          this.card.classList.add('hidden');
+        }
+      } else if (!this.cardDone) {
+        // Tapping the notification anywhere opens it, like a real one.
         this.sfx.click();
-        this.card.classList.add('hidden');
+        this.onDaily();
+      } else if (act === 'primary') {
+        const line = loadToday()?.result?.line;
+        if (!line) return;
+        this.sfx.click();
+        this.onShare(line);
       }
     });
   }
 
   update(phase: Phase): void {
-    if (phase === 'ready') this.tick();
+    if (phase === 'ready') {
+      this.tick();
+      this.tickCard();
+    }
     if (phase === this.phase) return;
-    // The card is a first-launch thing; after the first run it stays gone.
-    if (this.phase === 'ready' && phase === 'running') this.card.classList.add('hidden');
+    // Back on the lock screen: the notification is back too.
+    if (phase === 'ready') this.renderCard();
     this.phase = phase;
     this.el.classList.toggle('hidden', phase !== 'ready');
+  }
+
+  /** The streak nag, escalating with the days you've missed (Duolingo energy). */
+  private streakLine(): string {
+    const s = content.streak;
+    const st = load();
+    if (!st) return s.first;
+    const gap = daysBetween(st.last, day());
+    if (gap <= 0) return fill(s.safe, { n: st.n });
+    if (gap === 1) return fill(s.danger, { n: st.n });
+    return fill(s.escalation[Math.min(gap - 2, s.escalation.length - 1)], { n: st.n });
+  }
+
+  /** Today's Feed invite, or today's result once played. Numbers tick in tickCard. */
+  private renderCard(): void {
+    const d = content.daily;
+    const s = content.streak;
+    const n = today();
+    const name = fill(d.name, { n });
+    const rec = loadToday();
+    this.cardDay = n;
+    this.cardDone = !!rec;
+    this.shownSec = -1;
+    const n$ = this.note;
+    if (!rec) {
+      n$.app.textContent = d.app;
+      n$.title.textContent = d.title;
+      n$.text.innerHTML = `${fill(d.live, { name, count: '<span class="note-num"></span>' })} ${this.streakLine()}`;
+      n$.primary.textContent = d.cta;
+      n$.primary.classList.remove('hidden');
+      n$.decline.textContent = d.decline;
+    } else {
+      const st = load();
+      n$.app.textContent = s.app;
+      n$.title.textContent = rec.result
+        ? fill(d.done, { name, distance: rec.result.distance, emoji: rec.result.emoji })
+        : fill(d.abandoned, { name });
+      n$.text.innerHTML = `${fill(d.next, { time: '<span class="note-num"></span>' })} ${fill(s.safe, { n: st?.n ?? 1 })} ${fill(s.reward, { n: st?.n ?? 1 })}`;
+      n$.primary.textContent = d.share;
+      n$.primary.classList.toggle('hidden', !rec.result);
+      n$.decline.textContent = s.claim;
+    }
+    this.card.classList.remove('hidden');
+    this.tickCard();
+  }
+
+  /** Once a second: the live counter or the countdown, and a new card at midnight. */
+  private tickCard(): void {
+    const now = new Date();
+    const sec = Math.floor(now.getTime() / 1000);
+    if (sec === this.shownSec) return;
+    this.shownSec = sec;
+    if (today() !== this.cardDay) {
+      this.renderCard();
+      return;
+    }
+    const num = this.card.querySelector('.note-num');
+    if (num) num.textContent = this.cardDone ? countdown(now) : liveCount(now).toLocaleString('en-US');
   }
 
   /** The lock-screen clock shows the real time: it's later than you think. */
@@ -155,7 +230,7 @@ export class Title {
     this.date.textContent = now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
   }
 
-  /** A run started: keep (or restart) the streak. */
+  /** A Daily run started: keep (or restart) the streak. */
   onRunStart(): void {
     const s = load();
     if (s?.last === day()) return;

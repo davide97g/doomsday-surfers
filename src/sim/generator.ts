@@ -44,11 +44,14 @@ export interface GenContext {
   difficulty: number; // 0..1
 }
 
+/** Ids are unique across generators (not per run), so after a reset the renderer
+ *  never mistakes a new obstacle for an old one it is still showing. */
+let nextId = 1;
+
 export class Generator {
   cursor: number;
   /** Gates the cursor has passed, i.e. the zone chunks are being built for. */
   private gate = 0;
-  private nextId = 1;
   private readonly rng: Rng;
   private readonly t: Tuning;
   private pads: Pad[] = [];
@@ -117,7 +120,7 @@ export class Generator {
   }
 
   private obstacle(kind: ObstacleKind, lane: number, s: number, length = 0, speed = 0): Obstacle {
-    return { id: this.nextId++, kind, lane, s, length, speed, active: false, variant: this.rng.int(0, 7), hit: false };
+    return { id: nextId++, kind, lane, s, length, speed, active: false, variant: this.rng.int(0, 7), hit: false };
   }
 
   private contentType(): number {
@@ -130,7 +133,7 @@ export class Generator {
   private pickupLine(pickups: Pickup[], lane: number, from: number, to: number, type = this.contentType(), y = 0.9): void {
     const step = this.t.pickup.spacing;
     for (let s = from; s <= to; s += step) {
-      pickups.push({ id: this.nextId++, lane, s, y, taken: false, type });
+      pickups.push({ id: nextId++, lane, s, y, taken: false, type });
     }
   }
 
@@ -226,14 +229,14 @@ export class Generator {
         const pd = this.t.pads;
         const lane = this.rng.int(0, lanes - 1);
         const len = pd[kind].length;
-        this.pads.push({ id: this.nextId++, kind, lane, s, length: len, used: false });
+        this.pads.push({ id: nextId++, kind, lane, s, length: len, used: false });
         const g = this.t.jump.gravity;
         const vy = pd[kind].launch;
         const flight = (2 * vy) / g;
         const type = this.contentType();
         for (let tt = 0.12; tt < flight - 0.1; tt += this.t.pickup.spacing / ctx.speed) {
           const y = vy * tt - 0.5 * g * tt * tt;
-          pickups.push({ id: this.nextId++, lane, s: s + ctx.speed * tt, y: y + 0.9, taken: false, type });
+          pickups.push({ id: nextId++, lane, s: s + ctx.speed * tt, y: y + 0.9, taken: false, type });
         }
         // Skipping it is fine: a plain pickup line alongside.
         if (this.rng.chance(0.5)) {
@@ -246,7 +249,7 @@ export class Generator {
       case 'autoplay': {
         const a = this.t.pads.autoplay;
         const lane = this.rng.int(0, lanes - 1);
-        this.pads.push({ id: this.nextId++, kind, lane, s, length: a.length, used: false });
+        this.pads.push({ id: nextId++, kind, lane, s, length: a.length, used: false });
         this.pickupLine(pickups, lane, s + a.length + 2, s + a.length + 2 + ctx.speed * a.time * a.speed * 0.8);
         this.cursor = s + a.length + ctx.speed * a.time * a.speed + this.gap(ctx) * a.speed;
         break;

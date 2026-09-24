@@ -1,12 +1,13 @@
 import './style.css';
 import { GameAudio } from './audio/audio';
-import { mode, realBrands } from './content/content';
+import { content, mode, realBrands } from './content/content';
 import { Bot } from './dev/bot';
 import { GameHaptics } from './fx/haptics';
 import { Input } from './input/input';
 import { GameRenderer } from './render/renderer';
 import { TUNING } from './sim/types';
 import { World } from './sim/world';
+import { distanceText, killerEmoji, loadToday, saveDaily, seedFor, shareLine, today } from './ui/daily';
 import { Death } from './ui/death';
 import { GateScan } from './ui/gate';
 import { Hud } from './ui/hud';
@@ -15,6 +16,7 @@ import { Desk } from './ui/desk';
 import { Nags } from './ui/nags';
 import { Reel } from './ui/reel';
 import { Select } from './ui/select';
+import { shareText } from './ui/share';
 import type { Sfx } from './ui/sfx';
 import { Title } from './ui/title';
 
@@ -32,7 +34,10 @@ if (realBrands) {
   document.head.append(font);
 }
 const app = document.getElementById('app')!;
-const world = new World(seedParam ? Number(seedParam) : Date.now());
+const endlessSeed = () => (seedParam ? Number(seedParam) : Date.now());
+const world = new World(endlessSeed());
+/** Today's feed number while the Daily is being played, else null (an endless run). */
+let dailyDay: number | null = null;
 const view = new GameRenderer(app, TUNING.spawn.ahead - 10);
 view.renderer.info.autoReset = false;
 const input = new Input(view.renderer.domElement);
@@ -92,7 +97,18 @@ const keepGoing = new KeepGoing(hud.root, sfx);
 const death = new Death(hud.root, sfx);
 const gateScan = new GateScan(hud.root, sfx);
 death.onRevive = () => world.revive();
-death.onRestart = () => world.reset(seedParam ? Number(seedParam) : Date.now());
+death.onRestart = () => {
+  dailyDay = death.daily = null;
+  world.reset(endlessSeed());
+};
+// Tapping the "Time to Doom" notification: swap in today's course and go. One shot a day.
+title.onDaily = () => {
+  if (world.phase !== 'ready' || loadToday()) return;
+  dailyDay = death.daily = today();
+  world.reset(seedFor(dailyDay));
+  input.push('up');
+};
+title.onShare = (text) => void shareText(content.report.shareTitle, text);
 hud.onPerfChange = (p) => {
   view.post.settings.bloom = p.bloom;
   view.post.settings.grade = p.grade;
@@ -140,7 +156,17 @@ function frame(now: number): void {
     reel.hide();
     desk.clear();
   }
-  if (events.some((e) => e.type === 'start')) title.onRunStart();
+  if (dailyDay !== null) {
+    // The Daily locks as soon as it starts (quitting mid-run doesn't buy a retry).
+    // Each death (a revive can bring you back) overwrites the result.
+    if (events.some((e) => e.type === 'start')) {
+      saveDaily({ day: dailyDay });
+      title.onRunStart();
+    }
+    if (events.some((e) => e.type === 'dead')) {
+      saveDaily({ day: dailyDay, result: { distance: distanceText(world.d), emoji: killerEmoji(world), line: shareLine(world, dailyDay) } });
+    }
+  }
 
   view.renderer.info.reset();
   view.render(world, dt);

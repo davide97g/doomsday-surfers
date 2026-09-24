@@ -13,6 +13,7 @@ import type { World } from '../sim/world';
 import type { Nags } from './nags';
 import { buildReceipt, drawReceipt, shareCard, type Paper, type Receipt } from './receipt';
 import type { Sfx } from './sfx';
+import { shareLine } from './daily';
 import { shareImage } from './share';
 
 type State = 'hidden' | 'offer' | 'ad' | 'final';
@@ -26,6 +27,8 @@ const CHROME = 300;
 export class Death {
   onRevive: () => void = () => {};
   onRestart: () => void = () => {};
+  /** Today's feed number when this run is the Daily, else null. */
+  daily: number | null = null;
   private state: State = 'hidden';
   private readonly offer: HTMLElement;
   private readonly ad: HTMLElement;
@@ -183,7 +186,12 @@ export class Death {
     try {
       const r = content.report;
       const blob = await shareCard(this.paper);
-      await shareImage(blob, 'proof-of-doom.png', r.shareTitle, fill(r.shareText, { distance: this.receipt.distance, killer: this.receipt.killer.toLowerCase() }));
+      // The Daily shares its Wordle-style grid; an endless run shares the one-liner.
+      const text =
+        this.daily !== null && this.world
+          ? shareLine(this.world, this.daily)
+          : fill(r.shareText, { distance: this.receipt.distance, killer: this.receipt.killer.toLowerCase() });
+      await shareImage(blob, 'proof-of-doom.png', r.shareTitle, text);
     } finally {
       this.sharing = false;
     }
@@ -219,7 +227,7 @@ export class Death {
   }
 
   private buildReport(): void {
-    this.receipt = buildReceipt(this.world!, this.nags!);
+    this.receipt = buildReceipt(this.world!, this.nags!, this.daily);
     const paper = drawReceipt(this.receipt);
     this.paper = paper;
     const cssW = Math.min(320, window.innerWidth * 0.84);

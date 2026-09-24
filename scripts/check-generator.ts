@@ -9,9 +9,12 @@
 //    comes out of every gate scan it enters.
 // 4. Thrill rides: no obstacle or pad inside a loop/corkscrew/drop/airtime
 //    stretch (pickups are fine: they ride through).
+// 5. Today's Feed: day numbers count one per calendar day (DST included),
+//    seeds don't repeat for years, and the same seed plays out identically.
 
 import { Bot } from '../src/dev/bot';
-import { gateS } from '../src/sim/types';
+import { dailySeed, dayNumber } from '../src/sim/daily';
+import { TUNING, gateS } from '../src/sim/types';
 import { World } from '../src/sim/world';
 
 const SEEDS = 40;
@@ -145,4 +148,25 @@ gatesCrossed.sort((a, b) => a - b);
 console.log(`gate failures: ${gateFailures} · gates crossed — median ${gatesCrossed[Math.floor(gatesCrossed.length / 2)]}, max ${gatesCrossed[gatesCrossed.length - 1]}`);
 thrills.sort((a, b) => a - b);
 console.log(`thrill-ride failures: ${rideFailures} · thrills per run — median ${thrills[Math.floor(thrills.length / 2)]}, max ${thrills[thrills.length - 1]}`);
-if (blockedFailures > 0 || habitFailures > 0 || reviveFailures > 0 || gateFailures > 0 || rideFailures > 0 || revivesTested < 5) process.exit(1);
+// --- Today's Feed ---
+let dailyFailures = 0;
+const [ey, em, ed] = TUNING.daily.epoch;
+if (dayNumber(new Date(ey, em - 1, ed, 23, 59)) !== 1) dailyFailures++;
+const seeds = new Set<number>();
+for (let i = 0; i < 3 * 366; i++) {
+  // Noon avoids DST edges; the day number must still step by exactly one.
+  const day = dayNumber(new Date(ey, em - 1, ed + i, 12));
+  if (day !== i + 1) dailyFailures++;
+  seeds.add(dailySeed(day));
+}
+if (seeds.size !== 3 * 366) dailyFailures++;
+const replay = (): string => {
+  const w = new World(dailySeed(1));
+  const bot = new Bot();
+  for (let i = 0; i < 120 * 60 && w.phase !== 'dead'; i++) w.step(DT, bot.think(w, DT));
+  return `${w.d.toFixed(6)}|${w.dopamine.toFixed(6)}|${w.pickupsTaken}|${w.history.map((h) => h.toFixed(3)).join(',')}`;
+};
+if (replay() !== replay()) dailyFailures++;
+console.log(`daily failures: ${dailyFailures}`);
+
+if (blockedFailures > 0 || habitFailures > 0 || reviveFailures > 0 || gateFailures > 0 || rideFailures > 0 || dailyFailures > 0 || revivesTested < 5) process.exit(1);

@@ -38,3 +38,26 @@ export async function shareImage(blob: Blob, name: string, title: string, text: 
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
+
+/** Text only (the Daily's emoji grid, for group chats). Falls back to the clipboard. */
+export async function shareText(title: string, text: string): Promise<void> {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      await Share.share({ title, text });
+      return;
+    }
+    if (navigator.share) {
+      await navigator.share({ title, text });
+      return;
+    }
+  } catch (e) {
+    const msg = String((e as Error)?.message ?? e);
+    if ((e as Error)?.name === 'AbortError' || /cancel/i.test(msg)) return;
+    console.warn('share failed, copying instead', e);
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // Nothing else to try.
+  }
+}

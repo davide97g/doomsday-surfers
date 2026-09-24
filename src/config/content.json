@@ -122,11 +122,44 @@
     "danger": "Your {n}-day streak is in danger",
     "safe": "{n}-day streak. Don't break it.",
     "lost": "You lost your {n}-day streak. We're not angry. Just disappointed.",
+    "escalation": [
+      "You lost your {n}-day streak. We're not angry. Just disappointed.",
+      "The feed noticed you're gone. It's fine. It's fine.",
+      "Your mutuals are asking about you. (They aren't.)",
+      "These reminders don't seem to be working. We'll stop sending them for now.",
+      "Hi. It's us again. We never stopped."
+    ],
     "reward": "Day {n} reward: nothing. Come back tomorrow for more nothing.",
     "claim": "Claim nothing",
     "claimed": "Claimed. You now have nothing.",
     "app": "Streaks",
     "decline": "No thanks, I don't care about my streak"
+  },
+  "daily": {
+    "app": "Time to Doom",
+    "title": "⚠️ Time to Doom. ⚠️",
+    "name": "Today's Feed #{n}",
+    "live": "{name} is live. {count} people are scrolling it right now.",
+    "cta": "SCROLL TODAY'S FEED",
+    "decline": "No thanks, I have a life",
+    "done": "{name}: {distance} · killed by {emoji}",
+    "abandoned": "{name}: abandoned. Coward.",
+    "next": "Next feed in {time}.",
+    "share": "SHARE RESULT",
+    "storeLine": "TODAY'S FEED #{n} · AISLE: {zone}",
+    "lineHead": "Today's Feed #{n} 📱",
+    "lineStats": "{distance} · killed by {emoji}",
+    "lineMore": "brain age {age} · top {pct}%",
+    "lineRevive": "📺 watched an ad to live",
+    "hashtag": "#ProofOfDoom",
+    "squares": ["🟩", "🟨", "🟧", "🟥"],
+    "dead": "⬛",
+    "more": "…",
+    "killers": {
+      "habits": ["💧", "📖", "👟", "📞"],
+      "crash": { "low": "🔔", "high": "📢", "post": "🎞️", "movingPost": "🚆" },
+      "none": "🫥"
+    }
   },
   "keepGoing": {
     "title": "You've been scrolling for {m} minutes.",

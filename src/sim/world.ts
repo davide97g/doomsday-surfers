@@ -102,6 +102,10 @@ export class World {
   crashKind: ObstacleKind | null = null;
   /** Habit type of the last healthy habit walked into, -1 if none (the usual killer on 'empty'). */
   lastHabit = -1;
+  /** Average dopamine over each `daily.sampleEvery` s of sim time (the Daily's share grid). */
+  history: number[] = [];
+  private sampleSum = 0;
+  private sampleT = 0;
   /** Seconds into the fade to reality. */
   fadeT = 0;
   /** Selected character (index into tuning characters / content characters). */
@@ -170,6 +174,9 @@ export class World {
     this.cause = null;
     this.crashKind = null;
     this.lastHabit = -1;
+    this.history = [];
+    this.sampleSum = 0;
+    this.sampleT = 0;
     this.fadeT = 0;
     this.zone = 0;
     this.nextGate = 0;
@@ -262,6 +269,7 @@ export class World {
     // Everything below runs on sim time, which a gate scan slows down.
     dt *= this.timeScale;
     this.time += dt;
+    this.sample(dt);
     this.speed = Math.min(t.speed.max, this.speed + t.speed.accel * dt);
 
     for (const a of actions) this.applyAction(a);
@@ -398,7 +406,20 @@ export class World {
     }
   }
 
+  private sample(dt: number): void {
+    this.sampleSum += this.dopamine * dt;
+    this.sampleT += dt;
+    if (this.sampleT < this.t.daily.sampleEvery) return;
+    this.history.push(this.sampleSum / this.sampleT);
+    this.sampleSum = 0;
+    this.sampleT = 0;
+  }
+
   private lose(cause: DeathCause): void {
+    // Keep the last partial sample if it's long enough to mean something.
+    if (this.sampleT >= this.t.daily.sampleEvery * 0.3) this.history.push(this.sampleSum / this.sampleT);
+    this.sampleSum = 0;
+    this.sampleT = 0;
     this.cause = cause;
     this.dopamine = 0;
     this.boostT = 0;

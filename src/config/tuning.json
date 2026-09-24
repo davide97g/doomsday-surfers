@@ -105,6 +105,14 @@
     "favourChance": 0.5
   },
   "revive": { "perRun": 1, "dopamine": 40, "clearAhead": 40, "clearSeconds": 2, "adSeconds": 5 },
+  "daily": {
+    "epoch": [2026, 9, 24],
+    "sampleEvery": 10,
+    "squares": [70, 45, 20],
+    "perRow": 10,
+    "maxSquares": 60,
+    "live": { "base": 2600000, "swing": 1600000, "peakHour": 3, "jitter": 40000 }
+  },
   "report": {
     "lifeScale": 1,
     "tierAt": [0, 250, 700, 1800, 2900, 5000],

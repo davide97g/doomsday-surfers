@@ -50,7 +50,7 @@ function life(sec: number): string {
   return fill(R.life, { life: m >= 60 ? `${Math.floor(m / 60)} H ${m % 60} MIN` : `${m} MIN` });
 }
 
-function topPct(d: number): string {
+export function topPct(d: number): string {
   const p = Math.max(0.01, 100 * Math.exp(-d / T.topScale));
   return p >= 10 ? p.toFixed(0) : p >= 1 ? p.toFixed(1) : p.toFixed(2);
 }
@@ -73,7 +73,7 @@ function aura(w: World): string {
   return `${n > 0 ? '+' : n < 0 ? '-' : ''}${Math.abs(n).toLocaleString('en-US')}`;
 }
 
-function brainAge(w: World): number {
+export function brainAge(w: World): number {
   const b = T.brainAge;
   const numb = 1 - w.tolerance.reduce((s, t) => s + t, 0) / w.tolerance.length;
   return Math.min(b.max, Math.round(b.base + w.pickupsTaken * b.perPickup + numb * b.numbness));
@@ -85,7 +85,8 @@ function item(it: Item, n: number, per: number): Line {
   return { k: 'row', l: fill(it.label, { n }), r: fill(pick(it.prices), plural) };
 }
 
-export function buildReceipt(w: World, nags: Nags, now = new Date()): Receipt {
+/** `daily` is today's feed number when this was the Daily run. */
+export function buildReceipt(w: World, nags: Nags, daily: number | null = null, now = new Date()): Receipt {
   const types = content.contentTypes;
   const by = (id: string) => w.takenByType[types.findIndex((c) => c.id === id)] ?? 0;
   const per = T.pricePer;
@@ -113,9 +114,17 @@ export function buildReceipt(w: World, nags: Nags, now = new Date()): Receipt {
   const kill = killer(w);
   const span = Math.max(0.4, 8 * Math.pow(0.985, w.pickupsTaken)).toFixed(1);
 
+  const zone = content.zones[zoneLook(w.zone)].name;
   const lines: Line[] = [
     { k: 'text', t: R.store, size: 'big' },
-    { k: 'text', t: fill(R.storeLine, { store: String(w.seed % 10000).padStart(4, '0'), zone: content.zones[zoneLook(w.zone)].name }), size: 'small' },
+    {
+      k: 'text',
+      t:
+        daily === null
+          ? fill(R.storeLine, { store: String(w.seed % 10000).padStart(4, '0'), zone })
+          : fill(content.daily.storeLine, { n: daily, zone }),
+      size: 'small',
+    },
     { k: 'text', t: fill(R.customer, { character: content.characters[w.character].name }), size: 'small' },
     { k: 'row', l: `${p2(now.getDate())}.${p2(now.getMonth() + 1)}.${String(now.getFullYear()).slice(2)}`, r: `${p2(now.getHours())}:${p2(now.getMinutes())}` },
     { k: 'rule' },

@@ -63,7 +63,7 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 | # | feature | why this order | status |
 |---|---|---|---|
 | 1 | Proof of Doom receipt | cheapest share loop, needed by 2 and 3 | built 2026-09-24, pending on-device share check |
-| 2 | Daily Feed + emoji line | reuses card, seed exists | todo |
+| 2 | Daily Feed + emoji line | reuses card, seed exists | built 2026-09-24, pending on-device check |
 | 3 | Ghost challenge links | reuses daily seed, social pull | todo |
 | 4 | Auto-clip (last 8 s) | video is the real TikTok fuel | todo |
 | 5 | Hidden ending | the secret, content for 1 and 4 | todo |
@@ -97,27 +97,36 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 
 **Ideas parked for later.** Daily Feed number in the store line; a secret receipt for the hidden ending ("DIAGNOSIS: PRESENT. DISGUSTING.").
 
-## 2. Daily Feed
+## 2. Daily Feed (built)
 
-**Hook.** Wordle mechanics: one course per day for everyone, one shareable line, streak guilt. The group chat compares every morning.
+**Decided 2026-09-24.**
+- **One shot, then locked** (Wordle). The Daily locks the moment its run starts: quitting mid-run shows "Today's Feed #n: abandoned. Coward." Endless runs are always open.
+- Day #1 is 2026-09-24 (`tuning.daily.epoch`), with the rollover at local midnight. Each mode has its own seed for the same day, so playing one doesn't spoil the other.
+- **Entry point:** the lock-screen notification "⚠️ Time to Doom. ⚠️", riffing on BeReal's daily push.
+  - Before playing: "Today's Feed #n is live. 1,464,912 people are scrolling it right now." plus the streak nag, with [SCROLL TODAY'S FEED] and "No thanks, I have a life". Tapping anywhere on the card opens it.
+  - After playing: "Today's Feed #n: 1.1 km · killed by 🎞️", "Next feed in 06:00:49" and the old "Day n reward: nothing" gag, with [SHARE RESULT] (text only) and "Claim nothing".
+  - The card comes back every time the lock screen does (a nag, on purpose).
+- **Share line:** a Wordle grid with one square per 10 s of sim time, colour-coded by average dopamine: 🟩 ≥70, 🟨 ≥45, 🟧 ≥20, 🟥 otherwise. Ten per row, capped at 60, ending in ⬛. Below it: distance, the killer emoji, brain age, top %, "📺 watched an ad to live" if revived, and the hashtag. The death screen's [PROOF OF DOOM] sends it along with the receipt image, and the receipt's store line reads "TODAY'S FEED #n".
+- **Streak:** now counts days you played the Daily (shared across modes). Missed days escalate, Duolingo style:
+  - 2 days: "not angry, just disappointed"
+  - then: "It's fine. It's fine."
+  - then: "Your mutuals are asking about you. (They aren't.)"
+  - then: "These reminders don't seem to be working. We'll stop sending them for now."
+  - then: "Hi. It's us again. We never stopped."
+- **Live counter** is parody: it peaks at 3 AM, dips mid-afternoon and wobbles every minute (`tuning.daily.live`).
+- **Work mode:** "⚠️ Time for Standup. ⚠️", "Daily Standup #n", "{count} people are on mute in it", "No thanks, I have boundaries", "you left early. Noted.", "📺 watched a webinar to stay online", office killer emoji, and HR-flavoured escalation.
 
-**Extreme version.**
-- Seed = days since launch epoch. The title screen shows "Today's Feed #143".
-- Emoji line built from the dopamine curve, sampled into ~10 buckets:
-  `Today's Feed #143 📱🟩🟩🟨🟥🟩⬛ 2.3 km · died of: glass of water 💧 · aura −12k`
-  The cause of death (the habit that killed you) is the funniest part, since "died of a glass of water" is instantly shareable.
-- Streak parody of the Duolingo owl's passive-aggressive guilt: "Your streak: 4 days. Don't break it. (Break it.) (Don't.)". Missing a day triggers a guilt notification on the title screen. Keep it in-game only (see Skip list).
-- Free play stays on random seeds, and only the first Daily run of the day counts for the share line (like Wordle).
+**Where.**
+- `src/sim/daily.ts`: day number, seed, time to midnight (pure).
+- `World.history`: dopamine samples.
+- `src/ui/daily.ts`: local record, grid, share line, live count, countdown.
+- `src/ui/title.ts`: the card.
+- `main.ts`: `dailyDay`, lock on start, result on each death.
+- Copy lives in `content.json` / `content.work.json` under `daily` and `streak.escalation`.
+- `check:gen` checks that day numbers step by one (DST included), that seeds don't repeat for 3 years, and that the same Daily seed plays out identically.
+- Generator ids are now unique across resets. Resetting the world on the title screen used to reuse ids the renderer was still showing.
 
-**Tech.**
-- The sim already takes a seed (`World(seed)`, `?seed=`). Add a `daily` mode flag and a UTC-day seed function in `src/sim`.
-- Record the dopamine samples in the sim (`World.history`, fixed cadence) so the renderer and UI read them.
-- Put the streak in `localStorage` (try/catch). It is a per-device convenience, which is fine.
-
-**Questions.**
-- UTC midnight or local midnight? Wordle uses local.
-- Emoji palette: battery emoji 🔋🪫, squares, or phone-themed ones (📱📵)?
-- Does the daily run allow the fake-ad revive?
+**Still to check on device.** The share sheet with text only, how emoji render in Messages and WhatsApp, and the midnight rollover while the lock screen is open.
 
 ## 3. Ghost challenge links
 
