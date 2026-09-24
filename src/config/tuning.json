@@ -24,6 +24,7 @@
     "toleranceDecay": 0.88,
     "toleranceFloor": 0.25,
     "boostTime": 3,
+    "reelTime": 5,
     "boostSpeed": 1.6,
     "boostRamp": 0.5
   },
@@ -66,7 +67,8 @@
     "notifyMin": 3.5,
     "notifyMax": 7,
     "notifyShow": 4.5,
-    "notifyMaxOnScreen": 3,
+    "notifyMaxOnScreen": 2,
+    "reelChance": 0.5,
     "bannerEvery": 40,
     "bannerShow": 6,
     "bannerCloseAfter": 3,

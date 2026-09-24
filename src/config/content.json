@@ -87,6 +87,27 @@
     ],
     "cta": "TAP TO OPEN",
     "ctaLines": ["It's probably important", "Just a quick look", "You'll feel better", "Everyone else already saw it", "Don't be the last to know"],
+    "reel": {
+      "lines": [
+        "A friend sent you a reel. Watch it now",
+        "{friend} sent you a reel. Watch it now",
+        "{friend} sent you a reel 💀 you NEED to see this",
+        "{friend} sent you a reel: \"this is so you\"",
+        "3 friends sent you the same reel. Watch it now",
+        "{friend} sent you a reel and can see you haven't opened it"
+      ],
+      "cta": "WATCH NOW",
+      "sentBy": "sent by {friend}",
+      "clips": [
+        { "file": "cat-in-hat", "handle": "@hat.cat.official", "caption": "he lives here now. pays no rent 😭 #fyp", "likes": 2100000 },
+        { "file": "burger", "handle": "@honest.bites", "caption": "rating this $48 burger honestly (it's a 3)", "likes": 480000 },
+        { "file": "tv-snack", "handle": "@pov_you_exist", "caption": "POV: dinner is a personality", "likes": 91000 },
+        { "file": "cleaning-dance", "handle": "@clean.with.me", "caption": "cleaning motivation 🧼 (I did not clean after)", "likes": 1300000 },
+        { "file": "party", "handle": "@slop.daily", "caption": "wait for the end… (there is no end)", "likes": 760000 },
+        { "file": "breakdance", "handle": "@grindset.guru", "caption": "day 212 of learning this. still bad. still posting", "likes": 34000 },
+        { "file": "park-vibes", "handle": "@main.character.era", "caption": "this song cured my anxiety (temporarily)", "likes": 5200000 }
+      ]
+    },
     "boost": {
       "title": "SUPER SCROLL",
       "lines": ["Distracted. Invincible.", "You looked. Good.", "Attention sold. Speed bought.", "Nothing can touch you now.", "This is what focus costs.", "Eyes off the road. Faster."]

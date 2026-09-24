@@ -62,6 +62,16 @@ bun run assets       # needs Blender (brew install --cask blender --appdir=~/App
 
 `assets/blender/runner.py` builds each playable doomscroller into `public/assets/characters/<id>.glb` (`bun run assets`, or `bun run assets bro` for one). All seven share the rig, the clips and the base body; a `CHARACTERS` table picks the outfit, head, props, colours and how the screen is held. The base is one continuous skin-modifier body with fabric folds, a hood with real thickness around the face void, ribbed cuffs and hem, pocket, drawstrings, jointed fingers gripping a detailed phone, and layered sneakers, all auto-weighted to a 19-bone rig with `run`, `idle`, `jump`, `roll` and `present` clips. Budget: about 45k triangles and no textures (it prints a per-part triangle count). Pass a folder as a second argument to also render Eevee preview PNGs (front, side, back, hands). The app icon source is `assets/icon/icon.svg`.
 
+Reel clips (the videos that play when you open a "friend sent you a reel" notification) live in `public/assets/reels/`: free-licence Mixkit stock, cropped to 9:16, 5 s, no audio, about 30–170 KB each, plus a `.jpg` thumbnail for the notification. Sources and licence are in `public/assets/reels/CREDITS.md`. To add one, pick a clip marked **Free** (not Restricted) on mixkit.co, then:
+
+```bash
+ffmpeg -ss <start> -t 5 -i in.mp4 -an -vf "crop=202:360:<x>:0,fps=24,format=yuv420p" \
+  -c:v libx264 -profile:v main -crf 27 -movflags +faststart public/assets/reels/<name>.mp4
+ffmpeg -ss <start+1> -i in.mp4 -frames:v 1 -vf "crop=202:360:<x>:0,scale=108:192" -q:v 5 public/assets/reels/<name>.jpg
+```
+
+and add it to `notifications.reel.clips` in `src/config/content.json` (invented handle + caption), and to CREDITS.md.
+
 ### Day-1 perf gate
 
 On the iPhone 14 with bloom + grade on at pixel ratio 2, the target is a steady **60 fps** with headroom (CPU ms well under 16). If it can't hold that, the plan is to move to Godot before any art gets built.

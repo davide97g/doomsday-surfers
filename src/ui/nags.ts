@@ -1,28 +1,39 @@
 // Mid-run distractions: fake push notifications and banner ads at the bottom.
-// Notifications are big, pile up (one per slot, up to ui.notifyMaxOnScreen) and
-// land over the track on purpose. Each one bumps dopamine just by arriving;
-// tapping it opens it for the super boost. A swipe that starts on a card flings
-// it away and still steers the runner, so a nag never eats a dodge.
+// Notifications are big and pile up (one per slot, up to ui.notifyMaxOnScreen),
+// but only at the top or bottom edge: they never cover the track ahead (the
+// reel they open does). Each one bumps dopamine just by arriving;
+// tapping it opens it for the super boost. About half are reel shares ("a friend
+// sent you a reel"): opening one also plays the clip (see reel.ts). A swipe that
+// starts on a card flings it away and still steers the runner, so a nag never
+// eats a dodge.
 
 import content from '../config/content.json';
 import { SWIPE_PX } from '../input/input';
 import { TUNING, type Action } from '../sim/types';
 import type { World } from '../sim/world';
 import { fill, pick } from '../content/templates';
+import { reelSrc } from './reel';
 import type { Sfx } from './sfx';
 
 const UI = TUNING.ui;
 const N = content.notifications;
-/** Vertical slots a card can land in: under the HUD, over the track, over the runner. */
-const SLOTS = ['top', 'mid', 'low'];
+/** Where a card can land: under the HUD, or above the banner ad. */
+const SLOTS = ['top', 'bottom'];
 const LEAVE_MS = 260;
 
 function rand(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
+/** A reel a "friend" sent: which clip, and who to blame. */
+export interface ReelShare {
+  clip: number;
+  friend: string;
+}
+
 interface Note {
   el: HTMLElement;
+  reel: ReelShare | null;
   bar: HTMLElement;
   slot: number;
   left: number;
@@ -34,8 +45,10 @@ export class Nags {
   notificationsShown = 0;
   bannersShown = 0;
   onArrive: () => void = () => {};
-  onOpen: () => void = () => {};
+  onOpen: (reel: ReelShare | null) => void = () => {};
   onSwipe: (a: Action) => void = () => {};
+  /** A reel is playing in the top slot's space: new cards go to the bottom. */
+  topBlocked = false;
   private readonly notes: Note[] = [];
   private readonly layer: HTMLElement;
   private readonly banner: HTMLElement;
@@ -45,6 +58,7 @@ export class Nags {
   private bannerLeft = 0;
   private bannerAge = 0;
   private running = false;
+  private lastClip = -1;
 
   constructor(parent: HTMLElement, private readonly sfx: Sfx) {
     this.layer = document.createElement('div');
@@ -119,6 +133,7 @@ export class Nags {
 
   private showNote(): void {
     const taken = new Set(this.notes.filter((n) => !n.gone).map((n) => n.slot));
+    if (this.topBlocked) taken.add(SLOTS.indexOf('top'));
     const free = SLOTS.map((_, i) => i).filter((i) => !taken.has(i));
     if (free.length === 0 || taken.size >= UI.notifyMaxOnScreen) return;
     const slot = free[Math.floor(Math.random() * free.length)];
@@ -137,9 +152,22 @@ export class Nags {
       </div>
       <div class="notif-bar"></div>`;
     el.querySelector('.notif-badge')!.textContent = String(this.notificationsShown);
-    el.querySelector('.notif-text')!.textContent = fill(pick(N.lines));
     el.querySelector('.notif-cta span')!.textContent = pick(N.ctaLines);
-    const note: Note = { el, bar: el.querySelector('.notif-bar')!, slot, left: UI.notifyShow, gone: false };
+    let reel: ReelShare | null = null;
+    if (Math.random() < UI.reelChance) {
+      const clips = N.reel.clips.length;
+      let clip = Math.floor(Math.random() * clips);
+      if (clip === this.lastClip) clip = (clip + 1) % clips;
+      this.lastClip = clip;
+      reel = { clip, friend: fill('{handle}') };
+      el.classList.add('is-reel');
+      el.querySelector<HTMLElement>('.notif-icon')!.style.backgroundImage = `url(${reelSrc(clip, 'jpg')})`;
+      el.querySelector('.notif-text')!.textContent = fill(pick(N.reel.lines), { friend: reel.friend });
+      el.querySelector('.notif-cta b')!.textContent = N.reel.cta;
+    } else {
+      el.querySelector('.notif-text')!.textContent = fill(pick(N.lines));
+    }
+    const note: Note = { el, reel, bar: el.querySelector('.notif-bar')!, slot, left: UI.notifyShow, gone: false };
     this.bindPointer(note);
     this.layer.append(el);
     this.notes.push(note);
@@ -179,7 +207,7 @@ export class Nags {
       n.el.classList.remove('pressed');
       if (swiped || n.gone || e.type === 'pointercancel') return;
       this.sfx.reward();
-      this.onOpen();
+      this.onOpen(n.reel);
       this.dismiss(n, 'opened');
     };
     n.el.addEventListener('pointerup', up);

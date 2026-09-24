@@ -11,6 +11,7 @@ import { GateScan } from './ui/gate';
 import { Hud } from './ui/hud';
 import { KeepGoing } from './ui/keepGoing';
 import { Nags } from './ui/nags';
+import { Reel } from './ui/reel';
 import { Select } from './ui/select';
 import type { Sfx } from './ui/sfx';
 import { Title } from './ui/title';
@@ -53,9 +54,13 @@ select.onChange = (i) => {
 };
 world.setCharacter(select.index);
 view.setCharacter(select.index);
+const reel = new Reel(hud.root);
 const nags = new Nags(hud.root, sfx);
 nags.onArrive = () => world.notificationArrived();
-nags.onOpen = () => world.openNotification();
+nags.onOpen = (share) => {
+  world.openNotification();
+  if (share) reel.play(share.clip, share.friend);
+};
 // A swipe that starts on a notification still steers the runner.
 nags.onSwipe = (a) => input.push(a);
 const keepGoing = new KeepGoing(hud.root, sfx);
@@ -73,7 +78,7 @@ hud.onPerfChange = (p) => {
 };
 
 // Expose for automated tests / debugging in the console.
-(window as unknown as { game: unknown }).game = { world, view, input, audio, nags, keepGoing, death };
+(window as unknown as { game: unknown }).game = { world, view, input, audio, nags, reel, keepGoing, death };
 
 let last = performance.now();
 let acc = 0;
@@ -105,7 +110,10 @@ function frame(now: number): void {
   haptics.handle(events);
   hud.handle(events);
   gateScan.handle(events, world);
-  if (events.some((e) => e.type === 'gate')) nags.hideAll();
+  if (events.some((e) => e.type === 'gate')) {
+    nags.hideAll();
+    reel.hide();
+  }
   if (events.some((e) => e.type === 'start')) title.onRunStart();
 
   view.renderer.info.reset();
@@ -115,7 +123,9 @@ function frame(now: number): void {
   hud.update(world, dt);
   title.update(world.phase);
   // The gate scan owns the screen: no nags, and the keep-going prompt waits.
+  nags.topBlocked = reel.playing;
   nags.update(world, dt, keepGoing.paused || world.gateT >= 0);
+  reel.update(world, dt, keepGoing.paused);
   gateScan.update(world, dt);
   if (!bot) keepGoing.update(world, dt);
   death.update(world, dt, nags);

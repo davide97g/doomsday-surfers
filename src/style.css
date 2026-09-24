@@ -97,7 +97,7 @@ html, body {
 }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px) scale(.96); } }
 .toast.boost {
-  top: 44%; width: max-content; white-space: pre-line; background: linear-gradient(135deg, var(--hot), #7b2eff); color: #fff;
+  z-index: 2; top: 44%; width: max-content; white-space: pre-line; background: linear-gradient(135deg, var(--hot), #7b2eff); color: #fff;
   font: 900 20px system-ui, sans-serif; letter-spacing: .04em; box-shadow: 0 0 40px rgba(255,46,136,.7);
 }
 .battery.boost .bat-fill { background: linear-gradient(90deg, #fff, var(--acid)); box-shadow: 0 0 22px rgba(0,225,255,.9); }
@@ -149,11 +149,10 @@ html, body {
   animation: notif-drop .42s cubic-bezier(.2,.9,.3,1.35), notif-jiggle 1.3s ease-in-out .5s infinite;
   transition: transform .26s cubic-bezier(.4,0,.2,1), opacity .26s ease-out;
 }
-.notif.slot-top { top: calc(var(--safe-top) + 70px); }
-.notif.slot-mid { top: 30%; }
-.notif.slot-low { top: 52%; }
+.notif.slot-top { top: calc(var(--safe-top) + 70px); --from: -140%; --away: -30px; }
+.notif.slot-bottom { bottom: calc(var(--safe-bottom) + 72px); --from: 140%; --away: 30px; }
 @keyframes notif-drop {
-  from { transform: translate(-50%, -140%) rotate(var(--tilt, 0deg)) scale(.8); opacity: 0; }
+  from { transform: translate(-50%, var(--from)) rotate(var(--tilt, 0deg)) scale(.8); opacity: 0; }
 }
 @keyframes notif-jiggle {
   0%, 70%, 100% { transform: translateX(-50%) rotate(var(--tilt, 0deg)); }
@@ -164,7 +163,7 @@ html, body {
 .notif.pressed { animation: none; transform: translateX(-50%) rotate(var(--tilt, 0deg)) scale(.96); }
 .notif.leaving { animation: none; pointer-events: none; opacity: 0; }
 .notif.opened { transform: translateX(-50%) scale(1.25); }
-.notif.expired { transform: translate(-50%, -30px) rotate(var(--tilt, 0deg)); }
+.notif.expired { transform: translate(-50%, var(--away)) rotate(var(--tilt, 0deg)); }
 .notif.fling-left { transform: translateX(-160%) rotate(-12deg); }
 .notif.fling-right { transform: translateX(60%) rotate(12deg); }
 .notif.fling-up { transform: translate(-50%, -160%); }
@@ -192,6 +191,47 @@ html, body {
   position: absolute; left: 0; right: 0; bottom: 0; height: 4px; transform-origin: left center;
   background: linear-gradient(90deg, var(--hot), var(--acid));
 }
+
+/* Reel share: the icon becomes the clip's thumbnail with a play mark. */
+.notif.is-reel .notif-icon { width: 50px; height: 80px; border-radius: 10px; background-size: cover; background-position: center; }
+.notif.is-reel .notif-icon::after {
+  content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-35%, -50%);
+  border-left: 16px solid rgba(255,255,255,.95); border-top: 10px solid transparent; border-bottom: 10px solid transparent;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,.6));
+}
+.notif.is-reel { border-color: var(--acid); }
+
+/* ---------- reel player: a phone-shaped clip on the left or right edge ---------- */
+.reel {
+  /* Confined to the top 35% of the screen, under the HUD stats; it takes over the
+     top notification slot while it plays (and sits above any card already there). */
+  position: absolute; z-index: 1; top: calc(var(--safe-top) + 62px); height: calc(35% - var(--safe-top) - 62px); aspect-ratio: 9 / 16;
+  border-radius: 20px; overflow: hidden; background: #000; pointer-events: none;
+  border: 3px solid var(--hot); box-shadow: 0 16px 40px rgba(0,0,0,.6), 0 0 30px rgba(255,46,136,.5);
+}
+.reel.left { left: 10px; transform: rotate(-3deg); animation: reel-in-left .35s cubic-bezier(.2,.9,.3,1.25); }
+.reel.right { right: 10px; transform: rotate(3deg); animation: reel-in-right .35s cubic-bezier(.2,.9,.3,1.25); }
+@keyframes reel-in-left { from { transform: translateX(-120%) rotate(-12deg); } }
+@keyframes reel-in-right { from { transform: translateX(120%) rotate(12deg); } }
+.reel video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.reel-sent {
+  position: absolute; left: 8px; right: 8px; top: 8px; padding: 3px 7px; border-radius: 999px;
+  background: rgba(0,0,0,.55); font: 800 10px system-ui, sans-serif; letter-spacing: .04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.reel-likes {
+  position: absolute; right: 6px; bottom: 58px; display: flex; flex-direction: column; align-items: center;
+  font: 900 11px system-ui, sans-serif; text-shadow: 0 1px 4px rgba(0,0,0,.8); font-variant-numeric: tabular-nums;
+}
+.reel-likes span { font-size: 24px; color: #ff2e3b; line-height: 1; }
+.reel-cap {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 8px 12px; display: flex; flex-direction: column; gap: 2px;
+  background: linear-gradient(transparent, rgba(0,0,0,.8)); font-size: 11px; line-height: 1.25;
+}
+.reel-cap { padding-right: 34px; font-size: 10px; }
+.reel-cap b { font-size: 11px; }
+.reel-cap span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.reel-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #fff; transform-origin: left center; }
 
 /* ---------- banner ad (below the runner) ---------- */
 .banner {
@@ -379,7 +419,7 @@ html, body {
 @media (hover: hover) and (pointer: fine) { .keys { display: flex; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-bar, .lock-note, .notif, .select[data-dir] .select-card, .select[data-dir] .select-name { animation: none; }
+  .home-bar, .lock-note, .notif, .reel, .select[data-dir] .select-card, .select[data-dir] .select-name { animation: none; }
 }
 @media (prefers-reduced-transparency: reduce) {
   .lock-note, .select-card, .select-arrow { background: rgb(30,26,40); backdrop-filter: none; -webkit-backdrop-filter: none; }
