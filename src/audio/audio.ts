@@ -8,7 +8,7 @@
 // created on the first touch or key press.
 // Work mode swaps the beat for hold music and adds the office sounds. Chat,
 // Teams-style chat, mail, the call ring loop and the hang-up are community
-// sounds from Freesound (public/assets/sfx, CREDITS.md), never recordings of
+// sounds from Freesound and Pixabay (public/assets/sfx, CREDITS.md), never recordings of
 // the real apps; calendar, ticket and Humbl (and anything not loaded yet) use
 // the synthesized fallbacks below.
 
@@ -39,7 +39,7 @@ const HOLD_MELODY: [number, number, number][] = [[0, 2, 8], [3, 3, 8], [6, 1, 8]
 // The call ring: our own bouncy pentatonic phrase (semitones above C5, seconds).
 const RING_CYCLE = 2;
 const SAMPLES = ['chat', 'sync', 'mail', 'ring', 'decline'] as const;
-const SAMPLE_VOL: Record<string, number> = { chat: 0.55, sync: 0.5, mail: 0.45, ring: 0.42, decline: 0.45 };
+const SAMPLE_VOL: Record<string, number> = { chat: 0.55, sync: 0.5, mail: 0.45, ring: 0.5, decline: 0.45 };
 const RING_NOTES: [number, number][] = [[0, 0], [7, 0.13], [4, 0.26], [9, 0.39], [7, 0.62], [12, 0.75], [9, 0.88], [14, 1.01]];
 
 export class GameAudio {

@@ -12,7 +12,7 @@ The toasts copy the real layouts: the macOS banner (Slack, Jira, LinkedIn pushes
 ## Legal rule (the reason it looks the way it does)
 
 - **No real app sounds, names, logos or UI.** Slack's knock and the Teams ringtone are copyrighted recordings, and the app names, logos and popup designs are trademarks and trade dress. App Review rejects them (guideline 5.2).
-- **Sound-alikes only:** community sounds from Freesound in the same style (`public/assets/sfx/`, CREDITS.md): a CC0 knock for chat, CC0 message pops for the Teams-style chat and mail, a CC0 Frutiger-Aero incoming-call ringtone (4-bar loop) for calls, and a CC-BY hang-up for Decline. Calendar, ticket and Humbl use synth sounds from `src/audio/audio.ts`, which also stands in for any sample that hasn't loaded yet. Rips of the real app sounds (Zedge, Voicy, archive.org packs) are off-limits.
+- **Sound-alikes only:** community sounds from Freesound and Pixabay in the same style (`public/assets/sfx/`, CREDITS.md): a CC0 knock for chat, CC0 message pops for the Teams-style chat and mail, Universfield's marimba ringtone from Pixabay (Pixabay Content License) for calls, and a CC-BY hang-up for Decline. Calendar, ticket and Humbl use synth sounds from `src/audio/audio.ts`, which also stands in for any sample that hasn't loaded yet. Rips of the real app sounds (Zedge, Voicy, archive.org packs) are off-limits.
 - **Popups echo the layout** (app header, square avatar, bold sender, `#channel`, Accept/Decline) with our own colours and glyphs.
 - **Invented suite "Synergy 365"**: Huddle (chat), Sync (calls), Inbox (mail), Calendar, Tickets, Humbl (the social network). Coworker names are generic first names with a department.
 
