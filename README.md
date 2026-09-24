@@ -6,10 +6,16 @@ Three.js + TypeScript + Vite, wrapped for iOS with Capacitor. Procedural grey-bo
 
 ## Run it
 
+Uses [Bun](https://bun.sh) as package manager and script runner (`brew install oven-sh/bun/bun`). The lockfile is `bun.lock`; don't commit a `package-lock.json`.
+
 ```bash
-npm install
-npm run dev          # http://localhost:5173 (also exposed on your LAN)
+bun install
+bun run dev          # http://localhost:5173 (also exposed on your LAN)
+bun run build        # typecheck + production build into dist/
+bun run preview      # serve dist/
 ```
+
+Music and sound are procedural Web Audio: they start on your first click, tap or key press (browsers block audio before that). On iPhone, the silent switch mutes it.
 
 Controls: swipe (or arrow keys / WASD). Left/right to switch lanes, up to jump, down to roll (in the air it fast-drops, then rolls).
 
@@ -17,20 +23,20 @@ URL flags:
 - `?bot=1` turns on autopilot (soak test / attract mode)
 - `?seed=123` gives a deterministic track
 
-Tap the **fps pill** at the top to open the device-test panel: bloom, colour grade, pixel ratio, and a "no drain" switch. It also shows CPU ms per frame, draw calls and triangle count.
+Tap the **fps pill** at the top to open the device-test panel: bloom, colour grade, and pixel ratio. It also shows CPU ms per frame, draw calls and triangle count.
 
 ## Test on the iPhone
 
-**Quick (Safari, same Wi-Fi):** run `npm run dev`, then open `http://<your-mac-ip>:5173` on the iPhone. Safari performance is close to the app's web view.
+**Quick (Safari, same Wi-Fi):** run `bun run dev`, then open `http://<your-mac-ip>:5173` on the iPhone. Safari performance is close to the app's web view.
 
 **Native app (Capacitor):**
 
 `ios/` is already set up: signing team DA596D32QB, iPhone only, portrait only, status bar hidden.
 
 ```bash
-npm run ios:run        # build, sync, pick a device, install and launch
-npm run ios:sync       # build + copy web assets into the iOS project
-npm run ios:open       # opens Xcode, if you prefer pressing Run there
+bun run ios:run        # build, sync, pick a device, install and launch
+bun run ios:sync       # build + copy web assets into the iOS project
+bun run ios:open       # opens Xcode, if you prefer pressing Run there
 ```
 
 Haptics only fire in the native app (not in Safari). Web Audio may follow the silent switch.
@@ -40,8 +46,8 @@ Haptics only fire in the native app (not in Safari). Web Audio may follow the si
 One-time: create the app in App Store Connect (bundle id `com.davideghiotto.doomsdaysurfers`) and sign in to your Apple ID under Xcode > Settings > Accounts. Then:
 
 ```bash
-npm run ios:testflight -- --dry   # Release archive only, nothing uploaded
-npm run ios:testflight            # archive + upload (build number = timestamp)
+bun run ios:testflight --dry      # Release archive only, nothing uploaded
+bun run ios:testflight            # archive + upload (build number = timestamp)
 ```
 
 The build shows in TestFlight after Apple's processing. Uploads are internal-only (`ios/App/ExportOptions.plist`), so there is no App Review; the public name is still undecided.
@@ -51,10 +57,10 @@ The build shows in TestFlight after Apple's processing. Uploads are internal-onl
 The runner is built by a Blender script, and the exported `.glb` is committed so the game builds without Blender:
 
 ```bash
-npm run assets       # needs Blender (brew install --cask blender --appdir=~/Applications)
+bun run assets       # needs Blender (brew install --cask blender --appdir=~/Applications)
 ```
 
-`assets/blender/runner.py` builds each playable doomscroller into `public/assets/characters/<id>.glb` (`npm run assets`, or `npm run assets -- bro` for one). All seven share the rig, the clips and the base body; a `CHARACTERS` table picks the outfit, head, props, colours and how the screen is held. The base is one continuous skin-modifier body with fabric folds, a hood with real thickness around the face void, ribbed cuffs and hem, pocket, drawstrings, jointed fingers gripping a detailed phone, and layered sneakers, all auto-weighted to a 19-bone rig with `run`, `idle`, `jump`, `roll` and `present` clips. Budget: about 45k triangles and no textures (it prints a per-part triangle count). Pass a folder as a second argument to also render Eevee preview PNGs (front, side, back, hands). The app icon source is `assets/icon/icon.svg`.
+`assets/blender/runner.py` builds each playable doomscroller into `public/assets/characters/<id>.glb` (`bun run assets`, or `bun run assets bro` for one). All seven share the rig, the clips and the base body; a `CHARACTERS` table picks the outfit, head, props, colours and how the screen is held. The base is one continuous skin-modifier body with fabric folds, a hood with real thickness around the face void, ribbed cuffs and hem, pocket, drawstrings, jointed fingers gripping a detailed phone, and layered sneakers, all auto-weighted to a 19-bone rig with `run`, `idle`, `jump`, `roll` and `present` clips. Budget: about 45k triangles and no textures (it prints a per-part triangle count). Pass a folder as a second argument to also render Eevee preview PNGs (front, side, back, hands). The app icon source is `assets/icon/icon.svg`.
 
 ### Day-1 perf gate
 
@@ -63,8 +69,8 @@ On the iPhone 14 with bloom + grade on at pixel ratio 2, the target is a steady 
 ## Checks
 
 ```bash
-npm run typecheck
-npm run check:gen    # generator fairness + autopilot soak over 40 seeds
+bun run typecheck
+bun run check:gen    # generator fairness + autopilot soak over 40 seeds
 ```
 
 ## Layout

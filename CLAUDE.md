@@ -23,11 +23,12 @@ Davide owns the product decisions; Claude builds. Discuss design changes before 
 - All tuning numbers go in `src/config/tuning.json`. Content banks go in JSON.
 - Renderer reads sim state, never mutates it; effects come from `SimEvent`s.
 - Game UI is HTML overlays in `src/ui`; interactive elements need `data-ui`.
-- Run `npm run typecheck` and `npm run check:gen` after sim/generator changes.
+- Package manager is Bun (`bun install`, `bun run <script>`, `bunx`); never npm/npx.
+- Run `bun run typecheck` and `bun run check:gen` after sim/generator changes.
 
 ## Target
 iPhone 14 at 60 fps. Pixel ratio capped at 2, instancing, half-res bloom.
-Art: procedural grey box, plus Blender-scripted .glb hero assets (`assets/blender/*.py`, `npm run assets`); commit the exported .glb.
+Art: procedural grey box, plus Blender-scripted .glb hero assets (`assets/blender/*.py`, `bun run assets`); commit the exported .glb.
 
 ## Roadmap
 - Day 1: controls, track, obstacles, perf gate ✅ (iPhone 14 native build: 60 fps, swipes clean)

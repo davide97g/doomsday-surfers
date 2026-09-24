@@ -2,16 +2,16 @@
 # Archive the iOS app and upload it to TestFlight (internal testing only).
 # Needs: the app record in App Store Connect for com.davideghiotto.doomsdaysurfers,
 # and your Apple ID signed in under Xcode > Settings > Accounts.
-#   npm run ios:testflight            archive + upload
-#   npm run ios:testflight -- --dry   archive only (no upload)
+#   bun run ios:testflight            archive + upload
+#   bun run ios:testflight --dry      archive only (no upload)
 set -e
 cd "$(dirname "$0")/.."
 
 BUILD=$(date +%Y%m%d%H%M)   # every upload needs a higher build number
 ARCHIVE="ios/build/DoomsdaySurfers-$BUILD.xcarchive"
 
-npm run build
-npx cap sync ios
+bun run build
+bunx cap sync ios
 
 xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "$ARCHIVE" \

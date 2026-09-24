@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds every doomscroller's .glb with Blender (see assets/blender/runner.py).
-#   npm run assets            all characters
-#   npm run assets -- bro     just one
+#   bun run assets            all characters
+#   bun run assets bro        just one
 set -e
 cd "$(dirname "$0")/.."
 CHARACTERS=${*:-"goblin bro kid uncle influencer wellness doomer"}

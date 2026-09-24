@@ -1,4 +1,4 @@
-// Headless fairness + soak test. Run with `npm run check:gen`.
+// Headless fairness + soak test. Run with `bun run check:gen`.
 // 1. Static check: at every distance at least one lane is free of posts, and
 //    no healthy habit sits in a lane a post row left as the only way through.
 // 2. Soak: the autopilot bot plays N seeds; reports how far and how long it
