@@ -313,13 +313,17 @@
       },
       "ticket": {
         "app": "Tickets",
-        "weight": 1,
+        "weight": 2,
         "cta": "VIEW",
         "meta": ["Priority: Highest", "Priority: Blocker", "Due: yesterday"],
         "lines": [
           { "from": "{boss}", "text": "TKT-4412 assigned to you: \"Fix everything\"" },
           { "from": "{coworker}", "text": "TKT-0001 reopened (it's been 3 years)" },
-          { "from": "{boss}", "text": "TKT-6767 moved to \"In progress\" (by you, apparently)" }
+          { "from": "{boss}", "text": "TKT-6767 moved to \"In progress\" (by you, apparently)" },
+          { "from": "{boss}", "text": "TKT-5120 created: \"Make the logo pop\"" },
+          { "from": "{coworker}", "text": "mentioned you on TKT-3141: \"@you any update?\"" },
+          { "from": "{boss}", "text": "TKT-8008 priority changed: Highest → Blocker" },
+          { "from": "{coworker}", "text": "TKT-2211 moved back to To Do (third time)" }
         ]
       },
       "humbl": {
@@ -380,6 +384,61 @@
         "ticket": "Jira",
         "humbl": "LinkedIn",
         "meeting": "Google Meet"
+      }
+    },
+    "apps": {
+      "chat": {
+        "workspace": "Synergy Inc",
+        "channels": ["general", "proj-synergy", "q3-alignment", "random", "wins-mandatory", "incidents"],
+        "input": "Message #{channel}"
+      },
+      "sync": {
+        "input": "Type a message",
+        "mine": ["ok", "👍", "sure", "on it", "will do", "sorry, was on mute", "can we take this offline?", "yes (no)"]
+      },
+      "mail": { "tabs": ["Focused", "Other"], "search": "Search" },
+      "calendar": { "title": "Today", "hours": ["9", "10", "11", "12", "1", "2", "3", "4", "5"] },
+      "ticket": {
+        "project": "Synergy Platform",
+        "titles": [
+          "Fix everything",
+          "Make the logo pop",
+          "Align on alignment",
+          "Investigate low morale",
+          "Migrate to the new tool (again)",
+          "Add AI to it",
+          "Reduce meetings (meeting)"
+        ],
+        "statuses": ["TO DO", "IN PROGRESS", "IN REVIEW", "BLOCKED", "REOPENED"],
+        "fields": ["Assignee", "Priority", "Story points", "Sprint"],
+        "priority": "Highest",
+        "sprint": "Sprint 47 (ends yesterday)",
+        "comments": [
+          "Any update on this?",
+          "Bumping this.",
+          "+1",
+          "Can we get an ETA?",
+          "Moving to next sprint.",
+          "Priority raised to Highest.",
+          "Assigning back to you.",
+          "This is blocking the release.",
+          "Closing as won't fix. Reopening.",
+          "Can you add more detail? (Not that much.)"
+        ]
+      },
+      "humbl": {
+        "posts": [
+          "is humbled to announce they're humbled. Agree?",
+          "I fired my whole team. Here's what it taught me about leadership.",
+          "My 3-year-old taught me more about B2B sales than my MBA.",
+          "Rejected 400 times. Today I start as Junior Associate. Never give up. 🙏",
+          "Unpopular opinion: sleep is a KPI.",
+          "We're hiring! Unpaid. Great exposure.",
+          "I cried in the all-hands. Here are 5 lessons on vulnerability.",
+          "Just closed a $0 deal. Grateful. #hustle"
+        ],
+        "degree": "· 1st",
+        "actions": ["Like", "Comment", "Repost"]
       }
     }
   }

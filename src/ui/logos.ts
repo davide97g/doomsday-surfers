@@ -3,7 +3,7 @@
 // (a generic glyph on the Synergy 365 app colour). Meet and Jira paths are
 // from simple-icons (CC0); the others are redrawn from the public marks.
 
-import { realBrands } from '../content/content';
+import { realBrands, work } from '../content/content';
 import { ICON } from './icons';
 
 export type AppKind = 'chat' | 'sync' | 'call' | 'mail' | 'calendar' | 'ticket' | 'humbl' | 'meeting';
@@ -68,4 +68,11 @@ export function appLogo(kind: AppKind): string {
   if (realBrands) return `<span class="logo">${REAL[kind]}</span>`;
   const [bg, glyph] = PARODY[kind];
   return `<span class="logo parody" style="--app:${bg}">${glyph}</span>`;
+}
+
+/** The app's display name: the real one with real brands on, else Synergy 365's. */
+export function appName(kind: AppKind): string {
+  if (realBrands) return work.real.apps[kind];
+  const cards = work.cards;
+  return kind === 'meeting' ? cards.call.app : cards[kind].app;
 }

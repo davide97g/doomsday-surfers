@@ -10,13 +10,13 @@
 // calendar, ticket, Humbl) and incoming calls: a call rings until it's gone,
 // Accept (or a tap) opens the meeting panel (meeting.ts), Decline dismisses it.
 
-import { content, mode, realBrands, work } from '../content/content';
+import { content, mode, work } from '../content/content';
 import { SWIPE_PX } from '../input/input';
 import { TUNING, type Action } from '../sim/types';
 import type { World } from '../sim/world';
 import { fill, pick } from '../content/templates';
 import { ICON } from './icons';
-import { appLogo, type AppKind } from './logos';
+import { appLogo, appName, type AppKind } from './logos';
 import { hue, initials } from './meeting';
 import { reelSrc } from './reel';
 import type { Sfx } from './sfx';
@@ -41,10 +41,6 @@ const STYLE: Record<CardKind, 'banner' | 'teams' | 'win'> = {
   calendar: 'win',
 };
 
-function appName(kind: AppKind): string {
-  if (realBrands) return work.real.apps[kind];
-  return kind === 'meeting' ? CARDS.call.app : CARDS[kind].app;
-}
 const KIND_WEIGHT = KINDS.reduce((s, k) => s + CARDS[k].weight, 0);
 
 function pickKind(): CardKind {
@@ -75,11 +71,20 @@ export interface ReelShare {
   friend: string;
 }
 
+/** A Work card's app, docked on the desk when the card is opened. */
+export interface OpenedApp {
+  kind: string;
+  who: string;
+  text: string;
+}
+
 interface Note {
   el: HTMLElement;
   reel: ReelShare | null;
   /** Work mode incoming call: who's calling. */
   call: string | null;
+  /** Work mode: the app this card opens on the desk. */
+  app: OpenedApp | null;
   bar: HTMLElement;
   /** Seconds on screen in total (calls ring longer). */
   show: number;
@@ -93,7 +98,7 @@ export class Nags {
   notificationsShown = 0;
   bannersShown = 0;
   onArrive: () => void = () => {};
-  onOpen: (reel: ReelShare | null, call: string | null) => void = () => {};
+  onOpen: (reel: ReelShare | null, app: OpenedApp | null) => void = () => {};
   onSwipe: (a: Action) => void = () => {};
   /** A reel is playing in the top slot's space: new cards go to the bottom. */
   topBlocked = false;
@@ -207,9 +212,9 @@ export class Nags {
     el.className = `notif slot-${SLOTS[slot]}`;
     el.dataset.ui = '';
     el.style.setProperty('--tilt', `${rand(-3, 3).toFixed(1)}deg`);
-    const { reel, call, kind } = mode === 'work' ? this.fillWork(el) : this.fillFeed(el);
+    const { reel, call, kind, app } = mode === 'work' ? this.fillWork(el) : this.fillFeed(el);
     const show = call ? UI.callShow : UI.notifyShow;
-    const note: Note = { el, reel, call, bar: el.querySelector('.notif-bar')!, show, slot, left: show, gone: false };
+    const note: Note = { el, reel, call, app, bar: el.querySelector('.notif-bar')!, show, slot, left: show, gone: false };
     this.bindPointer(note);
     this.layer.append(el);
     this.notes.push(note);
@@ -219,7 +224,7 @@ export class Nags {
   }
 
   /** Personal mode: a feed push notification, about half of them reel shares. */
-  private fillFeed(el: HTMLElement): { reel: ReelShare | null; call: null; kind: string } {
+  private fillFeed(el: HTMLElement): { reel: ReelShare | null; call: null; kind: string; app: null } {
     el.innerHTML = `
       <div class="notif-icon"><span class="notif-badge"></span></div>
       <div class="notif-body">
@@ -244,11 +249,11 @@ export class Nags {
     } else {
       el.querySelector('.notif-text')!.textContent = fill(pick(N.lines));
     }
-    return { reel, call: null, kind: 'feed' };
+    return { reel, call: null, kind: 'feed', app: null };
   }
 
   /** Work mode: an office app toast, or (one call at a time) an incoming call. */
-  private fillWork(el: HTMLElement): { reel: null; call: string | null; kind: string } {
+  private fillWork(el: HTMLElement): { reel: null; call: string | null; kind: string; app: OpenedApp } {
     const C = CARDS.call;
     el.style.setProperty('--tilt', '0deg');
     const forced = this.force;
@@ -266,7 +271,7 @@ export class Nags {
         </div>
         <div class="notif-bar"></div>`;
       el.querySelector('.tw-from')!.textContent = caller;
-      return { reel: null, call: caller, kind: 'call' };
+      return { reel: null, call: caller, kind: 'call', app: { kind: 'call', who: caller, text: '' } };
     }
     const kind = forced && forced in CARDS && forced !== 'call' ? (forced as CardKind) : pickKind();
     const card = CARDS[kind];
@@ -320,7 +325,7 @@ export class Nags {
       el.querySelector('.tw-subject')!.textContent = mail ? text : meta;
       el.querySelector('.tw-sub')!.textContent = mail ? pick(CARDS.mail.preview) : `${from} · ${appName('calendar')}`;
     }
-    return { reel: null, call: null, kind };
+    return { reel: null, call: null, kind, app: { kind, who: from, text } };
   }
 
   /** Tap opens (boost); a swipe flings the card away and steers the runner. */
@@ -363,7 +368,7 @@ export class Nags {
         return;
       }
       this.sfx.reward();
-      this.onOpen(n.reel, n.call);
+      this.onOpen(n.reel, n.app);
       this.dismiss(n, 'opened');
     };
     n.el.addEventListener('pointerup', up);

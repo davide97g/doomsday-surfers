@@ -11,7 +11,7 @@ import { Death } from './ui/death';
 import { GateScan } from './ui/gate';
 import { Hud } from './ui/hud';
 import { KeepGoing } from './ui/keepGoing';
-import { Meeting } from './ui/meeting';
+import { Desk } from './ui/desk';
 import { Nags } from './ui/nags';
 import { Reel } from './ui/reel';
 import { Select } from './ui/select';
@@ -73,13 +73,18 @@ select.onChange = (i) => {
 world.setCharacter(select.index);
 view.setCharacter(select.index);
 const reel = new Reel(hud.root);
-const meeting = new Meeting(hud.root);
+// Work mode: opened cards dock their app here, under the notification layer.
+const desk = new Desk(hud.root);
+desk.onChange = (n) => world.setOpenWindows(n);
 const nags = new Nags(hud.root, sfx);
 nags.onArrive = () => world.notificationArrived();
-nags.onOpen = (share, call) => {
+nags.onOpen = (share, app) => {
   world.openNotification();
   if (share) reel.play(share.clip, share.friend);
-  if (call) meeting.play(call);
+  if (app) {
+    desk.open(app.kind, app.who, app.text);
+    world.windowOpened();
+  }
 };
 // A swipe that starts on a notification still steers the runner.
 nags.onSwipe = (a) => input.push(a);
@@ -98,7 +103,7 @@ hud.onPerfChange = (p) => {
 };
 
 // Expose for automated tests / debugging in the console.
-(window as unknown as { game: unknown }).game = { world, view, input, audio, nags, reel, meeting, keepGoing, death };
+(window as unknown as { game: unknown }).game = { world, view, input, audio, nags, reel, desk, keepGoing, death };
 
 let last = performance.now();
 let acc = 0;
@@ -133,7 +138,7 @@ function frame(now: number): void {
   if (events.some((e) => e.type === 'gate')) {
     nags.hideAll();
     reel.hide();
-    meeting.hide();
+    desk.clear();
   }
   if (events.some((e) => e.type === 'start')) title.onRunStart();
 
@@ -144,10 +149,11 @@ function frame(now: number): void {
   hud.update(world, dt);
   title.update(world.phase);
   // The gate scan owns the screen: no nags, and the keep-going prompt waits.
-  nags.topBlocked = reel.playing || meeting.playing;
+  // Work cards land over the docked windows; a reel keeps the top slot to itself.
+  nags.topBlocked = reel.playing;
   nags.update(world, dt, keepGoing.paused || world.gateT >= 0);
   reel.update(world, dt, keepGoing.paused);
-  meeting.update(world, dt, keepGoing.paused);
+  desk.update(world, dt, keepGoing.paused);
   gateScan.update(world, dt);
   if (!bot) keepGoing.update(world, dt);
   death.update(world, dt, nags);

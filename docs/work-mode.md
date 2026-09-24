@@ -31,7 +31,17 @@ The toasts copy the real layouts: the macOS banner (Slack, Jira, LinkedIn pushes
 | receipt | Proof of Doom, FEED MART | Proof of Work, SYNERGY 365 |
 
 - **Cards** (`src/ui/nags.ts`): chat, mail, calendar, ticket and Humbl cards, weighted by `work.cards.*.weight`. With chance `ui.callChance` (one at a time) a card is an incoming call instead. It rings until it's gone (it also stops while the run is paused) and stays up for `ui.callShow` s. Accept or a tap opens the meeting panel, and Decline shows a guilt toast.
-- **Meeting panel** (`src/ui/meeting.ts`) is Work mode's reel: a 2×2 grid of faceless tiles (the caller, two coworkers, "You (muted)") with typed captions, for `notify.reelTime` s.
+- **The desk** (`src/ui/desk.ts`, `src/ui/apps.ts`, `src/ui/meeting.ts`): opening a card docks its app in a side column (slots in the order top-left, top-right, bottom-left, bottom-right, all inside the top 60%). The apps:
+  - call: Meet window (initial-avatar tiles, captions, control bar); several calls can run at once
+  - chat: Slack (aubergine sidebar, unread badges, live channel)
+  - sync: Teams chat (bubbles, your "ok"s)
+  - mail: Outlook inbox (new mail on top, unread count)
+  - calendar: Outlook day view (Calendar Tetris)
+  - ticket: Jira ticket (status keeps changing, comments, story points only go up)
+  - humbl: LinkedIn feed (posts, reactions only go up)
+
+  Something new lands every `work.windows.tickMin..tickMax` s. Windows ignore pointers, never close on their own and can't be closed. A checkpoint gate or the end of the run clears the desk, and the oldest window is replaced when all `work.windows.max` slots are full.
+- **Trickle**: the UI reports the window count (`world.setOpenWindows`). Each open window adds `work.windows.trickle` dopamine/s × `windowTolerance`, which drops by `toleranceDecay` (floor `toleranceFloor`) with every window opened (`world.windowOpened`).
 - **World** (`src/render/textures.ts`, the Work section): the track and towers are spreadsheets, slides, Calendar Tetris days and mail threads. Reels are `.pptx` decks and low barriers are mail slabs.
 - **Music** becomes elevator hold music (96 BPM, maj7 chords). It still follows dopamine.
 - **Cast**: Middle Manager (shirt, tie, lanyard, mug; craves Meetings), Remote Worker (hoodie, pyjama bottoms, slippers, headset, mouse jiggler; craves Pings), LinkedIn Lunatic (blazer, selfie stick, green "open to work" ring; craves Reactions). They are tuning indices 7–9, entries with `"mode": "work"` in `content.characters`, and built by `runner.py --character manager|remote|linkedin`.

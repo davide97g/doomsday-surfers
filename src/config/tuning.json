@@ -114,7 +114,10 @@
     "pricePer": { "reel": 10, "like": 40, "outrage": 3, "notification": 8, "thrill": 2, "ads": 5, "dodged": 4 },
     "printEvery": 0.09
   },
-  "work": { "status": { "awayBelow": 50, "brbBelow": 20 } },
+  "work": {
+    "status": { "awayBelow": 50, "brbBelow": 20 },
+    "windows": { "max": 4, "trickle": 0.5, "toleranceDecay": 0.85, "toleranceFloor": 0.2, "tickMin": 1.2, "tickMax": 2.6 }
+  },
   "ui": {
     "notifyMin": 3.5,
     "notifyMax": 7,

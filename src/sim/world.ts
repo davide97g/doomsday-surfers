@@ -81,6 +81,10 @@ export class World {
   tolerance: number[];
   /** Multiplier on an opened notification's gain, 1 = fresh. */
   notifyTolerance = 1;
+  /** Work mode app windows open on screen (reported by the UI); each drips dopamine. */
+  openWindows = 0;
+  /** Multiplier on the window trickle, 1 = fresh; drops with every window opened. */
+  windowTolerance = 1;
   /** Seconds left of the notification super boost. */
   boostT = 0;
   /** Seconds left of the habit slow-down. */
@@ -156,6 +160,8 @@ export class World {
     this.autoplayT = 0;
     this.airT = 0;
     this.notifyTolerance = 1;
+    this.openWindows = 0;
+    this.windowTolerance = 1;
     this.boostT = 0;
     this.revivesLeft = this.t.revive.perRun;
     this.dopamine = this.t.dopamine.start;
@@ -268,6 +274,10 @@ export class World {
     this.boostT = Math.max(0, this.boostT - dt);
     this.autoplayT = Math.max(0, this.autoplayT - dt);
     this.updateRush(dt);
+    if (this.openWindows > 0 && this.phase === 'running') {
+      const tw = t.work.windows;
+      this.dopamine = Math.min(t.dopamine.max, this.dopamine + tw.trickle * this.openWindows * this.windowTolerance * dt);
+    }
     const ride = this.course.finished(prevD, this.d);
     if (ride && (ride.kind === 'loop' || ride.kind === 'corkscrew' || ride.kind === 'drop')) this.thrill(ride.kind);
 
@@ -319,6 +329,17 @@ export class World {
     this.boostT = n.boostTime;
     this.slowT = 0;
     this.events.push({ type: 'boost', gain, tolerance: this.notifyTolerance });
+  }
+
+  /** Work mode: how many app windows are open. The UI owns them (a gate clears them). */
+  setOpenWindows(n: number): void {
+    this.openWindows = Math.max(0, Math.min(this.t.work.windows.max, n));
+  }
+
+  /** Work mode: a new app window opened. Each one numbs the trickle a little more. */
+  windowOpened(): void {
+    const tw = this.t.work.windows;
+    this.windowTolerance = Math.max(tw.toleranceFloor, this.windowTolerance * tw.toleranceDecay);
   }
 
   /** Watched the revive ad: back into the feed with some dopamine. Tolerance stays. */
