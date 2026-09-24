@@ -2,10 +2,13 @@
 // Coordinates: `s` is distance along the track (forward = +s), `x` is lateral,
 // `y` is height. The player sits at s = world.d.
 //
-// Dopamine drains constantly. Content pickups refill it, but each content type
-// gives less every time you take it (tolerance, never recovers within a run).
-// Healthy habits drain it and slow you down. At zero, or on a crash, the run
-// enters `fading`: you slow to a stop in grey reality, then `dead`.
+// Dopamine never drains on its own: only healthy habits take it away (and slow
+// you down). Content pickups refill it, but each content type gives less every
+// time you take it (tolerance, never recovers within a run). Push notifications
+// (driven by the UI) bump it when they land; opening one gives a big hit with its
+// own tolerance plus a super boost: faster, and you smash through everything.
+// At zero, or on a crash, the run enters `fading`: you slow to a stop in grey
+// reality, then `dead`.
 //
 // Each character has a signature craving: its favourite content type gives
 // more (characters.cravingGain) but builds tolerance faster (cravingDecay).
@@ -13,7 +16,7 @@
 //
 // Checkpoint gates sit at fixed distances (gateS). Crossing one starts a
 // bullet-time scan (`gateT` counts real seconds): the sim runs slowed by
-// `timeScale`, input is ignored, the drain pauses, and the feed moves to the
+// `timeScale`, input is ignored, and the feed moves to the
 // next zone. The generator keeps the stretch around each gate empty.
 
 import { Generator } from './generator';
@@ -59,10 +62,16 @@ export class World {
   habitsDodged = 0;
   mumIgnored = 0;
   adsPassed = 0;
+  notificationsOpened = 0;
+  smashed = 0;
   revivesLeft: number;
   dopamine: number;
   /** Per content type multiplier on gain, 1 = fresh. */
   tolerance: number[];
+  /** Multiplier on an opened notification's gain, 1 = fresh. */
+  notifyTolerance = 1;
+  /** Seconds left of the notification super boost. */
+  boostT = 0;
   /** Seconds left of the habit slow-down. */
   slowT = 0;
   cause: DeathCause | null = null;
@@ -76,8 +85,6 @@ export class World {
   nextGate = 0;
   /** Real seconds into the current gate scan, -1 when not scanning. */
   gateT = -1;
-  /** Dev toggle: stop the drain (perf testing, screenshots). */
-  noDrain = false;
   obstacles: Obstacle[] = [];
   pickups: Pickup[] = [];
   player: PlayerState;
@@ -115,6 +122,10 @@ export class World {
     this.habitsDodged = 0;
     this.mumIgnored = 0;
     this.adsPassed = 0;
+    this.notificationsOpened = 0;
+    this.smashed = 0;
+    this.notifyTolerance = 1;
+    this.boostT = 0;
     this.revivesLeft = this.t.revive.perRun;
     this.dopamine = this.t.dopamine.start;
     this.tolerance.fill(1);
@@ -143,10 +154,9 @@ export class World {
     return this.player.rollT > 0;
   }
 
-  /** Dopamine lost per second right now. */
-  get drainRate(): number {
-    const { drainStart, drainEnd, drainRampSeconds } = this.t.dopamine;
-    return drainStart + (drainEnd - drainStart) * Math.min(1, this.time / drainRampSeconds);
+  /** 0..1 strength of the super boost (eases out over its last boostRamp seconds). */
+  get boost(): number {
+    return Math.min(1, this.boostT / this.t.notify.boostRamp);
   }
 
   /** Forward speed actually applied this tick (m/s). */
@@ -158,7 +168,7 @@ export class World {
     if (this.phase !== 'running') return 0;
     const h = this.t.habit;
     const slow = this.slowT > 0 ? 1 - (1 - h.slowFactor) * (this.slowT / h.slowTime) : 1;
-    return this.speed * slow;
+    return this.speed * slow * (1 + (this.t.notify.boostSpeed - 1) * this.boost);
   }
 
   /** Sim speed multiplier: dips to gate.timeScale during a gate scan. */
@@ -217,6 +227,7 @@ export class World {
     const prevBox = this.playerBox();
     this.d += this.runSpeed * dt;
     this.slowT = Math.max(0, this.slowT - dt);
+    this.boostT = Math.max(0, this.boostT - dt);
 
     for (const o of this.obstacles) {
       if (o.speed > 0) {
@@ -226,7 +237,6 @@ export class World {
     }
 
     if (this.gateT < 0 && this.d >= gateS(this.nextGate, t)) this.startGate();
-    if (!this.noDrain && this.gateT < 0) this.dopamine -= this.drainRate * dt;
     this.collide(prevBox);
     if (this.phase === 'running') this.collect();
     if (this.phase === 'running' && this.dopamine <= 0) this.lose('empty');
@@ -245,6 +255,27 @@ export class World {
     this.pickups = this.pickups.filter((pk) => !pk.taken && pk.s > behind);
   }
 
+  /** A push notification landed on screen. Looking at it is enough for a little hit. */
+  notificationArrived(): void {
+    if (this.phase !== 'running') return;
+    const gain = this.t.notify.bump;
+    this.dopamine = Math.min(this.t.dopamine.max, this.dopamine + gain);
+    this.events.push({ type: 'notified', gain });
+  }
+
+  /** Opened a notification: the more distracted the better. */
+  openNotification(): void {
+    if (this.phase !== 'running') return;
+    const n = this.t.notify;
+    const gain = n.tapGain * this.notifyTolerance;
+    this.notificationsOpened++;
+    this.dopamine = Math.min(this.t.dopamine.max, this.dopamine + gain);
+    this.notifyTolerance = Math.max(n.toleranceFloor, this.notifyTolerance * n.toleranceDecay);
+    this.boostT = n.boostTime;
+    this.slowT = 0;
+    this.events.push({ type: 'boost', gain, tolerance: this.notifyTolerance });
+  }
+
   /** Watched the revive ad: back into the feed with some dopamine. Tolerance stays. */
   revive(): void {
     if (this.phase !== 'dead' || this.revivesLeft <= 0) return;
@@ -254,6 +285,7 @@ export class World {
     this.cause = null;
     this.fadeT = 0;
     this.slowT = 0;
+    this.boostT = 0;
     this.dopamine = t.revive.dopamine;
     // Clear whatever killed you and the stretch right ahead, so the revive isn't an instant re-death.
     const clearTo = this.d + t.revive.clearAhead;
@@ -297,6 +329,7 @@ export class World {
   private lose(cause: DeathCause): void {
     this.cause = cause;
     this.dopamine = 0;
+    this.boostT = 0;
     this.fadeFrom = cause === 'crash' ? 0 : this.runSpeed;
     this.fadeT = 0;
     this.phase = 'fading';
@@ -409,6 +442,13 @@ export class World {
       const ob = this.obstacleBox(o);
       if (!overlaps(pb, ob)) continue;
 
+      if (this.boostT > 0) {
+        // Boosted: nothing real can stop you.
+        o.hit = true;
+        this.smashed++;
+        this.events.push({ type: 'smash', id: o.id, kind: o.kind, lane: o.lane });
+        continue;
+      }
       if (o.kind === 'habit') {
         this.hitHabit(o);
         continue;

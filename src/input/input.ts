@@ -4,7 +4,7 @@
 
 import type { Action } from '../sim/types';
 
-const SWIPE_PX = 26;
+export const SWIPE_PX = 26;
 
 export class Input {
   private queue: Action[] = [];

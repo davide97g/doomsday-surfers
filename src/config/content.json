@@ -84,7 +84,13 @@
       "Your streak ends in {number} minutes",
       "{handle} posted about {thing}. You'll hate it.",
       "Trending: {thing}. Have an opinion now."
-    ]
+    ],
+    "cta": "TAP TO OPEN",
+    "ctaLines": ["It's probably important", "Just a quick look", "You'll feel better", "Everyone else already saw it", "Don't be the last to know"],
+    "boost": {
+      "title": "SUPER SCROLL",
+      "lines": ["Distracted. Invincible.", "You looked. Good.", "Attention sold. Speed bought.", "Nothing can touch you now.", "This is what focus costs.", "Eyes off the road. Faster."]
+    }
   },
   "banner": {
     "tag": "Ad",
@@ -122,6 +128,7 @@
       "Consumed: {likes} likes · {notifications} notifs · {reels} reels · {outrage} outrage",
       "Most numbing: {numbest} (now {numbestPct}% as effective)",
       "Healthy habits avoided: {dodged}. Mum calls ignored: {mum}.",
+      "Notifications opened: {opened} of {received}. Things you ran through without looking: {smashed}.",
       "Estimated attention span: {span}s",
       "Advertisers who now own you: {ads}",
       "You out-scrolled {rank}% of users."

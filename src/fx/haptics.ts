@@ -36,6 +36,12 @@ export class GameHaptics {
         case 'stumble':
           void H.impact({ style: ImpactStyle.Medium });
           break;
+        case 'boost':
+          void H.notification({ type: NotificationType.Success });
+          break;
+        case 'smash':
+          void H.impact({ style: ImpactStyle.Medium });
+          break;
         case 'empty':
           void H.notification({ type: NotificationType.Error });
           break;

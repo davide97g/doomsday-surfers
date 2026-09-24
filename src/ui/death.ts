@@ -163,7 +163,10 @@ export class Death {
     const vars = {
       time: duration(w.time),
       likes,
-      notifications,
+      notifications: notifications + w.notificationsOpened,
+      opened: w.notificationsOpened,
+      received: nags.notificationsShown,
+      smashed: w.smashed,
       reels,
       outrage,
       numbest: content.contentTypes[numbest].name,

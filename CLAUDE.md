@@ -5,13 +5,14 @@ Davide owns the product decisions; Claude builds. Discuss design changes before 
 
 ## Locked design
 - Three lanes, swipe controls (feel close to the genre), but original "feed world" look: the track is giant phone screens, reels/ads slide down lanes like trains, faceless runner lit by their phone. Never copy Subway Surfers assets, UI, characters, or branding.
-- Dopamine drains constantly. Content pickups refill it with **tolerance** (each type gives less every time you take it). Healthy habits are obstacles that drain it and slow you down. At zero you slow into grey reality and lose.
+- Dopamine never drains on its own. Only healthy habits (obstacles) drain it and slow you down. Content pickups refill it with **tolerance** (each type gives less every time you take it). At zero you slow into grey reality and lose.
+- "The more distracted the better": push notifications are big, pile up over the track, and bump dopamine just by landing. Tapping/clicking one opens it: big dopamine hit (own tolerance) + super boost (faster, smash through every obstacle for `notify.boostTime` s). A swipe that starts on a card flings it and still steers.
 - Colour and audio follow dopamine (neon → grey silence).
 - Death copy: "You are present. … Disgusting." → [SCROLL AGAIN].
 - Hidden ending: stay idle on the death screen for 60s and something happens (still to be designed).
 - Crashing into a barrier/post drops dopamine to zero (one death screen). Tolerance never recovers within a run. Dopamine meter is a phone battery.
 - Seven playable doomscrollers, picked on a title-screen turntable (swipe left/right): Hoodie Goblin (craves Reels), Grindset Bro (Notifications), iPad Kid (Likes), Outrage Uncle (Outrage), Influencer (Likes), Wellness Girlie (no craving; healthy habits cost half), News Doomer (Notifications). The favourite content gives +50% but builds tolerance faster; physics identical. All faceless, lit by their screen. Meshes: one Blender script (`runner.py --character <id>`), shared rig + clips, one .glb per character, loaded on demand.
-- Checkpoint gates (every `gate.every` m): a giant foldable phone unfolds over the track; crossing it starts bullet time, its panels form a halo, the camera rides the rail 360° round the runner while a profiling log types out, then the feed moves to a new zone (colour + favoured content type + speed step). No dopamine change; drain paused and input dropped during the scan.
+- Checkpoint gates (every `gate.every` m): a giant foldable phone unfolds over the track; crossing it starts bullet time, its panels form a halo, the camera rides the rail 360° round the runner while a profiling log types out, then the feed moves to a new zone (colour + favoured content type + speed step). No dopamine change; input dropped during the scan.
 - Comedy layer: fake push notifications, banner ads, streak guilt, confirmshaming declines, a "keep going?" prompt that pauses the run ([YES] [yes]), one fake-ad revive per run (+40 dopamine, tolerance kept), and a screen-time report on death. No fake shop/currency yet.
 - Monetization is pure parody: fake ads, invented brands only, no real money.
 - Tone: Black Mirror cold, funny because it hurts. Complicit, not preachy.

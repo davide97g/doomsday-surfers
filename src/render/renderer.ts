@@ -471,6 +471,14 @@ export class GameRenderer {
       if (e.type === 'crash') fx.burst(p.x, 1.2, -0.7, 44, '#bfe9ff', { speed: 7, size: 0.16, life: 1, gravity: 14, bright: 2.2, up: 3 });
       if (e.type === 'revive') fx.burst(p.x, 1, 0, 36, '#ff2e88', { speed: 5, size: 0.3, life: 0.8, gravity: 2, bright: 2.5, up: 2 });
       if (e.type === 'stumble') this.shake = Math.max(this.shake, 0.6);
+      if (e.type === 'boost') {
+        this.shake = Math.max(this.shake, 0.5);
+        fx.burst(p.x, 1.1, 0, 48, '#ff2e3b', { speed: 6, size: 0.26, life: 0.9, gravity: 1, bright: 2.6, up: 2 });
+      }
+      if (e.type === 'smash') {
+        this.shake = Math.max(this.shake, 0.45);
+        fx.burst(laneX(e.lane), 1, -1.2, 26, '#00e1ff', { speed: 8, size: 0.2, life: 0.7, gravity: 10, bright: 2.2, up: 3 });
+      }
       if (e.type === 'edge') this.shake = Math.max(this.shake, 0.15);
       if (e.type === 'crash') {
         this.shake = 1.2;
@@ -592,6 +600,8 @@ export class GameRenderer {
         this.active.set(o.id, entry);
       }
       const obj = entry.obj;
+      // Walked-into habits and anything smashed by a boost are gone.
+      obj.visible = !o.hit;
       const x = laneX(o.lane);
       if (o.kind === 'post' || o.kind === 'movingPost') {
         const body = obj.getObjectByName('body')!;
@@ -603,7 +613,6 @@ export class GameRenderer {
           warn.visible = !o.active || Math.floor(performance.now() / 120) % 2 === 0;
         }
       } else if (o.kind === 'habit') {
-        obj.visible = !o.hit;
         obj.position.set(x, 0, -(o.s - w.d));
         const ring = obj.getObjectByName('ring');
         if (ring) {
@@ -767,6 +776,8 @@ export class GameRenderer {
       fov -= 8 * bump;
       roll = 0.12 * bump * Math.sin(theta);
     }
+    // Notification boost: the world stretches past you.
+    fov += 14 * w.boost;
     // Zoom punch as the gate grabs you.
     this.gateKick += dt;
     fov += 10 * Math.exp(-this.gateKick * 5);

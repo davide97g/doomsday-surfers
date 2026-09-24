@@ -30,7 +30,7 @@ export interface Obstacle {
   /** Visual variant index, chosen by the generator so renders are deterministic.
    *  For habits it is the habit type (index into the content bank). */
   variant: number;
-  /** Habits only: already walked into (they don't respawn). */
+  /** Already walked into (habits) or smashed during a boost (anything). Never collides again. */
   hit: boolean;
 }
 
@@ -67,6 +67,12 @@ export type SimEvent =
   | { type: 'pickup'; id: number; content: number; gain: number; tolerance: number }
   | { type: 'habit'; id: number; habit: number; cost: number }
   | { type: 'crash'; kind: ObstacleKind }
+  /** A push notification landed: a small dopamine bump just for looking. */
+  | { type: 'notified'; gain: number }
+  /** Opened a notification: dopamine (with its own tolerance) plus the super boost. */
+  | { type: 'boost'; gain: number; tolerance: number }
+  /** Ran through an obstacle while boosting. */
+  | { type: 'smash'; id: number; kind: ObstacleKind; lane: number }
   | { type: 'empty' }
   | { type: 'revive' }
   /** Crossed a checkpoint gate: bullet time + scan begin, the feed moves to `zone`. */

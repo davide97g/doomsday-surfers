@@ -131,6 +131,13 @@ export class GameAudio {
         case 'stumble':
           this.noiseHit(0.08, 900, 0.25);
           break;
+        case 'boost':
+          this.tone(220, 1320, 0.45, 'sawtooth', 0.09);
+          this.tone(440, 2640, 0.6, 'square', 0.04, 0.08);
+          break;
+        case 'smash':
+          this.noiseHit(0.18, 2600, 0.3);
+          break;
         case 'jump':
           this.tone(320, 520, 0.09, 'triangle', 0.06);
           break;

@@ -11,7 +11,6 @@ export interface PerfToggles {
   bloom: boolean;
   grade: boolean;
   pixelRatio: number;
-  noDrain: boolean;
 }
 
 const LOW = 25;
@@ -29,6 +28,7 @@ export class Hud {
   private readonly toast: HTMLElement;
   private toastTimer = 0;
   private low = false;
+  private boosting = false;
   private shownPct = -1;
   private phase: Phase | null = null;
   onPerfChange: (p: PerfToggles) => void = () => {};
@@ -60,7 +60,6 @@ export class Hud {
         <label>pixel ratio
           <select id="pf-pr"><option>1</option><option>1.5</option><option>2</option><option>3</option></select>
         </label>
-        <label><input type="checkbox" id="pf-nodrain"> no drain</label>
         <div class="perf-stats" id="pf-stats"></div>
       </div>
     `;
@@ -81,17 +80,15 @@ export class Hud {
     const bloom = $<HTMLInputElement>('pf-bloom');
     const grade = $<HTMLInputElement>('pf-grade');
     const pr = $<HTMLSelectElement>('pf-pr');
-    const noDrain = $<HTMLInputElement>('pf-nodrain');
     bloom.checked = this.perf.bloom;
     grade.checked = this.perf.grade;
     pr.value = String(this.perf.pixelRatio);
     if (!pr.value) pr.value = '2';
-    noDrain.checked = this.perf.noDrain;
     const emit = () => {
-      this.perf = { bloom: bloom.checked, grade: grade.checked, pixelRatio: Number(pr.value), noDrain: noDrain.checked };
+      this.perf = { bloom: bloom.checked, grade: grade.checked, pixelRatio: Number(pr.value) };
       this.onPerfChange(this.perf);
     };
-    [bloom, grade, pr, noDrain].forEach((el) => el.addEventListener('input', emit));
+    [bloom, grade, pr].forEach((el) => el.addEventListener('input', emit));
   }
 
   update(w: World, dt: number): void {
@@ -111,6 +108,12 @@ export class Hud {
         this.battery.classList.toggle('low', low);
         this.batLabel.textContent = low ? content.battery.low : content.battery.label;
       }
+    }
+
+    const boosting = w.boostT > 0;
+    if (boosting !== this.boosting) {
+      this.boosting = boosting;
+      this.battery.classList.toggle('boost', boosting);
     }
 
     if (this.toastTimer > 0) {
@@ -134,12 +137,22 @@ export class Hud {
     for (const e of events) {
       if (e.type === 'habit') {
         const lines = content.habits[e.habit % content.habits.length].popups;
-        this.toast.textContent = lines[Math.floor(Math.random() * lines.length)];
-        this.toast.classList.remove('hidden');
-        restartAnimation(this.toast);
-        this.toastTimer = 1.6;
+        this.showToast(lines[Math.floor(Math.random() * lines.length)], false);
+      }
+      if (e.type === 'boost') {
+        const b = content.notifications.boost;
+        const line = b.lines[Math.floor(Math.random() * b.lines.length)];
+        this.showToast(`${b.title} +${Math.round(e.gain)}%\n${line}`, true);
       }
     }
+  }
+
+  private showToast(text: string, boost: boolean): void {
+    this.toast.textContent = text;
+    this.toast.classList.toggle('boost', boost);
+    this.toast.classList.remove('hidden');
+    restartAnimation(this.toast);
+    this.toastTimer = boost ? 1.8 : 1.6;
   }
 
   setFps(fps: number, frameMs: number, calls: number, tris: number): void {

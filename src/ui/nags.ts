@@ -1,43 +1,54 @@
-// Mid-run distractions: fake push notifications at the top and banner ads at
-// the bottom. Purely cosmetic: they never block swipes on the track (the
-// notification ignores pointers; the banner sits below the runner).
+// Mid-run distractions: fake push notifications and banner ads at the bottom.
+// Notifications are big, pile up (one per slot, up to ui.notifyMaxOnScreen) and
+// land over the track on purpose. Each one bumps dopamine just by arriving;
+// tapping it opens it for the super boost. A swipe that starts on a card flings
+// it away and still steers the runner, so a nag never eats a dodge.
 
 import content from '../config/content.json';
-import { TUNING } from '../sim/types';
+import { SWIPE_PX } from '../input/input';
+import { TUNING, type Action } from '../sim/types';
 import type { World } from '../sim/world';
 import { fill, pick } from '../content/templates';
 import type { Sfx } from './sfx';
 
 const UI = TUNING.ui;
+const N = content.notifications;
+/** Vertical slots a card can land in: under the HUD, over the track, over the runner. */
+const SLOTS = ['top', 'mid', 'low'];
+const LEAVE_MS = 260;
 
 function rand(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
+interface Note {
+  el: HTMLElement;
+  bar: HTMLElement;
+  slot: number;
+  left: number;
+  /** Leaving (opened, flung or expired): no more input, removed shortly. */
+  gone: boolean;
+}
+
 export class Nags {
   notificationsShown = 0;
   bannersShown = 0;
-  private readonly note: HTMLElement;
-  private readonly noteText: HTMLElement;
+  onArrive: () => void = () => {};
+  onOpen: () => void = () => {};
+  onSwipe: (a: Action) => void = () => {};
+  private readonly notes: Note[] = [];
+  private readonly layer: HTMLElement;
   private readonly banner: HTMLElement;
   private readonly bannerClose: HTMLElement;
   private notifyIn = rand(UI.notifyMin, UI.notifyMax);
-  private noteLeft = 0;
   private bannerIn = UI.bannerEvery;
   private bannerLeft = 0;
   private bannerAge = 0;
   private running = false;
 
   constructor(parent: HTMLElement, private readonly sfx: Sfx) {
-    this.note = document.createElement('div');
-    this.note.className = 'notif hidden';
-    this.note.innerHTML = `
-      <div class="notif-icon"></div>
-      <div class="notif-body">
-        <div class="notif-head"><b>${content.notifications.app}</b><span>now</span></div>
-        <div class="notif-text"></div>
-      </div>`;
-    this.noteText = this.note.querySelector('.notif-text')!;
+    this.layer = document.createElement('div');
+    this.layer.className = 'notifs';
 
     this.banner = document.createElement('div');
     this.banner.className = 'banner hidden';
@@ -58,17 +69,14 @@ export class Nags {
       this.banner.querySelector('.banner-copy span')!.textContent = content.banner.clicked;
     });
 
-    parent.append(this.note, this.banner);
+    parent.append(this.layer, this.banner);
   }
 
   update(w: World, dt: number, paused: boolean): void {
     const running = w.phase === 'running';
     if (running !== this.running) {
       this.running = running;
-      if (!running) {
-        this.note.classList.add('hidden');
-        this.hideBanner();
-      }
+      if (!running) this.hideAll();
       if (w.phase === 'ready') {
         this.notifyIn = rand(UI.notifyMin, UI.notifyMax);
         this.bannerIn = UI.bannerEvery;
@@ -79,16 +87,13 @@ export class Nags {
     this.notifyIn -= dt;
     if (this.notifyIn <= 0) {
       this.notifyIn = rand(UI.notifyMin, UI.notifyMax);
-      this.noteText.textContent = fill(pick(content.notifications.lines));
-      this.note.classList.remove('hidden');
-      restartAnimation(this.note);
-      this.noteLeft = UI.notifyShow;
-      this.notificationsShown++;
-      this.sfx.chime();
+      this.showNote();
     }
-    if (this.noteLeft > 0) {
-      this.noteLeft -= dt;
-      if (this.noteLeft <= 0) this.note.classList.add('hidden');
+    for (const n of this.notes) {
+      if (n.gone) continue;
+      n.left -= dt;
+      n.bar.style.transform = `scaleX(${Math.max(0, n.left / UI.notifyShow)})`;
+      if (n.left <= 0) this.dismiss(n, 'expired');
     }
 
     this.bannerIn -= dt;
@@ -107,9 +112,88 @@ export class Nags {
 
   /** Clear whatever is on screen (the gate scan wants it). */
   hideAll(): void {
-    this.note.classList.add('hidden');
-    this.noteLeft = 0;
+    for (const n of this.notes) n.el.remove();
+    this.notes.length = 0;
     this.hideBanner();
+  }
+
+  private showNote(): void {
+    const taken = new Set(this.notes.filter((n) => !n.gone).map((n) => n.slot));
+    const free = SLOTS.map((_, i) => i).filter((i) => !taken.has(i));
+    if (free.length === 0 || taken.size >= UI.notifyMaxOnScreen) return;
+    const slot = free[Math.floor(Math.random() * free.length)];
+    this.notificationsShown++;
+
+    const el = document.createElement('div');
+    el.className = `notif slot-${SLOTS[slot]}`;
+    el.dataset.ui = '';
+    el.style.setProperty('--tilt', `${rand(-3, 3).toFixed(1)}deg`);
+    el.innerHTML = `
+      <div class="notif-icon"><span class="notif-badge"></span></div>
+      <div class="notif-body">
+        <div class="notif-head"><b>${N.app}</b><span>now</span></div>
+        <div class="notif-text"></div>
+        <div class="notif-cta"><b>${N.cta}</b><span></span></div>
+      </div>
+      <div class="notif-bar"></div>`;
+    el.querySelector('.notif-badge')!.textContent = String(this.notificationsShown);
+    el.querySelector('.notif-text')!.textContent = fill(pick(N.lines));
+    el.querySelector('.notif-cta span')!.textContent = pick(N.ctaLines);
+    const note: Note = { el, bar: el.querySelector('.notif-bar')!, slot, left: UI.notifyShow, gone: false };
+    this.bindPointer(note);
+    this.layer.append(el);
+    this.notes.push(note);
+    this.sfx.chime();
+    this.onArrive();
+  }
+
+  /** Tap opens (boost); a swipe flings the card away and steers the runner. */
+  private bindPointer(n: Note): void {
+    let id = -1;
+    let x0 = 0;
+    let y0 = 0;
+    let swiped = false;
+    n.el.addEventListener('pointerdown', (e) => {
+      if (n.gone || id !== -1) return;
+      e.preventDefault();
+      id = e.pointerId;
+      x0 = e.clientX;
+      y0 = e.clientY;
+      swiped = false;
+      n.el.setPointerCapture(id);
+      n.el.classList.add('pressed');
+    });
+    n.el.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== id || swiped || n.gone) return;
+      const dx = e.clientX - x0;
+      const dy = e.clientY - y0;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_PX) return;
+      swiped = true;
+      const a: Action = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+      this.onSwipe(a);
+      this.dismiss(n, `fling-${a}`);
+    });
+    const up = (e: PointerEvent) => {
+      if (e.pointerId !== id) return;
+      id = -1;
+      n.el.classList.remove('pressed');
+      if (swiped || n.gone || e.type === 'pointercancel') return;
+      this.sfx.reward();
+      this.onOpen();
+      this.dismiss(n, 'opened');
+    };
+    n.el.addEventListener('pointerup', up);
+    n.el.addEventListener('pointercancel', up);
+  }
+
+  private dismiss(n: Note, how: string): void {
+    n.gone = true;
+    n.el.classList.add('leaving', how);
+    setTimeout(() => {
+      n.el.remove();
+      const i = this.notes.indexOf(n);
+      if (i >= 0) this.notes.splice(i, 1);
+    }, LEAVE_MS);
   }
 
   private showBanner(): void {

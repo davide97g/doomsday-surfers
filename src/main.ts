@@ -31,7 +31,6 @@ const hud = new Hud(document.body, {
   bloom: true,
   grade: true,
   pixelRatio: view.settings.pixelRatio,
-  noDrain: false,
 });
 const audio = new GameAudio();
 const haptics = new GameHaptics();
@@ -55,6 +54,10 @@ select.onChange = (i) => {
 world.setCharacter(select.index);
 view.setCharacter(select.index);
 const nags = new Nags(hud.root, sfx);
+nags.onArrive = () => world.notificationArrived();
+nags.onOpen = () => world.openNotification();
+// A swipe that starts on a notification still steers the runner.
+nags.onSwipe = (a) => input.push(a);
 const keepGoing = new KeepGoing(hud.root, sfx);
 const death = new Death(hud.root, sfx);
 const gateScan = new GateScan(hud.root, sfx);
@@ -63,7 +66,6 @@ death.onRestart = () => world.reset(seedParam ? Number(seedParam) : Date.now());
 hud.onPerfChange = (p) => {
   view.post.settings.bloom = p.bloom;
   view.post.settings.grade = p.grade;
-  world.noDrain = p.noDrain;
   if (p.pixelRatio !== view.settings.pixelRatio) {
     view.settings.pixelRatio = p.pixelRatio;
     view.resize();

@@ -17,7 +17,16 @@
   "movingPost": { "speed": 10, "trigger": 75, "length": 14, "minDifficulty": 0.12 },
   "barrier": { "lowTop": 0.9, "highBottom": 1.05, "highTop": 3.2, "halfDepth": 0.15, "halfWidth": 0.95 },
   "pickup": { "spacing": 2.6, "value": 10, "radius": 0.7 },
-  "dopamine": { "max": 100, "start": 70, "drainStart": 5, "drainEnd": 9, "drainRampSeconds": 180, "fullColourAt": 80 },
+  "dopamine": { "max": 100, "start": 70, "fullColourAt": 80 },
+  "notify": {
+    "bump": 3,
+    "tapGain": 30,
+    "toleranceDecay": 0.88,
+    "toleranceFloor": 0.25,
+    "boostTime": 3,
+    "boostSpeed": 1.6,
+    "boostRamp": 0.5
+  },
   "content": { "types": 4, "gain": 6, "toleranceDecay": 0.94, "toleranceFloor": 0.2 },
   "characters": {
     "count": 7,
@@ -54,9 +63,10 @@
   },
   "revive": { "perRun": 1, "dopamine": 40, "clearAhead": 40, "adSeconds": 5 },
   "ui": {
-    "notifyMin": 7,
-    "notifyMax": 14,
-    "notifyShow": 2.8,
+    "notifyMin": 3.5,
+    "notifyMax": 7,
+    "notifyShow": 4.5,
+    "notifyMaxOnScreen": 3,
     "bannerEvery": 40,
     "bannerShow": 6,
     "bannerCloseAfter": 3,
