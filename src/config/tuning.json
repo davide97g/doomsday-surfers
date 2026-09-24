@@ -47,6 +47,48 @@
     "weight": 0.1,
     "weightByDifficulty": 0.14
   },
+  "course": {
+    "sampleStep": 0.5,
+    "startStraight": 90,
+    "lookahead": 400,
+    "gateMargin": 15,
+    "gapMin": 15,
+    "gapMax": 60,
+    "clearBefore": 12,
+    "clearAfter": 30,
+    "sceneryMargin": 12,
+    "weights": { "curve": 0.32, "roller": 0.14, "climb": 0.07, "drop": 0.12, "airtime": 0.11, "loop": 0.13, "corkscrew": 0.11 },
+    "curve": { "lengthMin": 50, "lengthMax": 110, "angleMin": 0.5, "angleMax": 1.6, "bank": 0.3 },
+    "roller": { "lengthMin": 70, "lengthMax": 110, "pitch": 0.12 },
+    "climb": { "lengthMin": 70, "lengthMax": 110, "pitch": 0.22 },
+    "drop": { "lengthMin": 60, "lengthMax": 90, "pitch": 0.95 },
+    "airtime": { "lengthMin": 36, "lengthMax": 52, "pitch": 0.42 },
+    "loop": { "length": 100, "shift": 7 },
+    "corkscrew": { "length": 55, "heartline": 1.2 }
+  },
+  "slope": {
+    "downGain": 0.5,
+    "upLoss": 0.25,
+    "rise": 3,
+    "decay": 0.5,
+    "crestGain": 2.5,
+    "floatMin": 0.55,
+    "liftFloat": -0.1
+  },
+  "thrill": {
+    "gain": 10,
+    "toleranceDecay": 0.86,
+    "toleranceFloor": 0.2,
+    "airMin": 0.95,
+    "weight": { "loop": 1.2, "corkscrew": 1, "drop": 1, "air": 0.6 }
+  },
+  "pads": {
+    "halfWidth": 0.9,
+    "flightMargin": 1.7,
+    "ramp": { "length": 6, "height": 1.4, "launch": 15, "weight": 0.08 },
+    "bouncer": { "length": 1.6, "launch": 19, "weight": 0.07 },
+    "autoplay": { "length": 7, "speed": 1.3, "time": 1.4, "ramp": 0.3, "weight": 0.06 }
+  },
   "reality": { "fadeTime": 2.5 },
   "gate": {
     "first": 700,
@@ -62,7 +104,7 @@
     "zoneFavour": [-1, 2, 3, 1],
     "favourChance": 0.5
   },
-  "revive": { "perRun": 1, "dopamine": 40, "clearAhead": 40, "adSeconds": 5 },
+  "revive": { "perRun": 1, "dopamine": 40, "clearAhead": 40, "clearSeconds": 2, "adSeconds": 5 },
   "ui": {
     "notifyMin": 3.5,
     "notifyMax": 7,

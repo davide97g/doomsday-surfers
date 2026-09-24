@@ -80,7 +80,7 @@ On the iPhone 14 with bloom + grade on at pixel ratio 2, the target is a steady 
 
 ```bash
 bun run typecheck
-bun run check:gen    # generator fairness + autopilot soak over 40 seeds
+bun run check:gen    # generator fairness, gate + thrill-ride clearance, autopilot soak over 40 seeds
 ```
 
 ## Layout
@@ -93,10 +93,12 @@ src/
   sim/                 pure simulation, no Three.js (portable to Godot)
     world.ts           fixed-timestep sim: movement, collisions, pickups
     generator.ts       chunk-based procedural track (future: "the Algorithm")
+    course.ts          rollercoaster shape: curves, drops, loops, corkscrews
     rng.ts             seeded PRNG
   input/input.ts       swipe + keyboard to actions
   render/              Three.js view (reads sim state, never writes it)
-    renderer.ts        feed world, obstacle pools, player, camera
+    renderer.ts        feed world, obstacle + pad pools, player, camera, sky
+    bend.ts            vertex-shader bend from the straight track onto the course
     hero.ts            Blender runner: clip selection and crossfades
     particles.ts       pickup/habit/crash bursts, speed lines
     post.ts            half-res bloom + colour grade (dopamine uniform)

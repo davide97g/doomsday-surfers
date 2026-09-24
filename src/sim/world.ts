@@ -18,7 +18,14 @@
 // bullet-time scan (`gateT` counts real seconds): the sim runs slowed by
 // `timeScale`, input is ignored, and the feed moves to the
 // next zone. The generator keeps the stretch around each gate empty.
+//
+// The track is a rollercoaster (see Course): downhill builds a speed rush,
+// crests make you float and the steep ones throw you into the air, and loops,
+// corkscrews, drops and big air give a thrill: a dopamine hit with its own
+// tolerance, shared by every kind of thrill. Pads on the track launch you
+// (ramps, bouncers) or give a short speed burst (autoplay strips).
 
+import { Course } from './course';
 import { Generator } from './generator';
 import {
   TUNING,
@@ -27,10 +34,12 @@ import {
   type Action,
   type DeathCause,
   type Obstacle,
+  type Pad,
   type Phase,
   type Pickup,
   type PlayerState,
   type SimEvent,
+  type ThrillKind,
   type Tuning,
 } from './types';
 
@@ -64,6 +73,7 @@ export class World {
   adsPassed = 0;
   notificationsOpened = 0;
   smashed = 0;
+  thrills = 0;
   revivesLeft: number;
   dopamine: number;
   /** Per content type multiplier on gain, 1 = fresh. */
@@ -74,6 +84,14 @@ export class World {
   boostT = 0;
   /** Seconds left of the habit slow-down. */
   slowT = 0;
+  /** Extra speed fraction built up going downhill (negative uphill). */
+  rush = 0;
+  /** Seconds left of an autoplay strip's speed burst. */
+  autoplayT = 0;
+  /** Seconds in the air so far this hop. */
+  airT = 0;
+  /** Multiplier on thrill gains, 1 = fresh. */
+  thrillTolerance = 1;
   cause: DeathCause | null = null;
   /** Seconds into the fade to reality. */
   fadeT = 0;
@@ -87,6 +105,8 @@ export class World {
   gateT = -1;
   obstacles: Obstacle[] = [];
   pickups: Pickup[] = [];
+  pads: Pad[] = [];
+  course: Course;
   player: PlayerState;
   events: SimEvent[] = [];
   private gen: Generator;
@@ -101,8 +121,9 @@ export class World {
     this.takenByType = new Array(t.content.types).fill(0);
     this.revivesLeft = t.revive.perRun;
     this.player = World.freshPlayer(t);
-    this.gen = new Generator(seed, t);
-    this.gen.fill(t.spawn.ahead, { speed: this.speed, difficulty: 0 }, this.obstacles, this.pickups);
+    this.course = new Course(seed, t);
+    this.gen = new Generator(seed, this.course, t);
+    this.gen.fill(t.spawn.ahead, { speed: this.speed, difficulty: 0 }, this.obstacles, this.pickups, this.pads);
   }
 
   static freshPlayer(t: Tuning): PlayerState {
@@ -124,6 +145,11 @@ export class World {
     this.adsPassed = 0;
     this.notificationsOpened = 0;
     this.smashed = 0;
+    this.thrills = 0;
+    this.thrillTolerance = 1;
+    this.rush = 0;
+    this.autoplayT = 0;
+    this.airT = 0;
     this.notifyTolerance = 1;
     this.boostT = 0;
     this.revivesLeft = this.t.revive.perRun;
@@ -137,9 +163,11 @@ export class World {
     this.gateT = -1;
     this.obstacles = [];
     this.pickups = [];
+    this.pads = [];
     this.player = World.freshPlayer(this.t);
-    this.gen = new Generator(seed, this.t);
-    this.gen.fill(this.t.spawn.ahead, { speed: this.speed, difficulty: 0 }, this.obstacles, this.pickups);
+    this.course = new Course(seed, this.t);
+    this.gen = new Generator(seed, this.course, this.t);
+    this.gen.fill(this.t.spawn.ahead, { speed: this.speed, difficulty: 0 }, this.obstacles, this.pickups, this.pads);
   }
 
   get difficulty(): number {
@@ -168,7 +196,9 @@ export class World {
     if (this.phase !== 'running') return 0;
     const h = this.t.habit;
     const slow = this.slowT > 0 ? 1 - (1 - h.slowFactor) * (this.slowT / h.slowTime) : 1;
-    return this.speed * slow * (1 + (this.t.notify.boostSpeed - 1) * this.boost);
+    const a = this.t.pads.autoplay;
+    const autoplay = 1 + (a.speed - 1) * Math.min(1, this.autoplayT / a.ramp);
+    return this.speed * slow * (1 + this.rush) * autoplay * (1 + (this.t.notify.boostSpeed - 1) * this.boost);
   }
 
   /** Sim speed multiplier: dips to gate.timeScale during a gate scan. */
@@ -225,9 +255,14 @@ export class World {
     this.movePlayer(dt);
 
     const prevBox = this.playerBox();
+    const prevD = this.d;
     this.d += this.runSpeed * dt;
     this.slowT = Math.max(0, this.slowT - dt);
     this.boostT = Math.max(0, this.boostT - dt);
+    this.autoplayT = Math.max(0, this.autoplayT - dt);
+    this.updateRush(dt);
+    const ride = this.course.finished(prevD, this.d);
+    if (ride && (ride.kind === 'loop' || ride.kind === 'corkscrew' || ride.kind === 'drop')) this.thrill(ride.kind);
 
     for (const o of this.obstacles) {
       if (o.speed > 0) {
@@ -238,10 +273,12 @@ export class World {
 
     if (this.gateT < 0 && this.d >= gateS(this.nextGate, t)) this.startGate();
     this.collide(prevBox);
+    if (this.phase === 'running') this.touchPads();
     if (this.phase === 'running') this.collect();
     if (this.phase === 'running' && this.dopamine <= 0) this.lose('empty');
 
-    this.gen.fill(this.d + t.spawn.ahead, { speed: this.speed, difficulty: this.difficulty }, this.obstacles, this.pickups);
+    this.gen.fill(this.d + t.spawn.ahead, { speed: this.speed, difficulty: this.difficulty }, this.obstacles, this.pickups, this.pads);
+    this.course.trim(this.d);
     const behind = this.d - 20;
     this.obstacles = this.obstacles.filter((o) => {
       if (o.s + o.length > behind) return true;
@@ -253,6 +290,7 @@ export class World {
       return false;
     });
     this.pickups = this.pickups.filter((pk) => !pk.taken && pk.s > behind);
+    this.pads = this.pads.filter((pd) => pd.s + pd.length > behind);
   }
 
   /** A push notification landed on screen. Looking at it is enough for a little hit. */
@@ -286,10 +324,14 @@ export class World {
     this.fadeT = 0;
     this.slowT = 0;
     this.boostT = 0;
+    this.rush = 0;
+    this.autoplayT = 0;
     this.dopamine = t.revive.dopamine;
     // Clear whatever killed you and the stretch right ahead, so the revive isn't an instant re-death.
-    const clearTo = this.d + t.revive.clearAhead;
+    // Downhill rush can make that stretch go by fast, so it scales with speed.
+    const clearTo = this.d + Math.max(t.revive.clearAhead, this.speed * (1 + t.slope.downGain) * t.revive.clearSeconds);
     this.obstacles = this.obstacles.filter((o) => o.s + o.length < this.d - 1 || o.s > clearTo);
+    this.pads = this.pads.filter((pd) => pd.s + pd.length < this.d - 1 || pd.s > clearTo);
     const p = this.player;
     p.x = laneX(p.lane, t);
     p.prevLane = p.lane;
@@ -299,6 +341,7 @@ export class World {
     p.rollT = 0;
     p.rollQueued = false;
     p.stumbleT = 0;
+    this.airT = 0;
     this.events.push({ type: 'revive' });
   }
 
@@ -345,15 +388,30 @@ export class World {
     const dx = targetX - p.x;
     p.x += Math.sign(dx) * Math.min(Math.abs(dx), rate * dt);
 
-    // Vertical.
+    // Vertical. Over a crest the track falls away under you, so gravity
+    // (relative to the track) weakens; on a steep enough one it lets go.
+    const sl = t.slope;
+    const v = this.runSpeed;
+    const lifts = this.course.lifts(this.d);
+    const g = t.jump.gravity - sl.crestGain * v * v * this.course.crest(this.d);
+    if (p.grounded && lifts && g < 0 && this.phase === 'running') {
+      p.grounded = false;
+      p.vy = 0;
+      p.rollT = 0;
+      this.airT = 0;
+      this.events.push({ type: 'lift' });
+    }
     if (!p.grounded) {
-      p.vy -= t.jump.gravity * dt;
+      this.airT += dt;
+      p.vy -= Math.max(g, t.jump.gravity * (lifts ? sl.liftFloat : sl.floatMin)) * dt;
       p.y += p.vy * dt;
       if (p.y <= 0) {
         p.y = 0;
         p.vy = 0;
         p.grounded = true;
         this.events.push({ type: 'land' });
+        if (this.airT >= t.thrill.airMin && this.phase === 'running') this.thrill('air');
+        this.airT = 0;
         if (p.rollQueued && this.phase === 'running') {
           p.rollQueued = false;
           p.rollT = t.roll.duration;
@@ -387,6 +445,7 @@ export class World {
         p.grounded = false;
         p.vy = t.jump.velocity;
         p.rollT = 0;
+        this.airT = 0;
         this.events.push({ type: 'jump' });
         return;
       }
@@ -489,6 +548,51 @@ export class World {
     p.x += dir * 0.12;
     p.stumbleT = t.stumble.duration;
     this.events.push({ type: 'stumble' });
+  }
+
+  /** Downhill builds a rush of extra speed (fast); it bleeds off slowly after. */
+  private updateRush(dt: number): void {
+    const sl = this.t.slope;
+    const grade = this.course.grade(this.d);
+    const target = grade < 0 ? -grade * sl.downGain : -grade * sl.upLoss;
+    const rate = target > this.rush ? sl.rise : sl.decay;
+    this.rush += (target - this.rush) * (1 - Math.exp(-rate * dt));
+  }
+
+  private thrill(kind: ThrillKind): void {
+    const th = this.t.thrill;
+    const gain = th.gain * th.weight[kind] * this.thrillTolerance;
+    this.thrills++;
+    this.dopamine = Math.min(this.t.dopamine.max, this.dopamine + gain);
+    this.thrillTolerance = Math.max(th.toleranceFloor, this.thrillTolerance * th.toleranceDecay);
+    this.events.push({ type: 'thrill', kind, gain, tolerance: this.thrillTolerance });
+  }
+
+  /** Ramps and bouncers launch you, autoplay strips speed you up. Each works once. */
+  private touchPads(): void {
+    const t = this.t;
+    const p = this.player;
+    for (const pad of this.pads) {
+      if (pad.used) continue;
+      if (this.d + t.player.halfDepth < pad.s || this.d - t.player.halfDepth > pad.s + pad.length) continue;
+      if (Math.abs(p.x - laneX(pad.lane, t)) > t.pads.halfWidth + t.player.halfWidth - 0.2) continue;
+      if (pad.kind === 'autoplay') {
+        if (!p.grounded) continue;
+        this.autoplayT = t.pads.autoplay.time;
+      } else {
+        // A ramp catches you anywhere under its slope; a bouncer only at deck level.
+        const into = Math.max(0, this.d - pad.s) / pad.length;
+        const top = pad.kind === 'ramp' ? t.pads.ramp.height * into + 0.4 : 0.3;
+        if (p.y > top) continue;
+        p.grounded = false;
+        p.vy = t.pads[pad.kind].launch;
+        p.rollT = 0;
+        p.rollQueued = false;
+        this.airT = 0;
+      }
+      pad.used = true;
+      this.events.push({ type: 'pad', kind: pad.kind, lane: pad.lane });
+    }
   }
 
   private collect(): void {

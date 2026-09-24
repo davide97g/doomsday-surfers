@@ -167,6 +167,8 @@ export class Death {
       opened: w.notificationsOpened,
       received: nags.notificationsShown,
       smashed: w.smashed,
+      thrills: w.thrills,
+      thrillPct: Math.round(w.thrillTolerance * 100),
       reels,
       outrage,
       numbest: content.contentTypes[numbest].name,

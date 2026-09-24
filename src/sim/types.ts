@@ -34,6 +34,22 @@ export interface Obstacle {
   hit: boolean;
 }
 
+/** Rideable track toys: a "Swipe up" ramp and a pull-to-refresh bouncer launch
+ *  you into the air, an autoplay strip gives a short speed burst. All optional. */
+export type PadKind = 'ramp' | 'bouncer' | 'autoplay';
+
+export interface Pad {
+  id: number;
+  kind: PadKind;
+  lane: number;
+  s: number;
+  length: number;
+  used: boolean;
+}
+
+/** Rollercoaster moments that give a dopamine hit (with their own shared tolerance). */
+export type ThrillKind = 'loop' | 'corkscrew' | 'drop' | 'air';
+
 export interface Pickup {
   id: number;
   lane: number;
@@ -73,6 +89,11 @@ export type SimEvent =
   | { type: 'boost'; gain: number; tolerance: number }
   /** Ran through an obstacle while boosting. */
   | { type: 'smash'; id: number; kind: ObstacleKind; lane: number }
+  /** Launched by a ramp or bouncer, or hit an autoplay strip. */
+  | { type: 'pad'; kind: PadKind; lane: number }
+  /** A crest threw you off the track by itself. */
+  | { type: 'lift' }
+  | { type: 'thrill'; kind: ThrillKind; gain: number; tolerance: number }
   | { type: 'empty' }
   | { type: 'revive' }
   /** Crossed a checkpoint gate: bullet time + scan begin, the feed moves to `zone`. */

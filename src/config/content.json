@@ -150,6 +150,7 @@
       "Most numbing: {numbest} (now {numbestPct}% as effective)",
       "Healthy habits avoided: {dodged}. Mum calls ignored: {mum}.",
       "Notifications opened: {opened} of {received}. Things you ran through without looking: {smashed}.",
+      "Loops, drops and airtime: {thrills}. Now {thrillPct}% as thrilling.",
       "Estimated attention span: {span}s",
       "Advertisers who now own you: {ads}",
       "You out-scrolled {rank}% of users."
@@ -173,6 +174,24 @@
     "final": "Free will: not detected",
     "verdict": "PROFILE SOLD TO {n} ADVERTISERS",
     "kicker": "FEED UPDATED"
+  },
+  "thrill": {
+    "loop": {
+      "title": "LOOP",
+      "lines": ["You went in a circle. Again.", "Right back where you started. Faster.", "Round and round. Feels like progress."]
+    },
+    "corkscrew": {
+      "title": "CORKSCREW",
+      "lines": ["Which way is up? Doesn't matter.", "Your inner ear filed a complaint.", "Spun. Content."]
+    },
+    "drop": {
+      "title": "INFINITE SCROLL DROP",
+      "lines": ["There is no bottom.", "Keep falling. It's free.", "The feed goes down forever."]
+    },
+    "air": {
+      "title": "AIRTIME",
+      "lines": ["Feet off the ground. Eyes on the screen.", "Gravity left you on read.", "Weightless. Mindless."]
+    }
   },
   "characters": [
     {

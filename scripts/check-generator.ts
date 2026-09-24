@@ -7,6 +7,8 @@
 //    many seeds hints at unfair patterns.
 // 3. Gates: nothing spawns in a checkpoint gate's clear stretch, and the run
 //    comes out of every gate scan it enters.
+// 4. Thrill rides: no obstacle or pad inside a loop/corkscrew/drop/airtime
+//    stretch (pickups are fine: they ride through).
 
 import { Bot } from '../src/dev/bot';
 import { gateS } from '../src/sim/types';
@@ -19,6 +21,8 @@ const DT = 1 / 120;
 let blockedFailures = 0;
 let habitFailures = 0;
 let gateFailures = 0;
+let rideFailures = 0;
+const thrills: number[] = [];
 const gatesCrossed: number[] = [];
 const results: number[] = [];
 const times: number[] = [];
@@ -34,6 +38,8 @@ for (let seed = 1; seed <= SEEDS; seed++) {
   const seenHabits = new Map<number, { lane: number; s: number }>();
   // First-seen track span of every obstacle and pickup, for the gate clear check.
   const spans = new Map<number, [number, number]>();
+  // Obstacles and pads only (no pickups), for the thrill-ride check.
+  const solid = new Map<number, [number, number]>();
   while (w.phase !== 'dead' && w.d < MAX_DIST && steps < 120 * 60 * 10) {
     const actions = bot.think(w, DT);
     w.step(DT, actions);
@@ -41,6 +47,11 @@ for (let seed = 1; seed <= SEEDS; seed++) {
       if (o.kind === 'post') seenPosts.set(o.id, { lane: o.lane, s0: o.s, s1: o.s + o.length });
       if (o.kind === 'habit') seenHabits.set(o.id, { lane: o.lane, s: o.s });
       if (!spans.has(o.id)) spans.set(o.id, [o.s, o.s + o.length]);
+      if (!solid.has(o.id)) solid.set(o.id, [o.s, o.s + o.length]);
+    }
+    for (const pd of w.pads) {
+      if (!spans.has(pd.id)) spans.set(pd.id, [pd.s, pd.s + pd.length]);
+      if (!solid.has(pd.id)) solid.set(pd.id, [pd.s, pd.s + pd.length]);
     }
     for (const pk of w.pickups) if (!spans.has(pk.id)) spans.set(pk.id, [pk.s, pk.s]);
     steps++;
@@ -62,6 +73,15 @@ for (let seed = 1; seed <= SEEDS; seed++) {
       break;
     }
   }
+  for (let c = w.course.nextClear(w.t.spawn.safeStart); c && c.from < w.d; c = w.course.nextClear(c.to + 0.01)) {
+    const hit = [...solid.values()].find(([a, b]) => a < c!.to && b > c!.from);
+    if (hit) {
+      rideFailures++;
+      console.log(`seed ${seed}: something solid in the ${c.seg.kind} at s=${hit[0].toFixed(1)}`);
+      break;
+    }
+  }
+  thrills.push(w.thrills);
   times.push(w.time);
   if (w.cause) causes[w.cause]++;
 
@@ -96,11 +116,16 @@ results.sort((a, b) => a - b);
 const median = results[Math.floor(results.length / 2)];
 const reachedMax = results.filter((d) => d >= MAX_DIST).length;
 // Revive sanity: after dying, a revive must not re-kill you straight away.
+// Seeds where the bot outlives the time cap have nothing to revive from.
 let reviveFailures = 0;
-for (let seed = 1; seed <= 10; seed++) {
+let revivesTested = 0;
+for (let seed = 1; seed <= 30 && revivesTested < 10; seed++) {
   const w = new World(seed);
   const bot = new Bot();
   for (let i = 0; i < 120 * 600 && w.phase !== 'dead'; i++) w.step(DT, bot.think(w, DT));
+  const phase: string = w.phase;
+  if (phase !== 'dead') continue;
+  revivesTested++;
   w.revive();
   for (let i = 0; i < 120 * 1.5; i++) w.step(DT, []);
   if (w.phase !== 'running') {
@@ -115,7 +140,9 @@ console.log(`all-lanes-blocked failures: ${blockedFailures}`);
 console.log(`habit-in-only-lane failures: ${habitFailures}`);
 console.log(`bot distance — min ${results[0].toFixed(0)}m, median ${median.toFixed(0)}m, max ${results[results.length - 1].toFixed(0)}m, reached ${MAX_DIST}m: ${reachedMax}/${SEEDS}`);
 console.log(`bot run time — min ${times[0].toFixed(0)}s, median ${medianTime.toFixed(0)}s, max ${times[times.length - 1].toFixed(0)}s · ended by: empty ${causes.empty}, crash ${causes.crash}`);
-console.log(`revive failures: ${reviveFailures}`);
+console.log(`revive failures: ${reviveFailures}/${revivesTested}`);
 gatesCrossed.sort((a, b) => a - b);
 console.log(`gate failures: ${gateFailures} · gates crossed — median ${gatesCrossed[Math.floor(gatesCrossed.length / 2)]}, max ${gatesCrossed[gatesCrossed.length - 1]}`);
-if (blockedFailures > 0 || habitFailures > 0 || reviveFailures > 0 || gateFailures > 0) process.exit(1);
+thrills.sort((a, b) => a - b);
+console.log(`thrill-ride failures: ${rideFailures} · thrills per run — median ${thrills[Math.floor(thrills.length / 2)]}, max ${thrills[thrills.length - 1]}`);
+if (blockedFailures > 0 || habitFailures > 0 || reviveFailures > 0 || gateFailures > 0 || rideFailures > 0 || revivesTested < 5) process.exit(1);

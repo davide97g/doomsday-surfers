@@ -11,20 +11,33 @@
 // post row leaves free. Each pickup line is one content type; parallel lines of
 // different types make tolerance a lane choice.
 //
-// Checkpoint gates get an empty stretch (gate.clearBefore .. gate.clearAfter).
-// A chunk that would reach into it is thrown away and the cursor jumps past
-// the gate. Past each gate the new zone leans on its favourite content type.
+// Checkpoint gates get an empty stretch (gate.clearBefore .. gate.clearAfter),
+// and so do the course's thrill rides (loops, corkscrews, drops, airtime
+// hills). A chunk that would reach into one is thrown away and the cursor
+// jumps past it; loops and corkscrews get a pickup line to ride through.
+// Past each gate the new zone leans on its favourite content type.
+//
+// Pad chunks (ramp, bouncer, autoplay) reserve their whole flight, at well
+// above the current speed, so a boosted launch still lands on empty track.
 //
 // Later this is where "the Algorithm" plugs in: chunk weights and content
 // types will be biased by what the player grabs.
 
+import type { Course } from './course';
 import { Rng } from './rng';
-import { TUNING, gateS, zoneLook, type Obstacle, type ObstacleKind, type Pickup, type Tuning } from './types';
+import { TUNING, gateS, zoneLook, type Obstacle, type ObstacleKind, type Pad, type PadKind, type Pickup, type Tuning } from './types';
 
 /** Habit rows start their pickup line this far before the habit. */
 const HABIT_LEAD = 8;
 
-type ChunkKind = 'barrierRow' | 'doubleBarrier' | 'postRow' | 'movingPost' | 'pickupRun' | 'habitRow';
+type ChunkKind = 'barrierRow' | 'doubleBarrier' | 'postRow' | 'movingPost' | 'pickupRun' | 'habitRow' | PadKind;
+
+interface Zone {
+  from: number;
+  to: number;
+  /** Where a ride-through pickup line goes (loops and corkscrews), if any. */
+  ride: [number, number] | null;
+}
 
 export interface GenContext {
   speed: number;
@@ -38,37 +51,63 @@ export class Generator {
   private nextId = 1;
   private readonly rng: Rng;
   private readonly t: Tuning;
+  private pads: Pad[] = [];
 
-  constructor(seed: number, t: Tuning = TUNING) {
+  constructor(
+    seed: number,
+    private readonly course: Course,
+    t: Tuning = TUNING,
+  ) {
     this.rng = new Rng(seed);
     this.t = t;
     this.cursor = t.spawn.safeStart;
   }
 
-  fill(untilS: number, ctx: GenContext, obstacles: Obstacle[], pickups: Pickup[]): void {
-    const g = this.t.gate;
+  fill(untilS: number, ctx: GenContext, obstacles: Obstacle[], pickups: Pickup[], pads: Pad[]): void {
+    this.pads = pads;
     while (this.cursor < untilS) {
-      const clearFrom = gateS(this.gate, this.t) - g.clearBefore;
-      const clearTo = gateS(this.gate, this.t) + g.clearAfter;
-      if (this.cursor >= clearFrom) {
-        this.skipGate(clearTo);
+      this.gate = this.gatesBefore(this.cursor);
+      const zone = this.nextZone(this.cursor);
+      if (this.cursor >= zone.from) {
+        this.skip(zone, pickups);
         continue;
       }
       const o0 = obstacles.length;
       const p0 = pickups.length;
+      const d0 = pads.length;
       this.chunk(ctx, obstacles, pickups);
-      if (reach(obstacles, o0, pickups, p0) > clearFrom) {
+      if (reach(obstacles, o0, pickups, p0, pads, d0) > zone.from) {
         obstacles.length = o0;
         pickups.length = p0;
-        this.skipGate(clearTo);
+        pads.length = d0;
+        this.skip(zone, pickups);
       }
     }
   }
 
-  private skipGate(clearTo: number): void {
+  /** Gates strictly behind `s` (the zone index chunks at `s` belong to). */
+  private gatesBefore(s: number): number {
+    let k = 0;
+    while (gateS(k, this.t) < s) k++;
+    return k;
+  }
+
+  /** The next stretch that must stay empty: a gate's or a thrill ride's. */
+  private nextZone(s: number): Zone {
+    const g = this.t.gate;
+    let k = 0;
+    while (gateS(k, this.t) + g.clearAfter <= s) k++;
+    const gate: Zone = { from: gateS(k, this.t) - g.clearBefore, to: gateS(k, this.t) + g.clearAfter, ride: null };
+    const c = this.course.nextClear(s);
+    if (!c || c.from >= gate.from) return gate;
+    const rides = c.seg.kind === 'loop' || c.seg.kind === 'corkscrew';
+    return { from: c.from, to: c.to, ride: rides ? [c.seg.s0 + 2, c.seg.s1 - 2] : null };
+  }
+
+  private skip(zone: Zone, pickups: Pickup[]): void {
+    if (zone.ride && this.cursor < zone.ride[0]) this.pickupLine(pickups, this.rng.int(0, this.t.lanes.count - 1), zone.ride[0], zone.ride[1]);
     // Leave room for chunks that reach back behind the cursor (habit rows).
-    this.cursor = Math.max(this.cursor, clearTo + HABIT_LEAD);
-    this.gate++;
+    this.cursor = Math.max(this.cursor, zone.to + HABIT_LEAD);
   }
 
   private gap(ctx: GenContext): number {
@@ -104,6 +143,9 @@ export class Generator {
       movingPost: d >= this.t.movingPost.minDifficulty ? 0.06 + 0.12 * d : 0,
       pickupRun: 0.16,
       habitRow: this.t.habit.weight + this.t.habit.weightByDifficulty * d,
+      ramp: this.t.pads.ramp.weight,
+      bouncer: this.t.pads.bouncer.weight,
+      autoplay: this.t.pads.autoplay.weight,
     };
     const kind = this.rng.weighted(weights);
     const lanes = this.t.lanes.count;
@@ -178,6 +220,37 @@ export class Generator {
         this.cursor = s + this.gap(ctx);
         break;
       }
+      case 'ramp':
+      case 'bouncer': {
+        // Take it and you fly over the next stretch through an arc of content.
+        const pd = this.t.pads;
+        const lane = this.rng.int(0, lanes - 1);
+        const len = pd[kind].length;
+        this.pads.push({ id: this.nextId++, kind, lane, s, length: len, used: false });
+        const g = this.t.jump.gravity;
+        const vy = pd[kind].launch;
+        const flight = (2 * vy) / g;
+        const type = this.contentType();
+        for (let tt = 0.12; tt < flight - 0.1; tt += this.t.pickup.spacing / ctx.speed) {
+          const y = vy * tt - 0.5 * g * tt * tt;
+          pickups.push({ id: this.nextId++, lane, s: s + ctx.speed * tt, y: y + 0.9, taken: false, type });
+        }
+        // Skipping it is fine: a plain pickup line alongside.
+        if (this.rng.chance(0.5)) {
+          const other = (lane + this.rng.int(1, lanes - 1)) % lanes;
+          this.pickupLine(pickups, other, s, s + ctx.speed * flight * 0.6);
+        }
+        this.cursor = s + ctx.speed * flight * pd.flightMargin + this.gap(ctx);
+        break;
+      }
+      case 'autoplay': {
+        const a = this.t.pads.autoplay;
+        const lane = this.rng.int(0, lanes - 1);
+        this.pads.push({ id: this.nextId++, kind, lane, s, length: a.length, used: false });
+        this.pickupLine(pickups, lane, s + a.length + 2, s + a.length + 2 + ctx.speed * a.time * a.speed * 0.8);
+        this.cursor = s + a.length + ctx.speed * a.time * a.speed + this.gap(ctx) * a.speed;
+        break;
+      }
     }
   }
 
@@ -198,11 +271,12 @@ export class Generator {
   }
 }
 
-/** Furthest track distance touched by the obstacles/pickups added since o0/p0. */
-function reach(obstacles: Obstacle[], o0: number, pickups: Pickup[], p0: number): number {
+/** Furthest track distance touched by the obstacles/pickups/pads added since o0/p0/d0. */
+function reach(obstacles: Obstacle[], o0: number, pickups: Pickup[], p0: number, pads: Pad[], d0: number): number {
   let max = -Infinity;
   for (let i = o0; i < obstacles.length; i++) max = Math.max(max, obstacles[i].s + obstacles[i].length);
   for (let i = p0; i < pickups.length; i++) max = Math.max(max, pickups[i].s);
+  for (let i = d0; i < pads.length; i++) max = Math.max(max, pads[i].s + pads[i].length);
   return max;
 }
 

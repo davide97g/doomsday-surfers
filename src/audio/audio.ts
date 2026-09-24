@@ -141,6 +141,23 @@ export class GameAudio {
         case 'jump':
           this.tone(320, 520, 0.09, 'triangle', 0.06);
           break;
+        case 'pad':
+          if (e.kind === 'autoplay') {
+            this.tone(660, 1320, 0.25, 'square', 0.05);
+          } else {
+            // Boing up, whoosh.
+            this.tone(140, e.kind === 'bouncer' ? 900 : 620, 0.35, 'triangle', 0.1);
+            this.noiseHit(0.5, 1800, 0.15);
+          }
+          break;
+        case 'lift':
+          this.tone(500, 900, 0.3, 'sine', 0.05);
+          break;
+        case 'thrill':
+          // Rising arpeggio; quieter as the thrill wears off.
+          this.tone(523, 1047, 0.4, 'sawtooth', 0.04 + 0.06 * e.tolerance);
+          this.tone(784, 1568, 0.5, 'square', 0.02 + 0.04 * e.tolerance, 0.12);
+          break;
         case 'empty':
           this.tone(440, 110, 1.6, 'sawtooth', 0.12);
           break;

@@ -345,3 +345,87 @@ export function makeGateSign(text: string): THREE.CanvasTexture {
   ctx.fillText(text, 512, 50);
   return tex(c);
 }
+
+/** "Swipe up" ramp deck: stacked up-chevrons and the gesture hint, read from behind. */
+export function makeRampFace(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(256, 512);
+  const g = ctx.createLinearGradient(0, 512, 0, 0);
+  g.addColorStop(0, '#12091f');
+  g.addColorStop(1, '#2a0d3d');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 512);
+  ctx.strokeStyle = '#ff2e88';
+  ctx.lineWidth = 16;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (let i = 0; i < 4; i++) {
+    const y = 150 + i * 90;
+    ctx.globalAlpha = 1 - i * 0.2;
+    ctx.beginPath();
+    ctx.moveTo(58, y + 34);
+    ctx.lineTo(128, y - 30);
+    ctx.lineTo(198, y + 34);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#f4f2fa';
+  ctx.textAlign = 'center';
+  ctx.font = '900 38px system-ui, sans-serif';
+  ctx.fillText('SWIPE UP', 128, 62);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(8, 8, 240, 496);
+  return tex(c);
+}
+
+/** Pull-to-refresh bouncer top: the spinner arrow everyone keeps dragging down. */
+export function makeBouncerTop(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(256, 256);
+  ctx.fillStyle = '#0d0b14';
+  ctx.fillRect(0, 0, 256, 256);
+  ctx.strokeStyle = '#00e1ff';
+  ctx.lineWidth = 22;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(128, 128, 72, -Math.PI * 0.35, Math.PI * 1.35);
+  ctx.stroke();
+  // Arrow head at the start of the arc.
+  const a = -Math.PI * 0.35;
+  const hx = 128 + Math.cos(a) * 72;
+  const hy = 128 + Math.sin(a) * 72;
+  ctx.fillStyle = '#00e1ff';
+  ctx.beginPath();
+  ctx.moveTo(hx + 34, hy + 6);
+  ctx.lineTo(hx - 12, hy - 30);
+  ctx.lineTo(hx - 16, hy + 26);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,225,255,0.4)';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(128, 128, 118, 0, Math.PI * 2);
+  ctx.stroke();
+  return tex(c);
+}
+
+/** Autoplay strip: forward chevrons with "Autoplay next", tiled along the lane. */
+export function makeAutoplay(): THREE.CanvasTexture {
+  const [c, ctx] = canvas(128, 256);
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, 128, 256);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 14;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (let i = 0; i < 2; i++) {
+    const y = 70 + i * 128;
+    ctx.beginPath();
+    ctx.moveTo(22, y + 28);
+    ctx.lineTo(64, y - 22);
+    ctx.lineTo(106, y + 28);
+    ctx.stroke();
+  }
+  const t = tex(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}

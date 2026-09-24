@@ -1,17 +1,24 @@
 // Three.js view of the simulation. Reads World state every frame; never
 // mutates it. Everything here is grey-box placeholder art built from
 // primitives + canvas textures, to be swapped for Blender .glb assets later.
+//
+// Everything is laid out on a straight track (x lateral, y up, z = -(s - d))
+// and bent onto the rollercoaster course by the vertex shader (see Bend).
+// Long things are subdivided along z so they follow curves and loops. The
+// runner stays unbent at the origin (the bend is identity there); the sky
+// dome keeps the world's real orientation, so the horizon flips in a loop.
 
 import * as THREE from 'three';
 import content from '../config/content.json';
-import { laneX, zoneLook, type ObstacleKind, type SimEvent } from '../sim/types';
+import { TUNING, laneX, zoneLook, type ObstacleKind, type PadKind, type SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
 import { atlasMaterial, cellAttribute, hash } from './atlas';
+import { Bend } from './bend';
 import { Gate } from './gate';
 import { Hero } from './hero';
 import { Particles } from './particles';
 import { Post } from './post';
-import { FEED_ATLAS, makeAd, makeBookCover, makeContent, makeFeedAtlas, makeMumCall, makeNotification, makeReel, makeReelFront } from './textures';
+import { FEED_ATLAS, makeAd, makeAutoplay, makeBookCover, makeBouncerTop, makeContent, makeFeedAtlas, makeMumCall, makeNotification, makeRampFace, makeReel, makeReelFront } from './textures';
 
 const VARIANTS = 8;
 const CONTENT_COLOURS = ['#ff2e63', '#ff2e3b', '#00e1ff', '#ff7a1f']; // like, notification, reel, outrage
@@ -23,6 +30,12 @@ const CELL_H = CELL_W * 2.1;
 /** Track kept behind the runner: a little normally, more while the gate camera looks back. */
 const BEHIND = 12;
 const BEHIND_ORBIT = 45;
+/** Length segments per track tile, so tiles bend round loops instead of kinking. */
+const TILE_SEGS = 4;
+/** Glowing "loading spinner" dashes lining each side of a loop or corkscrew. */
+const SPINNER_DASHES = 18;
+const SPINNER_X = 4.1;
+const PAD_COLOURS: Record<PadKind, string> = { ramp: '#ff2e88', bouncer: '#00e1ff', autoplay: '#ffcc00' };
 
 /** Seconds for the title turntable to swing round into the chase view. */
 const INTRO = 0.9;
@@ -72,6 +85,18 @@ export class GameRenderer {
   private readonly towerCells: THREE.InstancedMesh;
   private readonly towerCellIds: THREE.InstancedBufferAttribute;
   private readonly towerBacks: THREE.InstancedMesh;
+  private readonly deck: THREE.InstancedMesh;
+  private readonly seams: THREE.InstancedMesh;
+  private readonly spinner: THREE.InstancedMesh;
+  private readonly sky: THREE.Mesh;
+  private readonly skyUniforms: { top: THREE.IUniform<THREE.Color>; horizon: THREE.IUniform<THREE.Color>; bottom: THREE.IUniform<THREE.Color>; glow: THREE.IUniform<THREE.Color> };
+  readonly bend = new Bend();
+  private readonly padPools = new Map<PadKind, THREE.Object3D[]>();
+  private readonly padActive = new Map<number, { kind: PadKind; obj: THREE.Object3D; t: number }>();
+  private readonly autoplayTex: THREE.Texture;
+  private readonly camUp = new THREE.Vector3(0, 1, 0);
+  private readonly upV = new THREE.Vector3();
+  private readonly colour = new THREE.Color();
   private readonly pickupMeshes: THREE.InstancedMesh[] = [];
   private readonly phoneMat: THREE.MeshBasicMaterial;
   private readonly player = new THREE.Group();
@@ -89,9 +114,11 @@ export class GameRenderer {
   private readonly gate: Gate;
   private readonly seamMat: THREE.MeshBasicMaterial;
   private readonly hemi: THREE.HemisphereLight;
-  private readonly sky = new THREE.Color();
+  private readonly skyColour = new THREE.Color();
   private readonly tmpV = new THREE.Vector3();
   private readonly lookV = new THREE.Vector3();
+  private readonly tmpP = new THREE.Vector3();
+  private readonly tmpQ = new THREE.Quaternion();
 
   private readonly pools = new Map<ObstacleKind, THREE.Object3D[]>();
   private readonly active = new Map<number, { kind: ObstacleKind; obj: THREE.Object3D }>();
@@ -110,6 +137,12 @@ export class GameRenderer {
     warn: THREE.MeshBasicMaterial;
   };
   // Healthy habits: matte, warm, un-neon. They should look boring.
+  private readonly padMats: {
+    ramp: THREE.MeshBasicMaterial;
+    bouncer: THREE.MeshBasicMaterial;
+    autoplay: THREE.MeshBasicMaterial;
+    glow: Record<PadKind, THREE.MeshBasicMaterial>;
+  };
   private readonly habitMats: {
     glass: THREE.MeshStandardMaterial;
     water: THREE.MeshStandardMaterial;
@@ -190,35 +223,87 @@ export class GameRenderer {
     const lanes = 3;
     const tilesPerLane = Math.ceil((visibleAhead + BEHIND_ORBIT + 20) / TILE_LEN) + 2;
     const maxTiles = lanes * tilesPerLane;
-    const screenGeo = new THREE.PlaneGeometry(1.92, TILE_LEN - 0.34).rotateX(-Math.PI / 2);
+    const screenGeo = new THREE.PlaneGeometry(1.92, TILE_LEN - 0.34, 1, TILE_SEGS).rotateX(-Math.PI / 2);
     this.tileCells = cellAttribute(screenGeo, maxTiles);
     this.tileScreens = new THREE.InstancedMesh(screenGeo, this.mats.feed, maxTiles);
     this.tileScreens.frustumCulled = false;
     this.scene.add(this.tileScreens);
-    this.tileBezels = new THREE.InstancedMesh(new THREE.BoxGeometry(2.1, 0.16, TILE_LEN - 0.14), this.mats.dark, maxTiles);
+    this.tileBezels = new THREE.InstancedMesh(new THREE.BoxGeometry(2.1, 0.16, TILE_LEN - 0.14, 1, 1, TILE_SEGS), this.mats.dark, maxTiles);
     this.tileBezels.frustumCulled = false;
     this.scene.add(this.tileBezels);
 
-    // Floor under everything + glowing lane seams.
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#0b0812', roughness: 0.9 }));
-    floor.position.set(0, -0.15, -150);
-    this.scene.add(floor);
+    // A dark deck under the lanes (the track is a ribbon in the air now) and glowing lane seams.
+    const rows = tilesPerLane;
+    this.deck = new THREE.InstancedMesh(new THREE.BoxGeometry(9.6, 0.3, TILE_LEN, 1, 1, TILE_SEGS), new THREE.MeshStandardMaterial({ color: '#0b0812', roughness: 0.9 }), rows);
+    this.deck.frustumCulled = false;
+    this.scene.add(this.deck);
     this.seamMat = new THREE.MeshBasicMaterial({ color: ZONES[0].seam.clone() });
-    for (const x of [-3.3, -1.1, 1.1, 3.3]) {
-      const seam = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 400), this.seamMat);
-      seam.position.set(x, 0.03, -170);
-      this.scene.add(seam);
-    }
+    this.seams = new THREE.InstancedMesh(new THREE.BoxGeometry(0.05, 0.02, TILE_LEN, 1, 1, TILE_SEGS), this.seamMat, rows * 4);
+    this.seams.frustumCulled = false;
+    this.scene.add(this.seams);
+
+    // Loop and corkscrew dashes: a pull-to-refresh spinner you ride through.
+    this.spinner = new THREE.InstancedMesh(new THREE.BoxGeometry(0.3, 0.3, 1, 1, 1, 3), new THREE.MeshBasicMaterial({ color: '#ffffff' }), SPINNER_DASHES * 2 * 6);
+    this.spinner.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.spinner.count * 3), 3);
+    this.spinner.frustumCulled = false;
+    this.spinner.count = 0;
+    this.scene.add(this.spinner);
+
+    // Sky dome in the world's true orientation: the horizon is what tells you you're upside down.
+    this.skyUniforms = { top: { value: new THREE.Color() }, horizon: { value: new THREE.Color() }, bottom: { value: new THREE.Color() }, glow: { value: new THREE.Color() } };
+    this.sky = new THREE.Mesh(
+      new THREE.SphereGeometry(150, 32, 20),
+      new THREE.ShaderMaterial({
+        uniforms: this.skyUniforms,
+        side: THREE.BackSide,
+        depthWrite: false,
+        fog: false,
+        vertexShader: /* glsl */ `
+          varying vec3 vDir;
+          void main() {
+            vDir = position;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            gl_Position.z = gl_Position.w;
+          }`,
+        fragmentShader: /* glsl */ `
+          uniform vec3 top;
+          uniform vec3 horizon;
+          uniform vec3 bottom;
+          uniform vec3 glow;
+          varying vec3 vDir;
+          float h1(float n) { return fract(sin(n * 12.9898) * 43758.5453); }
+          void main() {
+            vec3 d = normalize(vDir);
+            float e = d.y;
+            vec3 c = mix(horizon, top, smoothstep(0.0, 0.55, e));
+            c = mix(c, bottom, smoothstep(0.0, -0.35, e));
+            // A far skyline of phone towers: something to see the horizon turn by.
+            float az = atan(d.z, d.x) * 57.2958;
+            float col = floor(az / 3.0);
+            float hgt = 0.02 + 0.13 * h1(col) * h1(col + 7.0);
+            if (e > -0.06 && e < hgt) {
+              c = bottom * 0.7;
+              vec2 w = vec2(fract(az / 0.75), fract(e * 90.0));
+              float lit = step(0.55, h1(floor(az / 0.75) * 3.1 + floor(e * 90.0) * 17.0));
+              if (w.x > 0.3 && w.x < 0.7 && w.y > 0.25 && w.y < 0.75) c += glow * lit * 0.8;
+            }
+            gl_FragColor = vec4(c, 1.0);
+          }`,
+      }),
+    );
+    this.sky.renderOrder = -1;
+    this.sky.frustumCulled = false;
+    this.scene.add(this.sky);
 
     // --- towers: walls of vertical feeds on both sides ---
     const towerSlots = 2 * (Math.ceil((visibleAhead + BEHIND_ORBIT + 20) / TOWER_STEP) + 2);
     const maxCells = towerSlots * 6;
-    const cellGeo = new THREE.PlaneGeometry(CELL_W - 0.25, CELL_H - 0.3);
+    const cellGeo = new THREE.PlaneGeometry(CELL_W - 0.25, CELL_H - 0.3, 2, 1);
     this.towerCellIds = cellAttribute(cellGeo, maxCells);
     this.towerCells = new THREE.InstancedMesh(cellGeo, this.mats.tower, maxCells);
     this.towerCells.frustumCulled = false;
     this.scene.add(this.towerCells);
-    this.towerBacks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), this.mats.dark, towerSlots);
+    this.towerBacks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1, 1, 1, 2), this.mats.dark, towerSlots);
     this.towerBacks.frustumCulled = false;
     this.scene.add(this.towerBacks);
 
@@ -241,6 +326,14 @@ export class GameRenderer {
       post: (v) => this.buildPost(v, false),
       movingPost: (v) => this.buildPost(v, true),
       habit: (v) => this.buildHabit(v),
+    };
+    this.autoplayTex = makeAutoplay();
+    const glow = (hex: string) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(2.2) });
+    this.padMats = {
+      ramp: new THREE.MeshBasicMaterial({ map: makeRampFace(), color: new THREE.Color(1.3, 1.3, 1.3) }),
+      bouncer: new THREE.MeshBasicMaterial({ map: makeBouncerTop(), color: new THREE.Color(1.4, 1.4, 1.4) }),
+      autoplay: new THREE.MeshBasicMaterial({ map: this.autoplayTex, color: new THREE.Color(2.4, 1.8, 0.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
+      glow: { ramp: glow(PAD_COLOURS.ramp), bouncer: glow(PAD_COLOURS.bouncer), autoplay: glow(PAD_COLOURS.autoplay) },
     };
 
     // --- player: faceless hoodie lit by their phone ---
@@ -293,6 +386,8 @@ export class GameRenderer {
     this.scene.add(this.shadow);
 
     this.particles = new Particles(this.scene);
+    // Bend everything but the runner, their shadow and the sky.
+    for (const o of this.scene.children) if (o !== this.player && o !== this.shadow && o !== this.sky) this.bend.patchTree(o);
     this.post = new Post(this.renderer, this.scene, this.camera);
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -362,7 +457,7 @@ export class GameRenderer {
     const front = this.mats.reelFront[v];
     const d = this.mats.dark;
     // Unit length along z; scaled to the obstacle's length on sync.
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.8, 1), [side, side, d, d, front, d]);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.8, 1, 1, 1, 12), [side, side, d, d, front, d]);
     body.position.y = 1.4;
     body.name = 'body';
     g.add(body);
@@ -436,8 +531,136 @@ export class GameRenderer {
     const obj = idx >= 0 ? pool.splice(idx, 1)[0] : this.obstacleBuilders[kind](variant);
     obj.userData.variant = variant;
     obj.visible = true;
-    if (!obj.parent) this.scene.add(obj);
+    if (!obj.parent) {
+      this.bend.patchTree(obj);
+      this.scene.add(obj);
+    }
     return obj;
+  }
+
+  // ---------- pads (built with their near edge at the origin, running toward -z) ----------
+
+  private buildPad(kind: PadKind): THREE.Object3D {
+    const g = new THREE.Group();
+    const t = TUNING.pads;
+    const m = this.padMats;
+    const d = this.mats.dark;
+    if (kind === 'ramp') {
+      const { length: L, height: H } = t.ramp;
+      const slope = Math.hypot(L, H);
+      const tilt = new THREE.Group();
+      tilt.rotation.x = Math.atan2(H, L);
+      const deck = new THREE.Mesh(new THREE.PlaneGeometry(1.9, slope, 1, 4).rotateX(-Math.PI / 2).translate(0, 0.02, -slope / 2), m.ramp);
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.14, slope, 1, 1, 4).translate(0, -0.06, -slope / 2), d);
+      tilt.add(deck, slab);
+      for (const side of [-1, 1]) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, slope, 1, 1, 4).translate(side * 0.98, 0.05, -slope / 2), m.glow.ramp);
+        tilt.add(rail);
+      }
+      const back = new THREE.Mesh(new THREE.BoxGeometry(2.0, H, 0.12), d);
+      back.position.set(0, H / 2, -L + 0.06);
+      g.add(tilt, back);
+    } else if (kind === 'bouncer') {
+      const L = t.bouncer.length;
+      const r = L / 2;
+      const top = new THREE.Group();
+      top.name = 'top';
+      const pad = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.14, 28), [d, m.bouncer, d]);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.05, 6, 28).rotateX(Math.PI / 2), m.glow.bouncer);
+      ring.position.y = 0.07;
+      top.add(pad, ring);
+      top.position.set(0, 0.32, -r);
+      const spring = new THREE.Group();
+      spring.name = 'spring';
+      for (let i = 0; i < 3; i++) {
+        const coil = new THREE.Mesh(new THREE.TorusGeometry(r * 0.55, 0.04, 5, 20).rotateX(Math.PI / 2), this.mats.pole);
+        coil.position.y = 0.06 + i * 0.09;
+        spring.add(coil);
+      }
+      spring.position.z = -r;
+      g.add(top, spring);
+    } else {
+      const L = t.autoplay.length;
+      const strip = new THREE.Mesh(new THREE.PlaneGeometry(1.8, L, 1, 6).rotateX(-Math.PI / 2).translate(0, 0.05, -L / 2), m.autoplay);
+      g.add(strip);
+      for (const side of [-1, 1]) {
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, L, 1, 1, 6).translate(side * 0.93, 0.04, -L / 2), m.glow.autoplay);
+        g.add(edge);
+      }
+    }
+    return g;
+  }
+
+  private syncPads(w: World, dt: number): void {
+    const seen = new Set<number>();
+    for (const pd of w.pads) {
+      if (pd.s - w.d > this.visibleAhead) continue;
+      seen.add(pd.id);
+      let entry = this.padActive.get(pd.id);
+      if (!entry) {
+        const pool = this.padPools.get(pd.kind) ?? [];
+        this.padPools.set(pd.kind, pool);
+        const obj = pool.pop() ?? this.buildPad(pd.kind);
+        if (!obj.parent) {
+          this.bend.patchTree(obj);
+          this.scene.add(obj);
+        }
+        obj.visible = true;
+        entry = { kind: pd.kind, obj, t: 0 };
+        this.padActive.set(pd.id, entry);
+      }
+      entry.obj.position.set(laneX(pd.lane), 0, -(pd.s - w.d));
+      if (pd.kind === 'bouncer') {
+        // Squash on launch, then wobble back.
+        if (pd.used) entry.t += dt;
+        const k = pd.used ? Math.exp(-entry.t * 5) * Math.cos(entry.t * 30) : 0;
+        entry.obj.getObjectByName('top')!.position.y = 0.32 - 0.22 * k;
+        entry.obj.getObjectByName('spring')!.scale.y = 1 - 0.7 * k;
+      }
+    }
+    for (const [id, entry] of this.padActive) {
+      if (!seen.has(id)) {
+        entry.obj.visible = false;
+        this.padPools.get(entry.kind)!.push(entry.obj);
+        this.padActive.delete(id);
+      }
+    }
+    // Chevrons crawl forward, like the next video loading.
+    this.autoplayTex.repeat.set(1, TUNING.pads.autoplay.length / 1.6);
+    this.autoplayTex.offset.y -= dt * 2.2;
+  }
+
+  /** Spinner dashes along both sides of every loop and corkscrew in view. */
+  private syncSpinner(w: World, behind: number, time: number): void {
+    const course = w.course;
+    let n = 0;
+    let s = w.d - behind;
+    while (s < w.d + this.visibleAhead && n + SPINNER_DASHES * 2 <= this.spinner.instanceMatrix.count) {
+      const seg = course.segmentAt(s);
+      if (seg.kind === 'loop' || seg.kind === 'corkscrew') {
+        const L = seg.s1 - seg.s0;
+        const step = L / SPINNER_DASHES;
+        const head = (time * 9) % SPINNER_DASHES;
+        for (let i = 0; i < SPINNER_DASHES; i++) {
+          // Classic spinner: bright head, fading tail.
+          const age = (head - i + SPINNER_DASHES) % SPINNER_DASHES;
+          const b = 0.25 + 2.4 * Math.max(0, 1 - age / 7);
+          this.colour.copy(this.seamMat.color).multiplyScalar(b);
+          for (const side of [-1, 1]) {
+            this.dummy.position.set(side * SPINNER_X, 0.25, -(seg.s0 + (i + 0.5) * step - w.d));
+            this.dummy.rotation.set(0, 0, 0);
+            this.dummy.scale.set(1, 1, step * 0.55);
+            this.dummy.updateMatrix();
+            this.spinner.setMatrixAt(n, this.dummy.matrix);
+            this.spinner.setColorAt(n++, this.colour);
+          }
+        }
+      }
+      s = seg.s1 + 0.01;
+    }
+    this.spinner.count = n;
+    this.spinner.instanceMatrix.needsUpdate = true;
+    if (this.spinner.instanceColor) this.spinner.instanceColor.needsUpdate = true;
   }
 
   private release(kind: ObstacleKind, obj: THREE.Object3D): void {
@@ -480,6 +703,16 @@ export class GameRenderer {
         fx.burst(laneX(e.lane), 1, -1.2, 26, '#00e1ff', { speed: 8, size: 0.2, life: 0.7, gravity: 10, bright: 2.2, up: 3 });
       }
       if (e.type === 'edge') this.shake = Math.max(this.shake, 0.15);
+      if (e.type === 'pad') {
+        const launch = e.kind !== 'autoplay';
+        this.shake = Math.max(this.shake, launch ? 0.4 : 0.2);
+        fx.burst(laneX(e.lane), 0.3, -0.5, launch ? 30 : 18, PAD_COLOURS[e.kind], { speed: launch ? 5 : 3, size: 0.24, life: 0.7, gravity: 4, bright: 2.4, up: launch ? 3 : 1 });
+      }
+      if (e.type === 'lift') fx.burst(p.x, 0.1, 0, 14, '#ffffff', { speed: 2.5, size: 0.18, life: 0.5, gravity: 1, bright: 1.6, up: 0.4 });
+      if (e.type === 'thrill') {
+        this.shake = Math.max(this.shake, 0.3);
+        fx.burst(p.x, 1.2, 0, Math.round(14 + 30 * e.tolerance), '#ffcc00', { speed: 6, size: 0.22 + 0.12 * e.tolerance, life: 1, gravity: 0.5, bright: 1.2 + 1.8 * e.tolerance, up: 1 });
+      }
       if (e.type === 'crash') {
         this.shake = 1.2;
         this.crashT = 0;
@@ -507,16 +740,22 @@ export class GameRenderer {
     this.level += (target - this.level) * (1 - Math.exp(-dt * 3));
     const orbiting = w.gateT >= 0 || w.phase === 'ready' || this.introT >= 0;
     const behind = orbiting ? BEHIND_ORBIT : BEHIND;
+    this.bend.update(w.course, d);
     this.syncTrack(d, behind);
-    this.syncTowers(d, behind);
+    this.syncTowers(w, behind);
     this.syncObstacles(w);
+    this.syncPads(w, sdt);
+    this.syncSpinner(w, behind, time);
     this.syncPickups(w, time);
     this.syncPlayer(w, sdt);
     this.gate.update(w, time);
     this.syncZone(w);
     this.syncCamera(w, dt);
+    // The sky keeps the world's real orientation, centred on the camera.
+    this.sky.position.copy(this.camera.position);
+    this.sky.quaternion.copy(this.bend.runner).invert();
 
-    const lines = w.phase === 'running' && w.gateT < 0 ? Math.min(1, Math.max(0, (this.level - 0.6) / 0.4)) * Math.min(1, 0.3 + (w.speed - w.t.speed.start) / 10) : 0;
+    const lines = w.phase === 'running' && w.gateT < 0 ? Math.min(1, Math.max(0, (this.level - 0.6) / 0.4)) * Math.min(1, Math.max(0, 0.3 + (w.speed - w.t.speed.start) / 10)) : 0;
     this.particles.update(sdt, w.runSpeed * sdt, this.camera, lines, w.runSpeed);
     this.post.grade.uniforms.dopamine.value = this.level;
     this.post.bloom.strength = 0.6 * (0.2 + 0.8 * this.level);
@@ -531,8 +770,20 @@ export class GameRenderer {
     const first = Math.floor((d - behind) / TILE_LEN);
     const last = Math.floor((d + this.visibleAhead) / TILE_LEN);
     let n = 0;
+    let row = 0;
     for (let i = first; i <= last; i++) {
       const z = -(i * TILE_LEN + TILE_LEN / 2 - d);
+      this.dummy.rotation.set(0, 0, 0);
+      this.dummy.scale.set(1, 1, 1);
+      this.dummy.position.set(0, -0.3, z);
+      this.dummy.updateMatrix();
+      this.deck.setMatrixAt(row, this.dummy.matrix);
+      for (let k = 0; k < 4; k++) {
+        this.dummy.position.set((k - 1.5) * 2.2, 0.03, z);
+        this.dummy.updateMatrix();
+        this.seams.setMatrixAt(row * 4 + k, this.dummy.matrix);
+      }
+      row++;
       for (let lane = 0; lane < 3; lane++) {
         const x = laneX(lane);
         this.dummy.position.set(x, 0.011, z);
@@ -551,14 +802,21 @@ export class GameRenderer {
     this.tileCells.needsUpdate = true;
     this.tileBezels.count = n;
     this.tileBezels.instanceMatrix.needsUpdate = true;
+    this.deck.count = row;
+    this.deck.instanceMatrix.needsUpdate = true;
+    this.seams.count = row * 4;
+    this.seams.instanceMatrix.needsUpdate = true;
   }
 
-  private syncTowers(d: number, behind: number): void {
+  private syncTowers(w: World, behind: number): void {
+    const d = w.d;
     const first = Math.floor((d - behind) / TOWER_STEP);
     const last = Math.floor((d + this.visibleAhead) / TOWER_STEP);
     let n = 0;
     let backs = 0;
     for (let i = first; i <= last; i++) {
+      // No towers where the track goes upside down.
+      if (!w.course.scenery(i * TOWER_STEP)) continue;
       for (const side of [-1, 1]) {
         const r = hash(i, side + 7);
         if (r < 0.12) continue; // gaps in the skyline
@@ -567,9 +825,11 @@ export class GameRenderer {
         const z = -(i * TOWER_STEP - d);
         const depth = 1.2;
         const height = cells * CELL_H;
+        // Backs reach well below the deck so drops don't show where they stop.
+        const below = 24;
         this.dummy.rotation.set(0, 0, 0);
-        this.dummy.position.set(xFace + side * (depth / 2 + 0.02), height / 2, z);
-        this.dummy.scale.set(depth, height, CELL_W);
+        this.dummy.position.set(xFace + side * (depth / 2 + 0.02), (height - below) / 2, z);
+        this.dummy.scale.set(depth, height + below, CELL_W);
         this.dummy.updateMatrix();
         this.towerBacks.setMatrixAt(backs++, this.dummy.matrix);
         this.dummy.scale.set(1, 1, 1);
@@ -725,9 +985,14 @@ export class GameRenderer {
     const k = w.gateT >= 0 ? THREE.MathUtils.smoothstep(w.gateT / w.t.gate.duration, 0.3, 0.7) : 1;
     this.seamMat.color.copy(from.seam).lerp(to.seam, k);
     this.hemi.color.copy(from.light).lerp(to.light, k);
-    this.sky.copy(from.sky).lerp(to.sky, k);
-    (this.scene.background as THREE.Color).copy(this.sky);
-    this.scene.fog!.color.copy(this.sky);
+    this.skyColour.copy(from.sky).lerp(to.sky, k);
+    (this.scene.background as THREE.Color).copy(this.skyColour);
+    this.scene.fog!.color.copy(this.skyColour);
+    const u = this.skyUniforms;
+    u.horizon.value.copy(this.skyColour);
+    u.top.value.copy(this.skyColour).multiplyScalar(0.35);
+    u.bottom.value.copy(this.skyColour).multiplyScalar(0.25);
+    u.glow.value.copy(this.seamMat.color);
   }
 
   private syncCamera(w: World, dt: number): void {
@@ -782,6 +1047,21 @@ export class GameRenderer {
     this.gateKick += dt;
     fov += 10 * Math.exp(-this.gateKick * 5);
 
+    // Where the track ahead twists hard (loops, corkscrews), aim closer and
+    // widen the view so the runner stays in frame against the wall of track.
+    this.bend.frame(-9, this.tmpP, this.tmpQ);
+    const twist = THREE.MathUtils.smoothstep(2 * Math.acos(Math.min(1, Math.abs(this.tmpQ.w))), 0.25, 1.1);
+    look.z = THREE.MathUtils.lerp(look.z, -2.5, twist);
+    fov += 14 * twist;
+
+    // Everything above was worked out on the straight track; ride it onto the coaster.
+    this.bend.up(cam.position.z, this.upV);
+    this.camUp.lerp(this.upV, 1 - Math.exp(-dt * 10)).normalize();
+    this.bend.map(cam.position);
+    // Aim mostly along the runner's own tangent: a fully bent aim point swings
+    // out of frame over the top of a tight loop and loses the runner.
+    look.lerp(this.bend.map(this.tmpV.copy(look)), 0.3);
+    cam.up.copy(this.camUp);
     cam.lookAt(look);
     if (roll !== 0) cam.rotateZ(roll);
     if (Math.abs(cam.fov - fov) > 0.01) {

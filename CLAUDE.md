@@ -10,6 +10,7 @@ Davide owns the product decisions; Claude builds. Discuss design changes before 
 - Colour and audio follow dopamine (neon → grey silence).
 - Death copy: "You are present. … Disgusting." → [SCROLL AGAIN].
 - Hidden ending: stay idle on the death screen for 60s and something happens (still to be designed).
+- The track is a rollercoaster laid out from the seed (`src/sim/course.ts`): banked curves (auto-follow, swipes stay lane changes), rollers, climbs, "infinite scroll" drops, airtime hills, loops and corkscrews. Gates always sit on flat straights. Downhill builds a speed rush; crests make jumps float and steep ones lift you off by themselves. Loops, corkscrews, drops and big air (landing after `thrill.airMin` s) give a thrill: dopamine with one shared thrill tolerance. Thrill rides are obstacle-free (pickups ride through). Optional pads: "Swipe up" ramps and pull-to-refresh bouncers launch you through an arc of content, autoplay strips give a short speed burst. No gaps or falling deaths.
 - Crashing into a barrier/post drops dopamine to zero (one death screen). Tolerance never recovers within a run. Dopamine meter is a phone battery.
 - Seven playable doomscrollers, picked on a title-screen turntable (swipe left/right): Hoodie Goblin (craves Reels), Grindset Bro (Notifications), iPad Kid (Likes), Outrage Uncle (Outrage), Influencer (Likes), Wellness Girlie (no craving; healthy habits cost half), News Doomer (Notifications). The favourite content gives +50% but builds tolerance faster; physics identical. All faceless, lit by their screen. Meshes: one Blender script (`runner.py --character <id>`), shared rig + clips, one .glb per character, loaded on demand.
 - Checkpoint gates (every `gate.every` m): a giant foldable phone unfolds over the track; crossing it starts bullet time, its panels form a halo, the camera rides the rail 360° round the runner while a profiling log types out, then the feed moves to a new zone (colour + favoured content type + speed step). No dopamine change; input dropped during the scan.
@@ -22,6 +23,7 @@ Davide owns the product decisions; Claude builds. Discuss design changes before 
 - `src/sim` must not import Three.js or touch the DOM. Fixed timestep (1/120).
 - All tuning numbers go in `src/config/tuning.json`. Content banks go in JSON.
 - Renderer reads sim state, never mutates it; effects come from `SimEvent`s.
+- The renderer lays everything out on a straight track (z = -(s - d)); `src/render/bend.ts` bends it onto the course in the vertex shader. Subdivide long meshes along z. Objects added to the scene after the constructor need `bend.patchTree`.
 - Game UI is HTML overlays in `src/ui`; interactive elements need `data-ui`.
 - Package manager is Bun (`bun install`, `bun run <script>`, `bunx`); never npm/npx.
 - Run `bun run typecheck` and `bun run check:gen` after sim/generator changes.

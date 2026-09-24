@@ -139,6 +139,11 @@ export class Hud {
         const lines = content.habits[e.habit % content.habits.length].popups;
         this.showToast(lines[Math.floor(Math.random() * lines.length)], false);
       }
+      if (e.type === 'thrill') {
+        const th = content.thrill[e.kind];
+        const line = th.lines[Math.floor(Math.random() * th.lines.length)];
+        this.showToast(`${th.title} +${Math.round(e.gain)}%\n${line}`, true);
+      }
       if (e.type === 'boost') {
         const b = content.notifications.boost;
         const line = b.lines[Math.floor(Math.random() * b.lines.length)];

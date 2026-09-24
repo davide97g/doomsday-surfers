@@ -51,6 +51,15 @@ export class GameHaptics {
         case 'gateEnd':
           void H.notification({ type: NotificationType.Success });
           break;
+        case 'pad':
+          void H.impact({ style: e.kind === 'autoplay' ? ImpactStyle.Light : ImpactStyle.Heavy });
+          break;
+        case 'lift':
+          void H.impact({ style: ImpactStyle.Light });
+          break;
+        case 'thrill':
+          void H.notification({ type: NotificationType.Success });
+          break;
         case 'revive':
           void H.notification({ type: NotificationType.Success });
           break;

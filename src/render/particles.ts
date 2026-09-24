@@ -1,7 +1,8 @@
 // Cheap juice: one instanced mesh of additive billboards for bursts, one for
 // speed lines. Fading is done by darkening the colour (additive blending makes
 // black invisible), so no per-instance alpha is needed.
-// Particles live in track space: they scroll toward the camera with the run.
+// Particles live in track space: they scroll toward the camera with the run
+// (and get bent onto the course with everything else).
 
 import * as THREE from 'three';
 
@@ -61,7 +62,7 @@ export class Particles {
     scene.add(this.mesh);
 
     const lineMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.2, 0.9, 1.8), transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending });
-    this.lines = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.035, 1).rotateX(-Math.PI / 2), lineMat, LINES);
+    this.lines = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.035, 1, 1, 4).rotateX(-Math.PI / 2), lineMat, LINES);
     this.lines.frustumCulled = false;
     this.lines.count = 0;
     scene.add(this.lines);
