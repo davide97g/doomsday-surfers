@@ -1,6 +1,6 @@
 import './style.css';
 import { GameAudio } from './audio/audio';
-import { mode } from './content/content';
+import { mode, realBrands } from './content/content';
 import { Bot } from './dev/bot';
 import { GameHaptics } from './fx/haptics';
 import { Input } from './input/input';
@@ -24,6 +24,13 @@ const useBot = params.has('bot');
 const seedParam = params.get('seed');
 
 document.documentElement.dataset.mode = mode;
+if (realBrands) {
+  // Meet's UI font stand-in (Google Sans isn't public). Teams/Outlook fall back to Segoe UI or the system font.
+  const font = document.createElement('link');
+  font.rel = 'stylesheet';
+  font.href = 'https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap';
+  document.head.append(font);
+}
 const app = document.getElementById('app')!;
 const world = new World(seedParam ? Number(seedParam) : Date.now());
 const view = new GameRenderer(app, TUNING.spawn.ahead - 10);

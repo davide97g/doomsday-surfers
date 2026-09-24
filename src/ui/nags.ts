@@ -10,11 +10,13 @@
 // calendar, ticket, Humbl) and incoming calls: a call rings until it's gone,
 // Accept (or a tap) opens the meeting panel (meeting.ts), Decline dismisses it.
 
-import { content, mode, work } from '../content/content';
+import { content, mode, realBrands, work } from '../content/content';
 import { SWIPE_PX } from '../input/input';
 import { TUNING, type Action } from '../sim/types';
 import type { World } from '../sim/world';
 import { fill, pick } from '../content/templates';
+import { ICON } from './icons';
+import { appLogo, type AppKind } from './logos';
 import { hue, initials } from './meeting';
 import { reelSrc } from './reel';
 import type { Sfx } from './sfx';
@@ -26,8 +28,23 @@ const SLOTS = ['top', 'bottom'];
 const LEAVE_MS = 260;
 const TOAST_MS = 1600;
 const CARDS = work.cards;
-type CardKind = 'chat' | 'mail' | 'calendar' | 'ticket' | 'humbl';
-const KINDS: CardKind[] = ['chat', 'mail', 'calendar', 'ticket', 'humbl'];
+type CardKind = 'chat' | 'sync' | 'mail' | 'calendar' | 'ticket' | 'humbl';
+const KINDS: CardKind[] = ['chat', 'sync', 'mail', 'calendar', 'ticket', 'humbl'];
+/** Which real toast each card copies: the macOS banner (Slack, Jira, LinkedIn
+ *  pushes), the Teams toast, or the Windows 11 Outlook toast. */
+const STYLE: Record<CardKind, 'banner' | 'teams' | 'win'> = {
+  chat: 'banner',
+  ticket: 'banner',
+  humbl: 'banner',
+  sync: 'teams',
+  mail: 'win',
+  calendar: 'win',
+};
+
+function appName(kind: AppKind): string {
+  if (realBrands) return work.real.apps[kind];
+  return kind === 'meeting' ? CARDS.call.app : CARDS[kind].app;
+}
 const KIND_WEIGHT = KINDS.reduce((s, k) => s + CARDS[k].weight, 0);
 
 function pickKind(): CardKind {
@@ -39,8 +56,13 @@ function pickKind(): CardKind {
   return 'chat';
 }
 
-function avatar(name: string): string {
-  return `<div class="wc-avatar" style="--h:${hue(name)}">${initials(name)}</div>`;
+function avatar(name: string, cls = ''): string {
+  return `<div class="wc-avatar ${cls}" style="--h:${hue(name)}">${initials(name)}</div>`;
+}
+
+/** Title row of a Teams / Windows toast: logo, app name, overflow and close. */
+function toastHead(kind: AppKind): string {
+  return `<div class="tw-head">${appLogo(kind)}<span>${appName(kind)}</span><i class="tw-more">···</i><i class="tw-x">${ICON.close}</i></div>`;
 }
 
 function rand(min: number, max: number): number {
@@ -86,6 +108,8 @@ export class Nags {
   private running = false;
   private ringing = false;
   private lastClip = -1;
+  /** Next Work card kind, forced (console/testing: game.nags.demo('call')). */
+  private force: string | null = null;
 
   constructor(parent: HTMLElement, private readonly sfx: Sfx) {
     this.layer = document.createElement('div');
@@ -157,6 +181,13 @@ export class Nags {
     }
   }
 
+  /** Testing: show a Work card of this kind now ('call', 'chat', 'sync', 'mail', ...). */
+  demo(kind: string): void {
+    this.force = kind;
+    this.showNote();
+    this.force = null;
+  }
+
   /** Clear whatever is on screen (the gate scan wants it). */
   hideAll(): void {
     for (const n of this.notes) n.el.remove();
@@ -216,34 +247,79 @@ export class Nags {
     return { reel, call: null, kind: 'feed' };
   }
 
-  /** Work mode: an office app card, or (one call at a time) an incoming call. */
+  /** Work mode: an office app toast, or (one call at a time) an incoming call. */
   private fillWork(el: HTMLElement): { reel: null; call: string | null; kind: string } {
     const C = CARDS.call;
-    if (Math.random() < UI.callChance && !this.notes.some((n) => n.call !== null && !n.gone)) {
+    el.style.setProperty('--tilt', '0deg');
+    const forced = this.force;
+    const callNow = forced ? forced === 'call' : Math.random() < UI.callChance && !this.notes.some((n) => n.call !== null && !n.gone);
+    if (callNow) {
       const caller = fill(pick(C.callers));
-      el.classList.add('work', 'kind-call');
+      el.classList.add('work', 'tw', 'kind-call');
       el.innerHTML = `
-        <div class="wc-head"><span class="wc-glyph"></span><b>${C.app}</b><span class="wc-meta">${work.suite}</span></div>
-        <div class="wc-row">${avatar(caller)}<div class="wc-body"><b class="wc-from"></b><div class="wc-text">${C.ringing}</div></div></div>
-        <div class="wc-actions"><button data-act="decline">${C.decline}</button><button data-act="accept">${C.accept}</button></div>
+        ${toastHead('call')}
+        <div class="tw-row">${avatar(caller, 'lg')}<div class="tw-body"><b class="tw-from"></b><div class="tw-sub">${C.ringing}</div></div></div>
+        <div class="tw-call">
+          <button class="rb video" data-act="accept" aria-label="Accept with video">${ICON.video}</button>
+          <button class="rb audio" data-act="accept" aria-label="${C.accept}">${ICON.call}</button>
+          <button class="rb decline" data-act="decline" aria-label="${C.decline}">${ICON.end}</button>
+        </div>
         <div class="notif-bar"></div>`;
-      el.querySelector('.wc-from')!.textContent = caller;
+      el.querySelector('.tw-from')!.textContent = caller;
       return { reel: null, call: caller, kind: 'call' };
     }
-    const kind = pickKind();
+    const kind = forced && forced in CARDS && forced !== 'call' ? (forced as CardKind) : pickKind();
     const card = CARDS[kind];
     const line = pick(card.lines);
     const from = fill(line.from);
-    el.classList.add('work', `kind-${kind}`);
-    el.innerHTML = `
-      <div class="wc-head"><span class="wc-glyph"></span><b>${card.app}</b><span class="wc-meta"></span><span class="wc-now">now</span></div>
-      <div class="wc-row">${avatar(from)}<div class="wc-body"><b class="wc-from"></b><div class="wc-text"></div></div></div>
-      <div class="notif-cta"><b>${card.cta}</b><span></span></div>
-      <div class="notif-bar"></div>`;
-    el.querySelector('.wc-meta')!.textContent = `· ${pick(card.meta)}`;
-    el.querySelector('.wc-from')!.textContent = from;
-    el.querySelector('.wc-text')!.textContent = fill(line.text);
-    el.querySelector('.notif-cta span')!.textContent = pick(N.ctaLines);
+    const text = fill(line.text);
+    const meta = pick(card.meta);
+    const style = STYLE[kind];
+    el.classList.add('work', style === 'banner' ? 'bn' : 'tw', `kind-${kind}`);
+    if (style === 'banner') {
+      // macOS banner: app icon, bold title + time, subtitle, body, sender photo.
+      // Slack: sender, "in #channel", message. Jira / LinkedIn: app, context, "who did what".
+      const who = from.replace(/\s*\(.*\)/, '');
+      const chat = kind === 'chat';
+      const title = chat ? from : appName(kind);
+      const sub = chat ? (meta.startsWith('#') ? `in ${meta}` : meta) : meta;
+      const body = chat ? text : kind === 'humbl' ? `${who} ${text}` : `${who}: ${text}`;
+      el.innerHTML = `
+        <div class="bn-icon">${appLogo(kind)}</div>
+        <div class="bn-main">
+          <div class="bn-top"><b></b><span>now</span></div>
+          <div class="bn-sub"></div>
+          <div class="bn-text"></div>
+        </div>
+        ${avatar(from, 'bn-photo')}
+        <div class="notif-bar"></div>`;
+      el.querySelector('.bn-top b')!.textContent = title;
+      el.querySelector('.bn-sub')!.textContent = sub;
+      el.querySelector('.bn-text')!.textContent = body;
+    } else if (kind === 'sync') {
+      // Teams chat toast: avatar with presence, name, message, quick reply box.
+      el.innerHTML = `
+        ${toastHead('sync')}
+        <div class="tw-row">${avatar(from)}<div class="tw-body"><b class="tw-from"></b><div class="tw-text"></div></div></div>
+        <div class="tw-reply"><span>${CARDS.sync.reply}</span>${ICON.chat}</div>
+        <div class="notif-bar"></div>`;
+      el.querySelector('.tw-from')!.textContent = from;
+      el.querySelector('.tw-text')!.textContent = text;
+    } else {
+      // Windows 11 Outlook toast: sender, subject, preview, action buttons.
+      const mail = kind === 'mail';
+      const actions = mail ? CARDS.mail.actions : CARDS.calendar.actions;
+      el.innerHTML = `
+        ${toastHead(kind)}
+        <div class="tw-row">${mail ? avatar(from, 'lg') : `<div class="tw-cal">${ICON.event}</div>`}<div class="tw-body">
+          <b class="tw-from"></b><div class="tw-subject"></div><div class="tw-sub"></div>
+        </div></div>
+        <div class="tw-actions">${actions.map((a, i) => `<span class="${!mail && i === 0 ? 'primary' : ''}">${a}</span>`).join('')}</div>
+        <div class="notif-bar"></div>`;
+      el.querySelector('.tw-from')!.textContent = mail ? from : text;
+      el.querySelector('.tw-subject')!.textContent = mail ? text : meta;
+      el.querySelector('.tw-sub')!.textContent = mail ? pick(CARDS.mail.preview) : `${from} · ${appName('calendar')}`;
+    }
     return { reel: null, call: null, kind };
   }
 

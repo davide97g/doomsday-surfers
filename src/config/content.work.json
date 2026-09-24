@@ -1,12 +1,42 @@
 {
   "pools": {
     "handle": [
-      "@chad.sales", "@priya.product", "@kevin.it", "@dana.people", "@thought.leader", "@synergy.hq",
-      "@growth.mindset", "@open.to.work", "@ceo.diaries", "@hustle.ops", "@deck.wizard", "@okr.queen"
+      "@chad.sales",
+      "@priya.product",
+      "@kevin.it",
+      "@dana.people",
+      "@thought.leader",
+      "@synergy.hq",
+      "@growth.mindset",
+      "@open.to.work",
+      "@ceo.diaries",
+      "@hustle.ops",
+      "@deck.wizard",
+      "@okr.queen"
     ],
-    "thing": ["synergy", "the Q3 roadmap", "Excel macros", "the free fruit", "return to office", "KPIs", "the new logo", "AI strategy", "hot desking", "the reorg"],
+    "thing": [
+      "synergy",
+      "the Q3 roadmap",
+      "Excel macros",
+      "the free fruit",
+      "return to office",
+      "KPIs",
+      "the new logo",
+      "AI strategy",
+      "hot desking",
+      "the reorg"
+    ],
     "boss": ["Your manager", "Brenda (VP)", "The CEO", "Greg (skip-level)", "Your manager's manager"],
-    "coworker": ["Chad (Sales)", "Priya (Product)", "Kevin (IT)", "Dana (HR)", "Marco (Finance)", "Jess (Marketing)", "Tom (Legal)", "The intern"]
+    "coworker": [
+      "Chad (Sales)",
+      "Priya (Product)",
+      "Kevin (IT)",
+      "Dana (HR)",
+      "Marco (Finance)",
+      "Jess (Marketing)",
+      "Tom (Legal)",
+      "The intern"
+    ]
   },
   "feed": {
     "captions": [
@@ -53,7 +83,11 @@
     {
       "id": "book",
       "name": "PTO request",
-      "popups": ["Out of office. Out of mind. Out of a job?", "You took a day off. The team will remember.", "PTO approved. Trust: revoked."]
+      "popups": [
+        "Out of office. Out of mind. Out of a job?",
+        "You took a day off. The team will remember.",
+        "PTO approved. Trust: revoked."
+      ]
     },
     {
       "id": "shoes",
@@ -67,16 +101,26 @@
     }
   ],
   "notifications": {
-    "ctaLines": ["It's probably urgent", "Your manager can see you're online", "Just a quick one", "Everyone's waiting on you", "Read receipts are on"],
+    "ctaLines": [
+      "It's probably urgent",
+      "Your manager can see you're online",
+      "Just a quick one",
+      "Everyone's waiting on you",
+      "Read receipts are on"
+    ],
     "boost": {
       "title": "OVERTIME",
-      "lines": ["Available. Invincible.", "Camera off. Speed on.", "Nothing can touch you. Not even lunch.", "You said yes. Good.", "Boundaries: removed.", "Unpaid. Unstoppable."]
+      "lines": [
+        "Available. Invincible.",
+        "Camera off. Speed on.",
+        "Nothing can touch you. Not even lunch.",
+        "You said yes. Good.",
+        "Boundaries: removed.",
+        "Unpaid. Unstoppable."
+      ]
     }
   },
-  "banner": {
-    "tag": "Sponsored",
-    "clicked": "Thanks for clicking. Your manager has been cc'd."
-  },
+  "banner": { "tag": "Sponsored", "clicked": "Thanks for clicking. Your manager has been cc'd." },
   "streak": {
     "first": "Start a streak of days without PTO.",
     "danger": "Your {n}-day no-PTO streak is in danger",
@@ -88,10 +132,7 @@
     "app": "Synergy Wellbeing",
     "decline": "No thanks, I don't care about my career"
   },
-  "keepGoing": {
-    "title": "You've been online for {m} minutes.",
-    "body": "Log overtime?"
-  },
+  "keepGoing": { "title": "You've been online for {m} minutes.", "body": "Log overtime?" },
   "revive": {
     "title": "You appear offline.",
     "body": "Complete a 5-second mandatory training to stay Available?",
@@ -105,7 +146,10 @@
     "storeLine": "OFFICE #{store} · FLOOR: {zone}",
     "customer": "EMPLOYEE: {character}",
     "items": {
-      "reel": { "label": "MEETINGS x{n}", "prices": ["{k} HOUR{s} YOU WON'T GET BACK", "YOUR LUNCH (ALL OF THEM)", "{k} EMAIL{s} IT COULD HAVE BEEN"] },
+      "reel": {
+        "label": "MEETINGS x{n}",
+        "prices": ["{k} HOUR{s} YOU WON'T GET BACK", "YOUR LUNCH (ALL OF THEM)", "{k} EMAIL{s} IT COULD HAVE BEEN"]
+      },
       "like": { "label": "REACTIONS x{n}", "prices": ["{k} ACTUAL OPINION{s}", "YOUR PERSONALITY", "{k} THUMB{s} UP (YOURS)"] },
       "outrage": { "label": "REPLY-ALLS x{n}", "prices": ["{k} REPUTATION{s}", "THE WHOLE COMPANY", "BLOOD PRESSURE +{k}0"] },
       "notification": { "label": "PINGS x{n}", "prices": ["{k} FOCUS HOUR{s}", "YOUR EVENINGS (ALL)", "{k} WEEKEND{s}"] },
@@ -163,24 +207,30 @@
       "title": "PIVOT",
       "lines": ["We pivoted. Right back where we started.", "Full circle. Same roadmap.", "New strategy. Old strategy."]
     },
-    "corkscrew": {
-      "title": "REORG",
-      "lines": ["New manager. Same work.", "Your team moved. Your desk didn't.", "Restructured. Content."]
-    },
+    "corkscrew": { "title": "REORG", "lines": ["New manager. Same work.", "Your team moved. Your desk didn't.", "Restructured. Content."] },
     "drop": {
       "title": "BUDGET CUT",
       "lines": ["The floor fell out of Q4.", "Headcount: down. You: still here.", "Doing more with less. Forever."]
     },
-    "air": {
-      "title": "PROMOTION (TITLE ONLY)",
-      "lines": ["Up a level. Pay: grounded.", "Senior. Somehow.", "Weightless. Raiseless."]
-    }
+    "air": { "title": "PROMOTION (TITLE ONLY)", "lines": ["Up a level. Pay: grounded.", "Senior. Somehow.", "Weightless. Raiseless."] }
   },
   "select": { "craving": "Addicted to {type}: +50% hit, tolerance builds faster", "unlock": "Swipe up to clock in" },
   "zones": [
     { "name": "MONDAY 9AM", "tagline": "Circle back. Forever.", "seam": [0.3, 0.7, 1.7], "sky": "#050a14", "light": "#9fc4ff" },
-    { "name": "ALL-HANDS", "tagline": "Mandatory fun. Cameras on.", "seam": [1.6, 0.3, 0.35], "sky": "#12040a", "light": "#ff9aa8" },
-    { "name": "Q4 PLANNING", "tagline": "Stretch goals. Stretch you.", "seam": [0.3, 1.4, 0.6], "sky": "#03100a", "light": "#8affc0" },
+    {
+      "name": "ALL-HANDS",
+      "tagline": "Mandatory fun. Cameras on.",
+      "seam": [1.6, 0.3, 0.35],
+      "sky": "#12040a",
+      "light": "#ff9aa8"
+    },
+    {
+      "name": "Q4 PLANNING",
+      "tagline": "Stretch goals. Stretch you.",
+      "seam": [0.3, 1.4, 0.6],
+      "sky": "#03100a",
+      "light": "#8affc0"
+    },
     { "name": "FRIDAY 4:59 PM", "tagline": "One more quick thing.", "seam": [1.7, 0.9, 0.2], "sky": "#120a02", "light": "#ffc27a" }
   ],
   "death": { "line1": "You logged off.", "line2": "… Unprofessional.", "cta": "CLOCK IN AGAIN" },
@@ -191,7 +241,7 @@
     "cards": {
       "chat": {
         "app": "Huddle",
-        "weight": 4,
+        "weight": 3,
         "cta": "REPLY",
         "meta": ["#general", "#proj-synergy", "#random", "#q3-alignment", "Direct message", "#wins (mandatory)"],
         "lines": [
@@ -204,6 +254,22 @@
           { "from": "{boss}", "text": "can you jump on a quick call?" },
           { "from": "{coworker}", "text": "just circling back on this 🙂" },
           { "from": "{boss}", "text": "quick question (it's not quick)" }
+        ]
+      },
+      "sync": {
+        "app": "Sync",
+        "weight": 2,
+        "cta": "REPLY",
+        "meta": ["Chat", "Q3 Alignment (group)", "Meeting chat"],
+        "reply": "Send a quick reply",
+        "lines": [
+          { "from": "{boss}", "text": "are you joining?" },
+          { "from": "{boss}", "text": "👋" },
+          { "from": "{coworker}", "text": "can you share your screen?" },
+          { "from": "{coworker}", "text": "you're on mute (in the last call too)" },
+          { "from": "{boss}", "text": "quick sync?" },
+          { "from": "{coworker}", "text": "sent a GIF" },
+          { "from": "{boss}", "text": "saw you went Away for 4 minutes. all good? 🙂" }
         ]
       },
       "mail": {
@@ -219,7 +285,16 @@
           { "from": "IT Security", "text": "Action required: security training 7 of 12" },
           { "from": "{boss}", "text": "Following up on my follow-up" },
           { "from": "Dana (HR)", "text": "Reminder: the wellbeing survey is mandatory" }
-        ]
+        ],
+        "preview": [
+          "Hi all, just circling back on the below…",
+          "Adding a few more people for visibility.",
+          "Sent from my iPhone",
+          "Please see attached (not attached).",
+          "Looping in Legal.",
+          "Thoughts? Need this by EOD."
+        ],
+        "actions": ["Flag", "Archive", "Delete"]
       },
       "calendar": {
         "app": "Calendar",
@@ -233,7 +308,8 @@
           { "from": "Dana (HR)", "text": "Lunch & Learn: Synergy 2027 (no lunch)" },
           { "from": "{coworker}", "text": "Updated: this meeting could have been an email" },
           { "from": "{boss}", "text": "Pre-sync for the sync" }
-        ]
+        ],
+        "actions": ["Join", "Snooze", "Dismiss"]
       },
       "ticket": {
         "app": "Tickets",
@@ -268,7 +344,14 @@
       }
     },
     "meeting": {
-      "titles": ["Quick sync", "Weekly alignment", "Stand-up (sit-down)", "Retro on the retro", "All-hands (hands optional)", "1:1 (with 9 people)"],
+      "titles": [
+        "Quick sync",
+        "Weekly alignment",
+        "Stand-up (sit-down)",
+        "Retro on the retro",
+        "All-hands (hands optional)",
+        "1:1 (with 9 people)"
+      ],
       "you": "You (muted)",
       "captions": [
         "Can everyone see my screen?",
@@ -283,7 +366,21 @@
         "Can you see my screen now?",
         "I'll let you get back to your day.",
         "Let's put a pin in that."
-      ]
+      ],
+      "codes": ["syn-ergy-365", "qtr-alig-nme", "the-mtg-2day", "pls-mute-now"]
+    },
+    "real": {
+      "suite": "Microsoft 365",
+      "apps": {
+        "chat": "Slack",
+        "sync": "Microsoft Teams",
+        "call": "Microsoft Teams",
+        "mail": "Outlook",
+        "calendar": "Outlook",
+        "ticket": "Jira",
+        "humbl": "LinkedIn",
+        "meeting": "Google Meet"
+      }
     }
   }
 }

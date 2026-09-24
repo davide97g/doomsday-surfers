@@ -228,6 +228,11 @@ export class GameAudio {
         this.knock(t, 1);
         this.knock(t + 0.075, 0.65);
         break;
+      case 'sync':
+        // Soft rising two-note pop.
+        this.mallet(this.master, t, 740, 0.1);
+        this.mallet(this.master, t + 0.09, 1108.7, 0.08);
+        break;
       case 'mail':
         this.sweep(t, 0.28, 450, 3200, 0.22);
         this.tone(2200, 2200, 0.05, 'sine', 0.04, 0.26);
