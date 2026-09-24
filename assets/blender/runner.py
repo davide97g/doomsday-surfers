@@ -88,6 +88,24 @@ CHARACTERS = {
         props=("phone", "phone.L.news", "phone.L.news2", "collar.up", "belt", "beanie"),
         colours={"Hoodie": (0.2, 0.15, 0.07), "HoodieDark": (0.12, 0.09, 0.04), "Pants": (0.06, 0.06, 0.07), "Accent": (0.03, 0.03, 0.035)},
     ),
+    # Work mode cast.
+    "manager": dict(
+        head="bare", arms="sleeve", bulk=1.05, belly=1.2, hem="Pants", pocket=False, strings=False, hold="sip",
+        props=("phone", "mug", "tie", "lanyard", "hair"),
+        colours={"Hoodie": (0.5, 0.62, 0.8), "HoodieDark": (0.32, 0.42, 0.58), "Pants": (0.05, 0.05, 0.06),
+                 "Accent": (0.45, 0.02, 0.04), "Upper": (0.07, 0.035, 0.02), "Midsole": (0.05, 0.025, 0.015)},
+    ),
+    "remote": dict(
+        head="bare", arms="sleeve", hem=True, pocket=True, strings=True, hold="scroll",
+        props=("phone", "headset", "jiggler", "hair"),
+        colours={"Hoodie": (0.22, 0.22, 0.25), "HoodieDark": (0.13, 0.13, 0.15), "Pants": (0.3, 0.4, 0.65),
+                 "Upper": (0.8, 0.45, 0.55), "Midsole": (0.85, 0.6, 0.68), "Outsole": (0.7, 0.4, 0.5), "Accent": (0.9, 0.35, 0.05)},
+    ),
+    "linkedin": dict(
+        head="bare", arms="sleeve", hem="HoodieDark", pocket=False, strings=False, hold="selfie",
+        props=("selfie", "shawl", "halo", "hair"),
+        colours={"Hoodie": (0.04, 0.06, 0.15), "HoodieDark": (0.02, 0.03, 0.09), "Pants": (0.5, 0.42, 0.3), "Accent": (0.9, 0.9, 0.92)},
+    ),
 }
 C = CHARACTERS[CHAR]
 BULK = C.get("bulk", 1.0)
@@ -601,7 +619,7 @@ def hand(side, s, grip):
 GRIP = (62, 58, 40)
 place_r = hand("R", 1, grip=GRIP)
 # The left hand grips too when it holds its own phone; otherwise it hovers.
-HOLDS_LEFT = ("phone.L", "phone.L.news", "matcha")
+HOLDS_LEFT = ("phone.L", "phone.L.news", "matcha", "mug")
 place_l = hand("L", -1, grip=GRIP if any(p in C["props"] for p in HOLDS_LEFT) else (38, 45, 30))
 
 
@@ -805,8 +823,80 @@ def yogamat():
     attach(mat, "Accent", "chest")
 
 
+def tie():
+    """A tie from the collar down the shirt front, knot at the top."""
+    tail = skin("tie", [(0, 0.125, 1.45), (0, 0.17, 1.33), (0, 0.19, 1.16)], [(0, 1), (1, 2)], [(0.018, 0.007), (0.03, 0.008), (0.038, 0.008)])
+    attach(tail, "Accent", "chest")
+    knot = rounded_box("knot", (0.036, 0.022, 0.03), (0, 0.13, 1.465), 0.008)
+    attach(knot, "Accent", "chest")
+
+
+def lanyard():
+    """Company lanyard round the neck, the badge on the belly. Never removed."""
+    for s in (1, -1):
+        strap = skin("lanyard", [(s * 0.075, -0.02, 1.5), (s * 0.09, 0.09, 1.44), (s * 0.03, 0.19, 1.27)], [(0, 1), (1, 2)], [(0.01, 0.003)] * 3)
+        attach(strap, "ScreenAlt", "chest")
+    badge = rounded_box("badge", (0.07, 0.008, 0.095), (0, 0.205, 1.2), 0.006)
+    attach(badge, "Midsole", "chest")
+    stripe = rounded_box("badge.stripe", (0.072, 0.01, 0.025), (0, 0.206, 1.235), 0.004)
+    attach(stripe, "ScreenAlt", "chest")
+
+
+def mug():
+    """Coffee mug in the left hand: 'World's Okayest Manager', presumably."""
+    parts = []
+    cup = primitive("cylinder", vertices=18, radius=0.04, depth=0.095, location=(0.035, 0.01, -0.1))
+    set_material(cup, "String")
+    parts.append(cup)
+    handle = primitive("torus", major_radius=0.026, minor_radius=0.007, major_segments=16, minor_segments=6, location=(0.035, 0.055, -0.1), rotation=(math.radians(90), 0, 0))
+    set_material(handle, "String")
+    parts.append(handle)
+    for p in parts:
+        bake(p)
+        p.data.transform(place_l)
+        attach(p, None, "hand.L")
+
+
+def headset():
+    """A call-centre headset: a thin band, small cups and a mic boom to the void."""
+    band_r = HEAD_R.x * 1.1
+    arc = primitive("torus", major_radius=band_r, minor_radius=0.009, major_segments=36, minor_segments=6, location=HEAD_C + Vector((0, 0, HEAD_R.z * 0.12)), rotation=(0, math.radians(90), math.radians(90)))
+    arc.scale = (1, 1, HEAD_R.z / HEAD_R.x)
+    attach(arc, "Phone", "head")
+    for s in (1, -1):
+        cup = primitive("cylinder", vertices=18, radius=0.042, depth=0.03, location=HEAD_C + Vector((s * (HEAD_R.x + 0.01), 0.005, -0.005)), rotation=(0, math.radians(90), 0))
+        add_modifier(cup, "BEVEL", width=0.008, segments=2, limit_method="NONE")
+        attach(cup, "Phone", "head")
+    boom = skin("boom", [tuple(HEAD_C + Vector((HEAD_R.x + 0.02, 0.02, -0.03))), tuple(HEAD_C + Vector((HEAD_R.x * 0.7, HEAD_R.y * 0.9, -HEAD_R.z * 0.5))), tuple(HEAD_C + Vector((0.03, HEAD_R.y * 1.1, -HEAD_R.z * 0.62)))],
+                [(0, 1), (1, 2)], [(0.006, 0.006)] * 3)
+    attach(boom, "Phone", "head")
+    tip = primitive("uv_sphere", segments=10, ring_count=6, radius=0.014, location=HEAD_C + Vector((0.03, HEAD_R.y * 1.1, -HEAD_R.z * 0.62)))
+    attach(tip, "Accent", "head")
+
+
+def jiggler():
+    """A mouse jiggler clipped to the waistband, its green light always on."""
+    box = rounded_box("jiggler", (0.06, 0.03, 0.035), (0.17, 0.08, 0.99), 0.008)
+    attach(box, "Phone", "spine")
+    led = primitive("uv_sphere", segments=8, ring_count=6, radius=0.007, location=(0.17, 0.097, 1.0))
+    attach(led, "ScreenAlt", "spine")
+
+
+def halo():
+    """A glowing green ring behind the head: open to opportunities, always."""
+    ring = primitive("torus", major_radius=HEAD_R.x * 1.55, minor_radius=0.014, major_segments=40, minor_segments=8, location=HEAD_C + Vector((0, -HEAD_R.y * 1.3, 0.01)), rotation=(math.radians(90), 0, 0))
+    attach(ring, "ScreenAlt", "head")
+
+
 PROPS = {
     "phone": lambda: phone(place_r),
+    "tie": tie,
+    "lanyard": lanyard,
+    "mug": mug,
+    "headset": headset,
+    "jiggler": jiggler,
+    "halo": halo,
+    "hair": scalp,
     "phone.L": lambda: phone(place_l, s=-1, screen_mat="ScreenAlt"),
     "phone.L.news": lambda: phone(place_l, s=-1, screen_mat="ScreenNews"),
     "phone.L.news2": lambda: phone(place_l, s=-1, screen_mat="ScreenNews", fan=0.05, reach=0.02),

@@ -80,7 +80,7 @@
   "streak": {
     "first": "Start a streak of days without PTO.",
     "danger": "Your {n}-day no-PTO streak is in danger",
-    "safe": "{n} days without PTO. Don't break it.",
+    "safe": "{n}-day no-PTO streak. Don't break it.",
     "lost": "You took a day off. Your {n}-day streak is gone. HR has been notified.",
     "reward": "Day {n} reward: a virtual pizza party.",
     "claim": "Claim pizza",

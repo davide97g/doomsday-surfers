@@ -71,6 +71,7 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 | 7 | Pitch-literal scroll gesture | makes the pitch visible in gameplay | todo (needs decision) |
 | 8 | Signature audio + first 5 seconds | memeable sound, instant hook | todo |
 | 9 | Wildcards (aura, 6-7, -A texts, …) | cheap spice, sprinkle any time | todo |
+| — | Work mode (corporate parody, see `docs/work-mode.md`) | niche entry: office humour | built 2026-09-24, pending on-device sound check |
 
 ---
 
