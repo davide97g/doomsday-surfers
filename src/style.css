@@ -104,17 +104,29 @@ html, body {
 .battery.boost .bat-pct { color: var(--acid); }
 
 .dead { background: rgba(12,12,14,.72); backdrop-filter: grayscale(1) blur(2px); -webkit-backdrop-filter: grayscale(1) blur(2px); }
-/* Death copy and report are revealed by death.ts adding .on on a timer. */
-.final [data-at], .final .report-row, .final .cta { opacity: 0; transition: opacity .7s ease-out; }
+/* Death copy, receipt printer and buttons are revealed by death.ts adding .on on a timer. */
+.final [data-at], .final .dead-buttons { opacity: 0; transition: opacity .7s ease-out; }
 .final .on { opacity: 1; }
 .dead-line { font-size: 30px; font-weight: 900; color: #d9d9de; }
 .final { gap: 12px; }
-.report {
-  width: min(100%, 360px); margin-top: 6px; padding: 12px 14px; border-radius: 14px;
-  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); text-align: left;
+/* The receipt feeds up out of a slot at the bottom of this window; death.ts moves the strip. */
+.printer {
+  position: relative; overflow: hidden; margin-top: 4px; touch-action: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 40px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 40px);
 }
-.report-title { font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #8e8e96; margin-bottom: 6px; }
-.report-row { font-size: 13px; line-height: 1.45; color: #c4c4cc; padding: 3px 0; border-top: 1px solid rgba(255,255,255,.06); font-variant-numeric: tabular-nums; }
+.printer .strip { position: absolute; left: 0; top: 0; transition: transform .09s linear; }
+.printer .strip canvas { position: static; display: block; }
+.printer .slot {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 9px; border-radius: 5px;
+  background: linear-gradient(#050506, #2c2c31); box-shadow: 0 -6px 14px rgba(0,0,0,.55);
+}
+.dead-buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.dead-buttons .cta { margin-top: 0; padding: 14px 22px; font-size: 16px; }
+.cta.receipt-cta {
+  background: #f4f1ea; color: #1c1b1f; box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-weight: 800;
+}
 
 /* ---------- shared prompt card (revive offer, keep-going) ---------- */
 .prompt { background: rgba(7,4,15,.55); }

@@ -1,29 +1,27 @@
 // After the fade to grey:
 //   offer  -> "Watch a short ad to feel something again?" (once per run)
 //   ad     -> unskippable fake ad, then the sim revives
-//   final  -> "You are present. … Disgusting." + screen-time report + [SCROLL AGAIN]
-// Everything in `final` is revealed on a timer, and the button only works once
-// it is visible, so a panicked swipe can't skip the moment.
+//   final  -> "You are present. … Disgusting." + the receipt + [PROOF OF DOOM] [SCROLL AGAIN]
+// Everything in `final` is revealed on a timer, and the buttons only work once
+// they are visible, so a panicked swipe can't skip the moment. The receipt
+// feeds up out of a printer slot line by line; drag it to read the top.
 
 import content from '../config/content.json';
 import { fill, pick } from '../content/templates';
 import { TUNING } from '../sim/types';
 import type { World } from '../sim/world';
 import type { Nags } from './nags';
+import { buildReceipt, drawReceipt, shareCard, type Paper, type Receipt } from './receipt';
 import type { Sfx } from './sfx';
+import { shareImage } from './share';
 
 type State = 'hidden' | 'offer' | 'ad' | 'final';
 
 const LINE1_AT = 0.4;
 const LINE2_AT = 2.0;
-const REPORT_AT = 3.0;
-const ROW_EVERY = 0.25;
-
-function duration(s: number): string {
-  const m = Math.floor(s / 60);
-  const r = Math.floor(s % 60);
-  return m > 0 ? `${m}m ${r}s` : `${r}s`;
-}
+const PRINT_AT = 3.0;
+/** Vertical room the death lines and buttons need around the printer window (CSS px). */
+const CHROME = 300;
 
 export class Death {
   onRevive: () => void = () => {};
@@ -34,8 +32,19 @@ export class Death {
   private readonly adCount: HTMLElement;
   private readonly adSkip: HTMLElement;
   private readonly final: HTMLElement;
-  private readonly rows: HTMLElement;
-  private reveal: { el: HTMLElement; at: number; tick: boolean }[] = [];
+  private readonly printer: HTMLElement;
+  private readonly strip: HTMLElement;
+  private reveal: { el: HTMLElement; at: number }[] = [];
+  private receipt: Receipt | null = null;
+  private paper: Paper | null = null;
+  /** CSS px per canvas px of the displayed receipt. */
+  private paperScale = 1;
+  private windowH = 0;
+  private printed = -1;
+  /** How far the reader dragged the strip down from its resting place (CSS px). */
+  private drag = 0;
+  private dragFrom: { y: number; drag: number } | null = null;
+  private sharing = false;
   private finalT = 0;
   private adLeft = 0;
   private buttonLive = false;
@@ -83,17 +92,36 @@ export class Death {
     this.final.innerHTML = `
       <div class="dead-line" data-at="${LINE1_AT}">${d.line1}</div>
       <div class="dead-line" data-at="${LINE2_AT}">${d.line2}</div>
-      <div class="report">
-        <div class="report-title" data-at="${REPORT_AT}">${content.report.title}</div>
-        <div class="report-rows"></div>
-      </div>
-      <button class="cta" id="again" data-ui>${d.cta}</button>`;
-    this.rows = this.final.querySelector('.report-rows')!;
+      <div class="printer" data-at="${PRINT_AT}" data-ui><div class="strip"></div><div class="slot"></div></div>
+      <div class="dead-buttons">
+        <button class="cta receipt-cta" id="proof" data-ui>${content.report.cta}</button>
+        <button class="cta" id="again" data-ui>${d.cta}</button>
+      </div>`;
+    this.printer = this.final.querySelector('.printer')!;
+    this.strip = this.final.querySelector('.strip')!;
     this.final.querySelector('#again')!.addEventListener('click', () => {
       if (!this.buttonLive) return;
       this.sfx.click();
       this.onRestart();
     });
+    this.final.querySelector('#proof')!.addEventListener('click', () => {
+      if (!this.buttonLive) return;
+      this.sfx.click();
+      void this.share();
+    });
+    this.printer.addEventListener('pointerdown', (e) => {
+      if (!this.buttonLive) return;
+      this.dragFrom = { y: e.clientY, drag: this.drag };
+      this.printer.setPointerCapture(e.pointerId);
+    });
+    this.printer.addEventListener('pointermove', (e) => {
+      if (!this.dragFrom) return;
+      this.drag = this.dragFrom.drag + e.clientY - this.dragFrom.y;
+      this.placeStrip();
+    });
+    const endDrag = () => (this.dragFrom = null);
+    this.printer.addEventListener('pointerup', endDrag);
+    this.printer.addEventListener('pointercancel', endDrag);
 
     parent.append(this.offer, this.ad, this.final);
   }
@@ -120,9 +148,44 @@ export class Death {
       for (const r of this.reveal) {
         if (r.at > this.finalT || r.el.classList.contains('on')) continue;
         r.el.classList.add('on');
-        if (r.tick) this.sfx.tick();
-        if (r.el.id === 'again') this.buttonLive = true;
+        if (r.el.classList.contains('dead-buttons')) this.buttonLive = true;
       }
+      this.print();
+    }
+  }
+
+  /** Feeds the strip up one line at a time, ticking like a thermal printer. */
+  private print(): void {
+    const paper = this.paper;
+    if (!paper) return;
+    const n = Math.min(paper.stops.length, Math.floor((this.finalT - PRINT_AT) / TUNING.report.printEvery) + 1);
+    if (n <= this.printed + 1 || n <= 0) return;
+    this.printed = n - 1;
+    if (this.printed % 2 === 0) this.sfx.tick();
+    this.placeStrip();
+  }
+
+  private placeStrip(): void {
+    const paper = this.paper;
+    if (!paper || this.printed < 0) return;
+    const full = paper.canvas.height * this.paperScale;
+    const done = this.printed >= paper.stops.length - 1;
+    // Printed part sits above the slot; once the whole strip is out, it can be dragged down to read the top.
+    const out = done ? full : paper.stops[this.printed] * this.paperScale;
+    const maxDrag = Math.max(0, full - this.windowH);
+    this.drag = done ? Math.min(maxDrag, Math.max(0, this.drag)) : 0;
+    this.strip.style.transform = `translateY(${this.windowH - out + this.drag}px)`;
+  }
+
+  private async share(): Promise<void> {
+    if (this.sharing || !this.paper || !this.receipt) return;
+    this.sharing = true;
+    try {
+      const r = content.report;
+      const blob = await shareCard(this.paper);
+      await shareImage(blob, 'proof-of-doom.png', r.shareTitle, fill(r.shareText, { distance: this.receipt.distance, killer: this.receipt.killer.toLowerCase() }));
+    } finally {
+      this.sharing = false;
     }
   }
 
@@ -135,6 +198,9 @@ export class Death {
     if (state === 'ad') this.startAd();
     if (state === 'final') {
       this.finalT = 0;
+      this.printed = -1;
+      this.drag = 0;
+      this.dragFrom = null;
       this.buttonLive = false;
       for (const r of this.reveal) r.el.classList.remove('on');
     }
@@ -153,41 +219,25 @@ export class Death {
   }
 
   private buildReport(): void {
-    const w = this.world!;
-    const nags = this.nags!;
-    const [likes, notifications, reels, outrage] = w.takenByType;
-    let numbest = 0;
-    w.tolerance.forEach((t, i) => {
-      if (t < w.tolerance[numbest]) numbest = i;
-    });
-    const vars = {
-      time: duration(w.time),
-      likes,
-      notifications: notifications + w.notificationsOpened,
-      opened: w.notificationsOpened,
-      received: nags.notificationsShown,
-      smashed: w.smashed,
-      thrills: w.thrills,
-      thrillPct: Math.round(w.thrillTolerance * 100),
-      reels,
-      outrage,
-      numbest: content.contentTypes[numbest].name,
-      numbestPct: Math.round(w.tolerance[numbest] * 100),
-      dodged: w.habitsDodged,
-      mum: w.mumIgnored,
-      span: Math.max(0.4, 8 * Math.pow(0.985, w.pickupsTaken)).toFixed(1),
-      ads: w.adsPassed + nags.bannersShown,
-      rank: Math.min(99, Math.max(1, Math.round(100 * (1 - Math.exp(-w.d / 1500))))),
-    };
-    this.rows.innerHTML = content.report.rows.map((row) => `<div class="report-row">${fill(row, vars)}</div>`).join('');
+    this.receipt = buildReceipt(this.world!, this.nags!);
+    const paper = drawReceipt(this.receipt);
+    this.paper = paper;
+    const cssW = Math.min(320, window.innerWidth * 0.84);
+    this.paperScale = cssW / paper.canvas.width;
+    const full = paper.canvas.height * this.paperScale;
+    this.windowH = Math.max(180, Math.min(full, window.innerHeight - CHROME));
+    paper.canvas.style.width = `${cssW}px`;
+    paper.canvas.style.height = `${full}px`;
+    this.strip.replaceChildren(paper.canvas);
+    this.printer.style.width = `${cssW}px`;
+    this.printer.style.height = `${this.windowH}px`;
+    this.strip.style.transform = `translateY(${this.windowH}px)`;
 
     this.reveal = [];
     for (const el of this.final.querySelectorAll<HTMLElement>('[data-at]')) {
-      this.reveal.push({ el, at: Number(el.dataset.at), tick: false });
+      this.reveal.push({ el, at: Number(el.dataset.at) });
     }
-    const rows = [...this.rows.children] as HTMLElement[];
-    rows.forEach((el, i) => this.reveal.push({ el, at: REPORT_AT + 0.3 + i * ROW_EVERY, tick: true }));
-    const button = this.final.querySelector<HTMLElement>('#again')!;
-    this.reveal.push({ el: button, at: REPORT_AT + 0.7 + rows.length * ROW_EVERY, tick: false });
+    const buttons = this.final.querySelector<HTMLElement>('.dead-buttons')!;
+    this.reveal.push({ el: buttons, at: PRINT_AT + paper.stops.length * TUNING.report.printEvery + 0.5 });
   }
 }

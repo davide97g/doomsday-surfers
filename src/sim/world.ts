@@ -34,6 +34,7 @@ import {
   type Action,
   type DeathCause,
   type Obstacle,
+  type ObstacleKind,
   type Pad,
   type Phase,
   type Pickup,
@@ -93,6 +94,10 @@ export class World {
   /** Multiplier on thrill gains, 1 = fresh. */
   thrillTolerance = 1;
   cause: DeathCause | null = null;
+  /** What you crashed into (cause 'crash'). */
+  crashKind: ObstacleKind | null = null;
+  /** Habit type of the last healthy habit walked into, -1 if none (the usual killer on 'empty'). */
+  lastHabit = -1;
   /** Seconds into the fade to reality. */
   fadeT = 0;
   /** Selected character (index into tuning characters / content characters). */
@@ -157,6 +162,8 @@ export class World {
     this.tolerance.fill(1);
     this.slowT = 0;
     this.cause = null;
+    this.crashKind = null;
+    this.lastHabit = -1;
     this.fadeT = 0;
     this.zone = 0;
     this.nextGate = 0;
@@ -321,6 +328,7 @@ export class World {
     this.revivesLeft--;
     this.phase = 'running';
     this.cause = null;
+    this.crashKind = null;
     this.fadeT = 0;
     this.slowT = 0;
     this.boostT = 0;
@@ -522,6 +530,7 @@ export class World {
         return;
       }
       this.events.push({ type: 'crash', kind: o.kind });
+      this.crashKind = o.kind;
       this.lose('crash');
       return;
     }
@@ -532,6 +541,7 @@ export class World {
     const cost = h.cost * this.t.characters.habitCost[this.character];
     o.hit = true;
     this.habitsHit++;
+    this.lastHabit = o.variant;
     this.dopamine -= cost;
     this.slowT = h.slowTime;
     this.events.push({ type: 'habit', id: o.id, habit: o.variant, cost });

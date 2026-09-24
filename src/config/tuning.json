@@ -105,6 +105,15 @@
     "favourChance": 0.5
   },
   "revive": { "perRun": 1, "dopamine": 40, "clearAhead": 40, "clearSeconds": 2, "adSeconds": 5 },
+  "report": {
+    "lifeScale": 1,
+    "tierAt": [0, 250, 700, 1800, 2900, 5000],
+    "topScale": 700,
+    "brainAge": { "base": 19, "perPickup": 0.25, "numbness": 45, "max": 120 },
+    "aura": { "thrill": 1000, "gate": 500, "opened": 67, "smashed": 150, "habit": -800, "crash": -5000, "empty": -2000 },
+    "pricePer": { "reel": 10, "like": 40, "outrage": 3, "notification": 8, "thrill": 2, "ads": 5, "dodged": 4 },
+    "printEvery": 0.09
+  },
   "ui": {
     "notifyMin": 3.5,
     "notifyMax": 7,

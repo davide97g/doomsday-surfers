@@ -143,18 +143,48 @@
     "skipDenied": "Skipping is a Premium feature."
   },
   "report": {
-    "title": "Your Screen Time Report",
-    "rows": [
-      "Screen time: {time}",
-      "Consumed: {likes} likes · {notifications} notifs · {reels} reels · {outrage} outrage",
-      "Most numbing: {numbest} (now {numbestPct}% as effective)",
-      "Healthy habits avoided: {dodged}. Mum calls ignored: {mum}.",
-      "Notifications opened: {opened} of {received}. Things you ran through without looking: {smashed}.",
-      "Loops, drops and airtime: {thrills}. Now {thrillPct}% as thrilling.",
-      "Estimated attention span: {span}s",
-      "Advertisers who now own you: {ads}",
-      "You out-scrolled {rank}% of users."
-    ]
+    "game": "DOOMSDAY SURFERS",
+    "store": "*** FEED MART ***",
+    "storeLine": "STORE #{store} · AISLE: {zone}",
+    "customer": "CUSTOMER: {character}",
+    "items": {
+      "reel": { "label": "REELS x{n}", "prices": ["{k} FRIENDSHIP{s}", "{k} HOUR{s} OF SLEEP", "{k} BOOK{s} UNREAD", "YOUR 20s"] },
+      "like": { "label": "LIKES x{n}", "prices": ["{k} SELF-ESTEEM", "YOUR PERSONALITY", "{k} REAL COMPLIMENT{s}"] },
+      "outrage": { "label": "OUTRAGE x{n}", "prices": ["YOUR UNCLE (LOST)", "{k} FAMILY DINNER{s}", "BLOOD PRESSURE +{k}0"] },
+      "notification": { "label": "NOTIFICATIONS x{n}", "prices": ["{k} NIGHT{s} OF SLEEP", "YOUR FOCUS (ALL)", "{k} CONVERSATION{s}"] },
+      "thrill": { "label": "LOOPS & DROPS x{n}", "prices": ["INNER EAR", "{k} VERTEBRA{e}", "SENSE OF DIRECTION"] },
+      "ads": { "label": "ADS WATCHED x{n}", "prices": ["YOUR DATA", "{k} COOKIE{s} ACCEPTED", "YOUR LOCATION"] },
+      "dodged": { "label": "HABITS AVOIDED x{n}", "prices": ["{k} YEAR{s} OF LIFE", "YOUR KNEES", "{k} SUNSET{s}"] },
+      "mum": { "label": "MUM (IGNORED x{n})", "prices": ["PRICELESS", "HER BIRTHDAY", "SHE'S FINE (SHE'S NOT)"] }
+    },
+    "subtotal": "SUBTOTAL",
+    "life": "{life} OF LIFE",
+    "aura": "AURA",
+    "span": "ATTENTION SPAN",
+    "brainAge": "BRAIN AGE",
+    "top": "TOP {pct}% OF {craving} ADDICTS",
+    "topNone": "TOP 100% OF NOTHING",
+    "diagnosis": "DIAGNOSIS: {tier}",
+    "tiers": [
+      { "name": "NPC", "line": "You barely scrolled. Are you okay?" },
+      { "name": "CASUAL SCROLLER", "line": "You can still stop. You won't." },
+      { "name": "CHRONICALLY ONLINE", "line": "Your thumb has a six-pack." },
+      { "name": "COOKED", "line": "Attention span: shorter than this sentence." },
+      { "name": "TERMINALLY ONLINE", "line": "Your family has been notified. You muted them." },
+      { "name": "POST-HUMAN", "line": "There is no you. There is only the feed." }
+    ],
+    "killedBy": "KILLED BY: {killer}",
+    "killers": {
+      "habits": ["A GLASS OF WATER", "A BOOK", "RUNNING SHOES", "YOUR MUM"],
+      "crash": { "low": "A NOTIFICATION", "high": "AN AD", "post": "A REEL", "movingPost": "A REEL (IT WAS MOVING)" },
+      "none": "NOTHING. YOU JUST STOPPED."
+    },
+    "thanks": "THANK YOU FOR YOUR ATTENTION",
+    "noRefunds": "NO REFUNDS. NO RETURNS.",
+    "hashtag": "#PROOFOFDOOM",
+    "cta": "PROOF OF DOOM",
+    "shareText": "I scrolled {distance} m and was killed by {killer}. #ProofOfDoom",
+    "shareTitle": "Proof of Doom"
   },
   "battery": { "label": "DOPAMINE", "low": "LOW DOPAMINE" },
   "gate": {
