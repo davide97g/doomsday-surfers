@@ -6,9 +6,11 @@
 //   - Gate bullet time: the music sags in pitch and goes muffled.
 // iOS only allows audio to start inside a user gesture, so the context is
 // created on the first touch or key press.
-// Work mode swaps the beat for hold music and adds the office sounds: a chat
-// knock, a mail whoosh, a calendar bell and a looping call ring. All are
-// synthesized sound-alikes with our own notes, never samples of real apps.
+// Work mode swaps the beat for hold music and adds the office sounds. Chat,
+// Teams-style chat, mail, the call ring loop and the hang-up are community
+// sounds from Freesound (public/assets/sfx, CREDITS.md), never recordings of
+// the real apps; calendar, ticket and Humbl (and anything not loaded yet) use
+// the synthesized fallbacks below.
 
 import { mode } from '../content/content';
 import type { SimEvent } from '../sim/types';
@@ -36,6 +38,8 @@ const HOLD_CHORDS = [
 const HOLD_MELODY: [number, number, number][] = [[0, 2, 8], [3, 3, 8], [6, 1, 8], [10, 2, 8], [12, 0, 16]];
 // The call ring: our own bouncy pentatonic phrase (semitones above C5, seconds).
 const RING_CYCLE = 2;
+const SAMPLES = ['chat', 'sync', 'mail', 'ring', 'decline'] as const;
+const SAMPLE_VOL: Record<string, number> = { chat: 0.55, sync: 0.5, mail: 0.45, ring: 0.42, decline: 0.45 };
 const RING_NOTES: [number, number][] = [[0, 0], [7, 0.13], [4, 0.26], [9, 0.39], [7, 0.62], [12, 0.75], [9, 0.88], [14, 1.01]];
 
 export class GameAudio {
@@ -51,7 +55,9 @@ export class GameAudio {
   private pitch = 1;
   private readonly step = WORK ? HOLD_STEP : STEP;
   private ringBus: GainNode | null = null;
+  private ringSrc: AudioBufferSourceNode | null = null;
   private nextRing = 0;
+  private readonly samples = new Map<string, AudioBuffer>();
 
   constructor() {
     const unlock = () => {
@@ -109,6 +115,7 @@ export class GameAudio {
     air.start();
 
     this.nextNote = ctx.currentTime + 0.05;
+    if (WORK) this.loadSamples(ctx);
     void ctx.resume();
   }
 
@@ -218,11 +225,15 @@ export class GameAudio {
     this.tone(2093, 2093, 0.16, 'sine', 0.1, 0.1);
   }
 
-  /** Work card arrival, one sound per app. */
+  /** Work card arrival, one sound per app (and 'decline' for a hung-up call). */
   notify(kind: string): void {
     if (!this.ready) return;
+    if (this.play(kind) !== null) return;
     const t = this.ctx!.currentTime;
     switch (kind) {
+      case 'decline':
+        this.tone(660, 330, 0.3, 'sine', 0.12);
+        break;
       case 'chat':
         // Two dry wooden knocks, the second softer.
         this.knock(t, 1);
@@ -263,13 +274,20 @@ export class GameAudio {
       this.ringBus = ctx.createGain();
       this.ringBus.gain.value = 1;
       this.ringBus.connect(this.master);
-      this.nextRing = ctx.currentTime + 0.02;
+      // The sampled ringtone loops by itself; the synth phrase is the fallback.
+      this.ringSrc = this.play('ring', this.ringBus, true);
+      this.nextRing = this.ringSrc ? Infinity : ctx.currentTime + 0.02;
     } else if (!on && this.ringBus) {
       // Phrases are scheduled ahead: fade the bus instead of waiting them out.
       const bus = this.ringBus;
+      const src = this.ringSrc;
       this.ringBus = null;
+      this.ringSrc = null;
       bus.gain.setTargetAtTime(0, ctx.currentTime, 0.02);
-      setTimeout(() => bus.disconnect(), 400);
+      setTimeout(() => {
+        src?.stop();
+        bus.disconnect();
+      }, 400);
     }
   }
 
@@ -414,6 +432,33 @@ export class GameAudio {
   }
 
   // ---------- office sounds (Work mode) ----------
+
+  private loadSamples(ctx: AudioContext): void {
+    for (const name of SAMPLES) {
+      fetch(`${import.meta.env.BASE_URL}assets/sfx/${name}.mp3`)
+        .then((r) => r.arrayBuffer())
+        .then((b) => ctx.decodeAudioData(b))
+        .then((buf) => this.samples.set(name, buf))
+        .catch(() => {
+          // Missing or undecodable: the synth fallback plays instead.
+        });
+    }
+  }
+
+  /** Play a loaded sample; false if it isn't loaded (or isn't a sample). */
+  private play(name: string, out: AudioNode = this.master, loop = false): AudioBufferSourceNode | null {
+    const buf = this.samples.get(name);
+    if (!buf) return null;
+    const ctx = this.ctx!;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = loop;
+    const g = ctx.createGain();
+    g.gain.value = SAMPLE_VOL[name] ?? 0.5;
+    src.connect(g).connect(out);
+    src.start();
+    return src;
+  }
 
   /** One wooden knock: a pitched-down thump plus a band-passed click. */
   private knock(t: number, vol: number): void {

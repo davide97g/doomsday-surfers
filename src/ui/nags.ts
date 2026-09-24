@@ -357,7 +357,7 @@ export class Nags {
       n.el.classList.remove('pressed');
       if (swiped || n.gone || e.type === 'pointercancel') return;
       if (act === 'decline' && n.call) {
-        this.sfx.click();
+        this.sfx.notify('decline');
         this.toast(fill(CARDS.call.declined, { caller: n.call }));
         this.dismiss(n, 'fling-right');
         return;
