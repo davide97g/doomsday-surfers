@@ -6,7 +6,11 @@
 //   - Gate bullet time: the music sags in pitch and goes muffled.
 // iOS only allows audio to start inside a user gesture, so the context is
 // created on the first touch or key press.
+// Work mode swaps the beat for hold music and adds the office sounds: a chat
+// knock, a mail whoosh, a calendar bell and a looping call ring. All are
+// synthesized sound-alikes with our own notes, never samples of real apps.
 
+import { mode } from '../content/content';
 import type { SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
 
@@ -17,6 +21,22 @@ const LOOKAHEAD = 0.12;
 const ROOTS = [110, 87.31, 130.81, 98];
 const ARP = [1, 1.5, 2, 2.4, 3, 2.4, 2, 1.5];
 const BLIP_BASE = [880, 1318.5, 659.3, 440]; // like, notification, reel, outrage
+
+// Work mode hold music: slower, jazzier, no kick. Cmaj7, Am7, Dm7, G7.
+const WORK = mode === 'work';
+const HOLD_STEP = 60 / 96 / 4;
+const HOLD_ROOTS = [65.41, 55, 73.42, 49];
+const HOLD_CHORDS = [
+  [1, 1.26, 1.5, 1.89],
+  [1, 1.19, 1.5, 1.78],
+  [1, 1.19, 1.5, 1.78],
+  [1, 1.26, 1.5, 1.78],
+];
+// Vibraphone line: [step in bar, chord tone, octave multiplier].
+const HOLD_MELODY: [number, number, number][] = [[0, 2, 8], [3, 3, 8], [6, 1, 8], [10, 2, 8], [12, 0, 16]];
+// The call ring: our own bouncy pentatonic phrase (semitones above C5, seconds).
+const RING_CYCLE = 2;
+const RING_NOTES: [number, number][] = [[0, 0], [7, 0.13], [4, 0.26], [9, 0.39], [7, 0.62], [12, 0.75], [9, 0.88], [14, 1.01]];
 
 export class GameAudio {
   private ctx: AudioContext | null = null;
@@ -29,6 +49,9 @@ export class GameAudio {
   private stepIdx = 0;
   private level = 1;
   private pitch = 1;
+  private readonly step = WORK ? HOLD_STEP : STEP;
+  private ringBus: GainNode | null = null;
+  private nextRing = 0;
 
   constructor() {
     const unlock = () => {
@@ -109,9 +132,14 @@ export class GameAudio {
     this.humGain.gain.setTargetAtTime(gone ? 0.05 : 0, now, 0.8);
 
     while (this.nextNote < now + LOOKAHEAD) {
-      this.scheduleStep(this.nextNote, this.stepIdx);
-      this.nextNote += STEP;
+      if (WORK) this.scheduleHold(this.nextNote, this.stepIdx);
+      else this.scheduleStep(this.nextNote, this.stepIdx);
+      this.nextNote += this.step;
       this.stepIdx = (this.stepIdx + 1) % 64;
+    }
+    while (this.ringBus && this.nextRing < now + LOOKAHEAD) {
+      this.ringPhrase(this.ringBus, this.nextRing);
+      this.nextRing += RING_CYCLE;
     }
   }
 
@@ -190,6 +218,56 @@ export class GameAudio {
     this.tone(2093, 2093, 0.16, 'sine', 0.1, 0.1);
   }
 
+  /** Work card arrival, one sound per app. */
+  notify(kind: string): void {
+    if (!this.ready) return;
+    const t = this.ctx!.currentTime;
+    switch (kind) {
+      case 'chat':
+        // Two dry wooden knocks, the second softer.
+        this.knock(t, 1);
+        this.knock(t + 0.075, 0.65);
+        break;
+      case 'mail':
+        this.sweep(t, 0.28, 450, 3200, 0.22);
+        this.tone(2200, 2200, 0.05, 'sine', 0.04, 0.26);
+        break;
+      case 'calendar':
+        this.mallet(this.master, t, 1318.5, 0.1);
+        this.mallet(this.master, t + 0.16, 987.8, 0.09);
+        break;
+      case 'ticket':
+        this.tone(294, 294, 0.12, 'triangle', 0.16);
+        break;
+      case 'humbl':
+        [0, 4, 9].forEach((n, i) => {
+          const f = 659.25 * Math.pow(2, n / 12);
+          this.tone(f, f * 1.03, 0.08, 'sine', 0.1, i * 0.07);
+        });
+        break;
+      default:
+        this.chime();
+    }
+  }
+
+  /** Start or stop the incoming-call ring loop (Work mode). */
+  ring(on: boolean): void {
+    if (!this.ready) return;
+    const ctx = this.ctx!;
+    if (on && !this.ringBus) {
+      this.ringBus = ctx.createGain();
+      this.ringBus.gain.value = 1;
+      this.ringBus.connect(this.master);
+      this.nextRing = ctx.currentTime + 0.02;
+    } else if (!on && this.ringBus) {
+      // Phrases are scheduled ahead: fade the bus instead of waiting them out.
+      const bus = this.ringBus;
+      this.ringBus = null;
+      bus.gain.setTargetAtTime(0, ctx.currentTime, 0.02);
+      setTimeout(() => bus.disconnect(), 400);
+    }
+  }
+
   /** A brand's four-note sting (semitones above C5). */
   jingle(notes: readonly number[]): void {
     if (!this.ready) return;
@@ -221,6 +299,21 @@ export class GameAudio {
   }
 
   // ---------- music ----------
+
+  /** Work mode: elevator hold music. Soft chord pad, walking bass, a vibraphone line. */
+  private scheduleHold(t: number, i: number): void {
+    const bar = Math.floor(i / 16);
+    const s = i % 16;
+    const root = HOLD_ROOTS[bar] * this.pitch;
+    const chord = HOLD_CHORDS[bar];
+    if (s === 0) for (const r of chord) this.note(t, root * 4 * r, this.step * 15, 'triangle', 0.022);
+    if (s % 8 === 0) this.note(t, root * 2, this.step * 5, 'sine', 0.16);
+    if (s % 8 === 4) this.note(t, root * 3, this.step * 3, 'sine', 0.1);
+    if (s % 4 === 2) this.hat(t, 0.035);
+    for (const [at, tone, oct] of HOLD_MELODY) {
+      if (at === s) this.note(t, root * oct * chord[tone] / 2, this.step * 3, 'sine', 0.05);
+    }
+  }
 
   private scheduleStep(t: number, i: number): void {
     const bar = Math.floor(i / 16);
@@ -258,7 +351,7 @@ export class GameAudio {
     o.stop(t + 0.27);
   }
 
-  private hat(t: number): void {
+  private hat(t: number, vol = 0.12): void {
     const ctx = this.ctx!;
     const src = ctx.createBufferSource();
     src.buffer = this.noise;
@@ -266,7 +359,7 @@ export class GameAudio {
     f.type = 'highpass';
     f.frequency.value = 7000;
     const g = ctx.createGain();
-    g.gain.setValueAtTime(0.12, t);
+    g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
     src.connect(f).connect(g).connect(this.musicFilter);
     src.start(t, Math.random() * 0.5, 0.06);
@@ -313,6 +406,72 @@ export class GameAudio {
     o.connect(g).connect(this.master);
     o.start(t);
     o.stop(t + dur + 0.02);
+  }
+
+  // ---------- office sounds (Work mode) ----------
+
+  /** One wooden knock: a pitched-down thump plus a band-passed click. */
+  private knock(t: number, vol: number): void {
+    const ctx = this.ctx!;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.frequency.setValueAtTime(210, t);
+    o.frequency.exponentialRampToValueAtTime(120, t + 0.06);
+    g.gain.setValueAtTime(0.45 * vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+    o.connect(g).connect(this.master);
+    o.start(t);
+    o.stop(t + 0.09);
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 1900;
+    f.Q.value = 3;
+    const gn = ctx.createGain();
+    gn.gain.setValueAtTime(0.5 * vol, t);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+    src.connect(f).connect(gn).connect(this.master);
+    src.start(t, Math.random() * 0.5, 0.04);
+  }
+
+  /** Band-passed noise swept from `from` to `to` Hz: the sent/received whoosh. */
+  private sweep(t: number, dur: number, from: number, to: number, vol: number): void {
+    const ctx = this.ctx!;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 2.5;
+    f.frequency.setValueAtTime(from, t);
+    f.frequency.exponentialRampToValueAtTime(to, t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.6);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t, Math.random() * 0.5, dur + 0.05);
+  }
+
+  /** Marimba-ish struck note: fundamental, a quiet 4x partial and a mallet tick. */
+  private mallet(out: AudioNode, t: number, f: number, vol: number): void {
+    const ctx = this.ctx!;
+    const parts: [number, number, number][] = [[1, 1, 0.45], [4, 0.22, 0.12], [9.2, 0.08, 0.03]];
+    for (const [mul, amp, dur] of parts) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.frequency.value = f * mul;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol * amp, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(out);
+      o.start(t);
+      o.stop(t + dur + 0.02);
+    }
+  }
+
+  private ringPhrase(out: AudioNode, t: number): void {
+    for (const [n, at] of RING_NOTES) this.mallet(out, t + at, 523.25 * Math.pow(2, n / 12), 0.16);
   }
 
   private noiseHit(dur: number, cutoff: number, vol: number): void {

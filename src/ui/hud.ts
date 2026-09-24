@@ -1,9 +1,11 @@
 // HTML overlay UI. Game-facing UI lives here (not in the canvas) because the
 // satire layer (fake ads, popups, feed overlays) is much faster to build in
 // HTML/CSS. Every interactive element carries data-ui so input ignores it.
+// In Work mode the dopamine battery is a presence pill instead: Available,
+// Away, Be right back, then Offline at zero (tuning work.status thresholds).
 
-import { content } from '../content/content';
-import type { Phase, SimEvent } from '../sim/types';
+import { content, mode, work } from '../content/content';
+import { TUNING, type Phase, type SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
 import { restartAnimation } from './nags';
 
@@ -14,6 +16,33 @@ export interface PerfToggles {
 }
 
 const LOW = 25;
+const WORK = mode === 'work';
+type Presence = keyof typeof work.status;
+
+function presence(pct: number): Presence {
+  const s = TUNING.work.status;
+  return pct >= s.awayBelow ? 'available' : pct >= s.brbBelow ? 'away' : pct > 0 ? 'brb' : 'offline';
+}
+
+const BATTERY = WORK
+  ? `
+      <div class="battery status" id="battery" data-state="available">
+        <div class="st-pill">
+          <span class="st-avatar">ME<i class="st-dot"></i></span>
+          <span class="st-label" id="bat-label">${work.status.available}</span>
+          <span class="bat-pct" id="bat-pct">70%</span>
+        </div>
+        <div class="st-track"><div class="bat-fill" id="bat-fill"></div></div>
+      </div>`
+  : `
+      <div class="battery" id="battery">
+        <span class="label" id="bat-label">${content.battery.label}</span>
+        <div class="bat-row">
+          <div class="bat-body"><div class="bat-fill" id="bat-fill"></div></div>
+          <div class="bat-cap"></div>
+          <span class="bat-pct" id="bat-pct">70%</span>
+        </div>
+      </div>`;
 
 export class Hud {
   readonly root: HTMLElement;
@@ -30,6 +59,7 @@ export class Hud {
   private low = false;
   private boosting = false;
   private shownPct = -1;
+  private presence: Presence = 'available';
   private phase: Phase | null = null;
   onPerfChange: (p: PerfToggles) => void = () => {};
   perf: PerfToggles;
@@ -40,17 +70,9 @@ export class Hud {
     this.root.className = 'hud';
     this.root.innerHTML = `
       <div class="top">
-        <div class="stat"><span class="label">SCROLLED</span><span class="value" id="dist">0m</span></div>
-        <div class="stat right"><span class="label">ENGAGEMENT</span><span class="value" id="score">0</span></div>
-      </div>
-      <div class="battery" id="battery">
-        <span class="label" id="bat-label">${content.battery.label}</span>
-        <div class="bat-row">
-          <div class="bat-body"><div class="bat-fill" id="bat-fill"></div></div>
-          <div class="bat-cap"></div>
-          <span class="bat-pct" id="bat-pct">70%</span>
-        </div>
-      </div>
+        <div class="stat"><span class="label">${content.hud.distance}</span><span class="value" id="dist">0m</span></div>
+        <div class="stat right"><span class="label">${content.hud.score}</span><span class="value" id="score">0</span></div>
+      </div>${BATTERY}
       <div class="toast hidden" id="toast"></div>
       <button class="fps" id="fps" data-ui>-- fps</button>
       <div class="perf hidden" id="perf" data-ui>
@@ -106,7 +128,13 @@ export class Hud {
       if (low !== this.low) {
         this.low = low;
         this.battery.classList.toggle('low', low);
-        this.batLabel.textContent = low ? content.battery.low : content.battery.label;
+        if (!WORK) this.batLabel.textContent = low ? content.battery.low : content.battery.label;
+      }
+      const p = presence(pct);
+      if (WORK && p !== this.presence) {
+        this.presence = p;
+        this.battery.dataset.state = p;
+        this.batLabel.textContent = work.status[p];
       }
     }
 

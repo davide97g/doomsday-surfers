@@ -11,6 +11,7 @@ import { Death } from './ui/death';
 import { GateScan } from './ui/gate';
 import { Hud } from './ui/hud';
 import { KeepGoing } from './ui/keepGoing';
+import { Meeting } from './ui/meeting';
 import { Nags } from './ui/nags';
 import { Reel } from './ui/reel';
 import { Select } from './ui/select';
@@ -47,6 +48,14 @@ const sfx: Sfx = {
   tick: () => audio.tick(),
   click: () => audio.click(),
   reward: () => audio.reward(),
+  notify: (kind) => {
+    audio.notify(kind);
+    haptics.buzz();
+  },
+  ring: (on) => {
+    audio.ring(on);
+    if (on) haptics.buzz();
+  },
 };
 const title = new Title(hud.root, sfx);
 const select = new Select(title.slot, sfx);
@@ -57,11 +66,13 @@ select.onChange = (i) => {
 world.setCharacter(select.index);
 view.setCharacter(select.index);
 const reel = new Reel(hud.root);
+const meeting = new Meeting(hud.root);
 const nags = new Nags(hud.root, sfx);
 nags.onArrive = () => world.notificationArrived();
-nags.onOpen = (share) => {
+nags.onOpen = (share, call) => {
   world.openNotification();
   if (share) reel.play(share.clip, share.friend);
+  if (call) meeting.play(call);
 };
 // A swipe that starts on a notification still steers the runner.
 nags.onSwipe = (a) => input.push(a);
@@ -80,7 +91,7 @@ hud.onPerfChange = (p) => {
 };
 
 // Expose for automated tests / debugging in the console.
-(window as unknown as { game: unknown }).game = { world, view, input, audio, nags, reel, keepGoing, death };
+(window as unknown as { game: unknown }).game = { world, view, input, audio, nags, reel, meeting, keepGoing, death };
 
 let last = performance.now();
 let acc = 0;
@@ -115,6 +126,7 @@ function frame(now: number): void {
   if (events.some((e) => e.type === 'gate')) {
     nags.hideAll();
     reel.hide();
+    meeting.hide();
   }
   if (events.some((e) => e.type === 'start')) title.onRunStart();
 
@@ -125,9 +137,10 @@ function frame(now: number): void {
   hud.update(world, dt);
   title.update(world.phase);
   // The gate scan owns the screen: no nags, and the keep-going prompt waits.
-  nags.topBlocked = reel.playing;
+  nags.topBlocked = reel.playing || meeting.playing;
   nags.update(world, dt, keepGoing.paused || world.gateT >= 0);
   reel.update(world, dt, keepGoing.paused);
+  meeting.update(world, dt, keepGoing.paused);
   gateScan.update(world, dt);
   if (!bot) keepGoing.update(world, dt);
   death.update(world, dt, nags);

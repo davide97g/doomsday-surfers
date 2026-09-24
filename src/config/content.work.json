@@ -84,6 +84,7 @@
     "lost": "You took a day off. Your {n}-day streak is gone. HR has been notified.",
     "reward": "Day {n} reward: a virtual pizza party.",
     "claim": "Claim pizza",
+    "claimed": "Claimed. The pizza is a $0 gift card.",
     "app": "Synergy Wellbeing",
     "decline": "No thanks, I don't care about my career"
   },
@@ -136,6 +137,7 @@
     "shareTitle": "Proof of Work"
   },
   "battery": { "label": "STATUS", "low": "AWAY" },
+  "hud": { "distance": "OVERTIME", "score": "KPIs" },
   "gate": {
     "tag": "PERFORMANCE REVIEW",
     "header": "REVIEWING EMPLOYEE #{id}",

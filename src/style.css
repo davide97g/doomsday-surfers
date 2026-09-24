@@ -87,6 +87,31 @@ html, body {
 .battery.low .bat-fill { background: #ff3b3b; box-shadow: 0 0 12px rgba(255,59,59,.7); }
 .battery.low { animation: pulse .6s ease-in-out infinite; }
 
+/* Work mode: the battery is a presence pill (avatar + status dot + label). */
+.battery.status { gap: 5px; --st: #22c55e; }
+.battery.status[data-state="away"] { --st: #facc15; }
+.battery.status[data-state="brb"] { --st: #f97316; }
+.battery.status[data-state="offline"] { --st: #8a8a8a; }
+.st-pill {
+  display: flex; align-items: center; gap: 7px; padding: 4px 10px 4px 4px; border-radius: 999px;
+  background: rgba(20,20,26,.78); border: 1px solid rgba(255,255,255,.12);
+}
+.st-avatar {
+  position: relative; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: #3a3a44; font: 800 10px system-ui, sans-serif; text-shadow: none;
+}
+.st-dot {
+  position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--st); border: 2px solid #14141a; box-shadow: 0 0 8px var(--st);
+}
+.st-label { font-weight: 800; font-size: 14px; color: var(--st); min-width: 92px; text-align: left; }
+.battery.status .bat-pct { margin-left: 0; font-size: 13px; min-width: 36px; color: var(--muted); }
+.st-track { width: 100%; height: 4px; border-radius: 2px; background: rgba(255,255,255,.14); overflow: hidden; }
+.battery.status .bat-fill { border-radius: 2px; background: var(--st); box-shadow: 0 0 10px var(--st); }
+.battery.status.low .bat-fill, .battery.status.low .bat-pct { background: var(--st); color: var(--st); }
+.battery.status.low .bat-pct { background: none; }
+.battery.status.boost .bat-fill { background: linear-gradient(90deg, #fff, #2bb5a4); }
+
 .toast {
   position: absolute; left: 50%; top: 34%; transform: translateX(-50%);
   max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px;
@@ -212,6 +237,90 @@ html, body {
   filter: drop-shadow(0 1px 3px rgba(0,0,0,.6));
 }
 .notif.is-reel { border-color: var(--acid); }
+
+/* ---------- Work mode cards: office app toasts (our own colours and glyphs) ---------- */
+.notif.work {
+  flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 14px 18px; border-radius: 16px;
+  background: #1c1c22; border: 2px solid var(--app);
+  box-shadow: 0 18px 50px rgba(0,0,0,.55), 0 0 22px color-mix(in srgb, var(--app) 55%, transparent);
+}
+.notif.kind-chat { --app: #d9486c; --glyph: '#'; }
+.notif.kind-mail { --app: #3b82f6; --glyph: '@'; }
+.notif.kind-calendar { --app: #f59e0b; --glyph: '31'; }
+.notif.kind-ticket { --app: #ef4444; --glyph: '!'; }
+.notif.kind-humbl { --app: #8b5cf6; --glyph: 'h'; }
+.notif.kind-call { --app: #2bb5a4; --glyph: '\260E'; }
+.wc-head { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); min-width: 0; }
+.wc-head b { color: var(--ink); font-weight: 700; }
+.wc-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wc-now { margin-left: auto; flex: none; }
+.wc-glyph {
+  flex: none; width: 20px; height: 20px; border-radius: 6px; background: var(--app); display: grid; place-items: center;
+}
+.wc-glyph::before { content: var(--glyph); color: #fff; font: 900 11px/1 system-ui, sans-serif; }
+.wc-row { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.wc-avatar {
+  flex: none; width: 46px; height: 46px; border-radius: 10px; display: grid; place-items: center;
+  background: hsl(var(--h) 45% 42%); color: #fff; font: 800 16px system-ui, sans-serif; letter-spacing: .02em;
+}
+.wc-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.wc-from { font-size: 15px; font-weight: 800; }
+.wc-text { font-size: 18px; line-height: 1.22; font-weight: 700; }
+.notif.work .notif-cta b { background: var(--app); }
+.notif.work .notif-bar { background: var(--app); }
+
+/* Incoming call: the avatar pulses, big Accept / Decline. */
+.notif.kind-call .wc-avatar { border-radius: 50%; width: 54px; height: 54px; animation: ring-pulse 1s ease-out infinite; }
+@keyframes ring-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--app) 80%, transparent); }
+  100% { box-shadow: 0 0 0 16px transparent; }
+}
+.notif.kind-call .wc-text { font-size: 15px; font-weight: 600; color: var(--muted); }
+.wc-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+.wc-actions button {
+  border: 0; border-radius: 999px; padding: 11px 0; color: #fff; font: 800 15px system-ui, sans-serif;
+}
+.wc-actions [data-act="decline"] { background: #d93a3a; }
+.wc-actions [data-act="accept"] { background: #22a755; animation: pulse .8s ease-in-out infinite; }
+.work-toast { top: 50%; font: 700 15px system-ui, sans-serif; background: #1c1c22; color: var(--ink); border: 1px solid #d93a3a; }
+
+/* ---------- meeting panel: Work mode's reel ---------- */
+.meeting {
+  position: absolute; z-index: 1; top: calc(var(--safe-top) + 62px); height: calc(35% - var(--safe-top) - 62px); aspect-ratio: 3 / 4;
+  display: grid; grid-template-rows: auto 1fr auto; gap: 4px; padding: 6px 6px 9px;
+  border-radius: 16px; overflow: hidden; background: #141418; pointer-events: none;
+  border: 3px solid #2bb5a4; box-shadow: 0 16px 40px rgba(0,0,0,.6), 0 0 26px rgba(43,181,164,.5);
+}
+.meeting.left { left: 10px; transform: rotate(-2deg); animation: reel-in-left .35s cubic-bezier(.2,.9,.3,1.25); }
+.meeting.right { right: 10px; transform: rotate(2deg); animation: reel-in-right .35s cubic-bezier(.2,.9,.3,1.25); }
+.mt-top { display: flex; align-items: center; gap: 5px; font: 700 10px system-ui, sans-serif; min-width: 0; }
+.mt-top b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mt-clock { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mt-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 4px; min-height: 0; }
+.mt-tile {
+  position: relative; border-radius: 8px; overflow: hidden; background: hsl(var(--h, 220) 20% 22%);
+  display: grid; place-items: center; border: 2px solid transparent; transition: border-color .15s;
+}
+.mt-tile.talking { border-color: #2bb5a4; }
+/* Faceless: a head and shoulders, lit by their own screen. */
+.mt-face { width: 34%; aspect-ratio: 1; border-radius: 50%; background: hsl(var(--h, 220) 25% 12%); margin-bottom: 26%; box-shadow: 0 0 10px hsl(var(--h, 220) 60% 60% / .35); }
+.mt-face::after {
+  content: ''; position: absolute; left: 50%; bottom: 0; width: 62%; height: 30%; transform: translateX(-50%);
+  border-radius: 50% 50% 0 0; background: hsl(var(--h, 220) 25% 12%);
+}
+.mt-tile.you { background: #26262c; }
+.mt-tile.you .mt-face { display: grid; place-items: center; background: #3a3a44; color: #bbb; font: 800 10px system-ui, sans-serif; margin: 0; box-shadow: none; }
+.mt-tile.you .mt-face::after { display: none; }
+.mt-name {
+  position: absolute; left: 3px; bottom: 3px; max-width: calc(100% - 6px); padding: 1px 4px; border-radius: 4px;
+  background: rgba(0,0,0,.6); font: 700 8px system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mt-tile.you .mt-name { color: #ff6b6b; }
+.mt-cap {
+  min-height: 2.5em; padding: 3px 5px; border-radius: 6px; background: rgba(0,0,0,.65);
+  font: 600 10px/1.25 system-ui, sans-serif;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 
 /* ---------- reel player: a phone-shaped clip on the left or right edge ---------- */
 .reel {
@@ -450,7 +559,7 @@ html, body {
 @media (hover: hover) and (pointer: fine) { .keys { display: flex; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-bar, .lock-note, .notif, .reel, .select[data-dir] .select-card, .select[data-dir] .select-name { animation: none; }
+  .home-bar, .lock-note, .notif, .reel, .meeting, .notif.kind-call .wc-avatar, .select[data-dir] .select-card, .select[data-dir] .select-name { animation: none; }
 }
 @media (prefers-reduced-transparency: reduce) {
   .lock-note, .select-card, .select-arrow { background: rgb(30,26,40); backdrop-filter: none; -webkit-backdrop-filter: none; }

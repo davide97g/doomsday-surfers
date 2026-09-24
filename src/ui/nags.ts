@@ -6,12 +6,16 @@
 // sent you a reel"): opening one also plays the clip (see reel.ts). A swipe that
 // starts on a card flings it away and still steers the runner, so a nag never
 // eats a dodge.
+// Work mode swaps the feed notification for office app cards (chat, mail,
+// calendar, ticket, Humbl) and incoming calls: a call rings until it's gone,
+// Accept (or a tap) opens the meeting panel (meeting.ts), Decline dismisses it.
 
-import { content } from '../content/content';
+import { content, mode, work } from '../content/content';
 import { SWIPE_PX } from '../input/input';
 import { TUNING, type Action } from '../sim/types';
 import type { World } from '../sim/world';
 import { fill, pick } from '../content/templates';
+import { hue, initials } from './meeting';
 import { reelSrc } from './reel';
 import type { Sfx } from './sfx';
 
@@ -20,6 +24,24 @@ const N = content.notifications;
 /** Where a card can land: under the HUD, or above the banner ad. */
 const SLOTS = ['top', 'bottom'];
 const LEAVE_MS = 260;
+const TOAST_MS = 1600;
+const CARDS = work.cards;
+type CardKind = 'chat' | 'mail' | 'calendar' | 'ticket' | 'humbl';
+const KINDS: CardKind[] = ['chat', 'mail', 'calendar', 'ticket', 'humbl'];
+const KIND_WEIGHT = KINDS.reduce((s, k) => s + CARDS[k].weight, 0);
+
+function pickKind(): CardKind {
+  let r = Math.random() * KIND_WEIGHT;
+  for (const k of KINDS) {
+    r -= CARDS[k].weight;
+    if (r < 0) return k;
+  }
+  return 'chat';
+}
+
+function avatar(name: string): string {
+  return `<div class="wc-avatar" style="--h:${hue(name)}">${initials(name)}</div>`;
+}
 
 function rand(min: number, max: number): number {
   return min + Math.random() * (max - min);
@@ -34,7 +56,11 @@ export interface ReelShare {
 interface Note {
   el: HTMLElement;
   reel: ReelShare | null;
+  /** Work mode incoming call: who's calling. */
+  call: string | null;
   bar: HTMLElement;
+  /** Seconds on screen in total (calls ring longer). */
+  show: number;
   slot: number;
   left: number;
   /** Leaving (opened, flung or expired): no more input, removed shortly. */
@@ -45,7 +71,7 @@ export class Nags {
   notificationsShown = 0;
   bannersShown = 0;
   onArrive: () => void = () => {};
-  onOpen: (reel: ReelShare | null) => void = () => {};
+  onOpen: (reel: ReelShare | null, call: string | null) => void = () => {};
   onSwipe: (a: Action) => void = () => {};
   /** A reel is playing in the top slot's space: new cards go to the bottom. */
   topBlocked = false;
@@ -58,6 +84,7 @@ export class Nags {
   private bannerLeft = 0;
   private bannerAge = 0;
   private running = false;
+  private ringing = false;
   private lastClip = -1;
 
   constructor(parent: HTMLElement, private readonly sfx: Sfx) {
@@ -96,6 +123,12 @@ export class Nags {
         this.bannerIn = UI.bannerEvery;
       }
     }
+    // A call rings while its card is up, and goes quiet while the run is paused.
+    const ringing = running && !paused && this.notes.some((n) => n.call !== null && !n.gone);
+    if (ringing !== this.ringing) {
+      this.ringing = ringing;
+      this.sfx.ring(ringing);
+    }
     if (!running || paused) return;
 
     this.notifyIn -= dt;
@@ -106,7 +139,7 @@ export class Nags {
     for (const n of this.notes) {
       if (n.gone) continue;
       n.left -= dt;
-      n.bar.style.transform = `scaleX(${Math.max(0, n.left / UI.notifyShow)})`;
+      n.bar.style.transform = `scaleX(${Math.max(0, n.left / n.show)})`;
       if (n.left <= 0) this.dismiss(n, 'expired');
     }
 
@@ -143,6 +176,19 @@ export class Nags {
     el.className = `notif slot-${SLOTS[slot]}`;
     el.dataset.ui = '';
     el.style.setProperty('--tilt', `${rand(-3, 3).toFixed(1)}deg`);
+    const { reel, call, kind } = mode === 'work' ? this.fillWork(el) : this.fillFeed(el);
+    const show = call ? UI.callShow : UI.notifyShow;
+    const note: Note = { el, reel, call, bar: el.querySelector('.notif-bar')!, show, slot, left: show, gone: false };
+    this.bindPointer(note);
+    this.layer.append(el);
+    this.notes.push(note);
+    if (mode === 'work') this.sfx.notify(kind);
+    else this.sfx.chime();
+    this.onArrive();
+  }
+
+  /** Personal mode: a feed push notification, about half of them reel shares. */
+  private fillFeed(el: HTMLElement): { reel: ReelShare | null; call: null; kind: string } {
     el.innerHTML = `
       <div class="notif-icon"><span class="notif-badge"></span></div>
       <div class="notif-body">
@@ -167,12 +213,38 @@ export class Nags {
     } else {
       el.querySelector('.notif-text')!.textContent = fill(pick(N.lines));
     }
-    const note: Note = { el, reel, bar: el.querySelector('.notif-bar')!, slot, left: UI.notifyShow, gone: false };
-    this.bindPointer(note);
-    this.layer.append(el);
-    this.notes.push(note);
-    this.sfx.chime();
-    this.onArrive();
+    return { reel, call: null, kind: 'feed' };
+  }
+
+  /** Work mode: an office app card, or (one call at a time) an incoming call. */
+  private fillWork(el: HTMLElement): { reel: null; call: string | null; kind: string } {
+    const C = CARDS.call;
+    if (Math.random() < UI.callChance && !this.notes.some((n) => n.call !== null && !n.gone)) {
+      const caller = fill(pick(C.callers));
+      el.classList.add('work', 'kind-call');
+      el.innerHTML = `
+        <div class="wc-head"><span class="wc-glyph"></span><b>${C.app}</b><span class="wc-meta">${work.suite}</span></div>
+        <div class="wc-row">${avatar(caller)}<div class="wc-body"><b class="wc-from"></b><div class="wc-text">${C.ringing}</div></div></div>
+        <div class="wc-actions"><button data-act="decline">${C.decline}</button><button data-act="accept">${C.accept}</button></div>
+        <div class="notif-bar"></div>`;
+      el.querySelector('.wc-from')!.textContent = caller;
+      return { reel: null, call: caller, kind: 'call' };
+    }
+    const kind = pickKind();
+    const card = CARDS[kind];
+    const line = pick(card.lines);
+    const from = fill(line.from);
+    el.classList.add('work', `kind-${kind}`);
+    el.innerHTML = `
+      <div class="wc-head"><span class="wc-glyph"></span><b>${card.app}</b><span class="wc-meta"></span><span class="wc-now">now</span></div>
+      <div class="wc-row">${avatar(from)}<div class="wc-body"><b class="wc-from"></b><div class="wc-text"></div></div></div>
+      <div class="notif-cta"><b>${card.cta}</b><span></span></div>
+      <div class="notif-bar"></div>`;
+    el.querySelector('.wc-meta')!.textContent = `· ${pick(card.meta)}`;
+    el.querySelector('.wc-from')!.textContent = from;
+    el.querySelector('.wc-text')!.textContent = fill(line.text);
+    el.querySelector('.notif-cta span')!.textContent = pick(N.ctaLines);
+    return { reel: null, call: null, kind };
   }
 
   /** Tap opens (boost); a swipe flings the card away and steers the runner. */
@@ -181,9 +253,11 @@ export class Nags {
     let x0 = 0;
     let y0 = 0;
     let swiped = false;
+    let act = '';
     n.el.addEventListener('pointerdown', (e) => {
       if (n.gone || id !== -1) return;
       e.preventDefault();
+      act = (e.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act ?? '';
       id = e.pointerId;
       x0 = e.clientX;
       y0 = e.clientY;
@@ -206,8 +280,14 @@ export class Nags {
       id = -1;
       n.el.classList.remove('pressed');
       if (swiped || n.gone || e.type === 'pointercancel') return;
+      if (act === 'decline' && n.call) {
+        this.sfx.click();
+        this.toast(fill(CARDS.call.declined, { caller: n.call }));
+        this.dismiss(n, 'fling-right');
+        return;
+      }
       this.sfx.reward();
-      this.onOpen(n.reel);
+      this.onOpen(n.reel, n.call);
       this.dismiss(n, 'opened');
     };
     n.el.addEventListener('pointerup', up);
@@ -222,6 +302,14 @@ export class Nags {
       const i = this.notes.indexOf(n);
       if (i >= 0) this.notes.splice(i, 1);
     }, LEAVE_MS);
+  }
+
+  private toast(text: string): void {
+    const t = document.createElement('div');
+    t.className = 'toast work-toast';
+    t.textContent = text;
+    this.layer.append(t);
+    setTimeout(() => t.remove(), TOAST_MS);
   }
 
   private showBanner(): void {

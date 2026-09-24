@@ -124,6 +124,7 @@
     "lost": "You lost your {n}-day streak. We're not angry. Just disappointed.",
     "reward": "Day {n} reward: nothing. Come back tomorrow for more nothing.",
     "claim": "Claim nothing",
+    "claimed": "Claimed. You now have nothing.",
     "app": "Streaks",
     "decline": "No thanks, I don't care about my streak"
   },
@@ -187,6 +188,7 @@
     "shareTitle": "Proof of Doom"
   },
   "battery": { "label": "DOPAMINE", "low": "LOW DOPAMINE" },
+  "hud": { "distance": "SCROLLED", "score": "ENGAGEMENT" },
   "gate": {
     "tag": "PERSONALIZATION CHECKPOINT",
     "header": "SCANNING SUBJECT #{id}",

@@ -121,7 +121,7 @@ export class Title {
       const act = (e.target as HTMLElement).dataset.act;
       if (act === 'claim') {
         this.sfx.reward();
-        this.card.querySelector('.note-text')!.textContent = 'Claimed. You now have nothing.';
+        this.card.querySelector('.note-text')!.textContent = content.streak.claimed;
         setTimeout(() => this.card.classList.add('hidden'), 1200);
       } else if (act === 'decline') {
         this.sfx.click();

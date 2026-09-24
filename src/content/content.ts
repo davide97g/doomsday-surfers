@@ -48,8 +48,8 @@ function merge(a: Json, b: Json, path: string): Json {
   if (!isObject(a) || !isObject(b)) return b;
   const out: Record<string, Json> = { ...a };
   for (const k of Object.keys(b)) {
-    // A key the base bank doesn't have is a typo in the work bank.
-    if (!(k in a) && import.meta.env.DEV) console.warn(`content.work.json: unknown key ${path}${k}`);
+    // A key the base bank doesn't have is a typo in the work bank (pools are open-ended).
+    if (!(k in a) && path !== 'pools.' && import.meta.env.DEV) console.warn(`content.work.json: unknown key ${path}${k}`);
     out[k] = k in a ? merge(a[k], b[k], `${path}${k}.`) : b[k];
   }
   return out;
