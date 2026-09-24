@@ -21,7 +21,8 @@ import { Post } from './post';
 import { FEED_ATLAS, makeAd, makeAutoplay, makeBookCover, makeBouncerTop, makeContent, makeFeedAtlas, makeMumCall, makeNotification, makeRampFace, makeReel, makeReelFront } from './textures';
 
 const VARIANTS = 8;
-const CONTENT_COLOURS = ['#ff2e63', '#ff2e3b', '#00e1ff', '#ff7a1f']; // like, notification, reel, outrage
+// like, notification, reel, outrage (Work: reaction, ping, meeting, reply-all)
+const CONTENT_COLOURS = mode === 'work' ? ['#f59e0b', '#d9486c', '#2bb5a4', '#ef4444'] : ['#ff2e63', '#ff2e3b', '#00e1ff', '#ff7a1f'];
 const FEED_CELLS = FEED_ATLAS.cols * FEED_ATLAS.rows;
 const TILE_LEN = 4.4;
 const TOWER_STEP = 3.6;
@@ -155,6 +156,8 @@ export class GameRenderer {
     sole: THREE.MeshStandardMaterial;
     upper: THREE.MeshStandardMaterial;
     call: THREE.MeshStandardMaterial;
+    lunch: THREE.MeshStandardMaterial;
+    lid: THREE.MeshStandardMaterial;
   };
 
   private runPhase = 0;
@@ -221,6 +224,8 @@ export class GameRenderer {
       sole: matte('#e6e1d6'),
       upper: matte('#5f8a74'),
       call: new THREE.MeshStandardMaterial({ map: makeMumCall(), roughness: 0.6, emissive: new THREE.Color('#ffffff'), emissiveMap: null, emissiveIntensity: 0.12 }),
+      lunch: matte('#b8543f'),
+      lid: matte('#d9cbb0'),
     };
 
     // --- track tiles (the ground is a feed of giant phone screens) ---
@@ -479,6 +484,17 @@ export class GameRenderer {
     const m = this.habitMats;
     switch (v % 4) {
       case 0: {
+        if (mode === 'work') {
+          // Work: a lunch box (eating away from your desk).
+          const box = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 0.7, 1, 1, 2), m.lunch);
+          box.position.y = 0.25;
+          const lid = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.14, 0.76, 1, 1, 2), m.lid);
+          lid.position.y = 0.57;
+          const handle = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.045, 6, 14, Math.PI), m.lid);
+          handle.position.y = 0.64;
+          g.add(box, lid, handle);
+          break;
+        }
         // A giant glass of water.
         const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.36, 1.0, 18, 1, true), m.glass);
         glass.position.y = 0.5;
