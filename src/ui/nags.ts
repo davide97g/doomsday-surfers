@@ -7,7 +7,7 @@
 // starts on a card flings it away and still steers the runner, so a nag never
 // eats a dodge.
 
-import content from '../config/content.json';
+import { content } from '../content/content';
 import { SWIPE_PX } from '../input/input';
 import { TUNING, type Action } from '../sim/types';
 import type { World } from '../sim/world';

@@ -1,10 +1,12 @@
 // Title screen, dressed as the lock screen of the phone you're about to
 // doomscroll on: date, clock, the streak nag as a lock-screen notification,
 // the character select as a widget, and "swipe up" to unlock (start the run).
+// A Focus pill above the clock switches Personal / Work mode (content.ts):
+// it flashes the iOS-style "Work Focus on" banner, then restarts the app.
 // The character select (select.ts) mounts in `slot`. The streak lives in localStorage (a per-device
 // convenience, nothing depends on it) and the card shows once per session.
 
-import content from '../config/content.json';
+import { content, mode, switchMode, work } from '../content/content';
 import { fill } from '../content/templates';
 import type { Phase } from '../sim/types';
 import type { Sfx } from './sfx';
@@ -70,6 +72,9 @@ export class Title {
     this.el.className = 'lock';
     this.el.innerHTML = `
       <header class="lock-top">
+        <button class="focus" data-ui aria-label="Switch Focus">
+          <span class="focus-glyph"></span><span class="focus-label">${mode === 'work' ? work.focus.work : work.focus.personal}</span>
+        </button>
         <div class="lock-date"></div>
         <div class="lock-time"></div>
         <h1 class="lock-brand">Doomsday Surfers</h1>
@@ -101,6 +106,17 @@ export class Title {
     this.time = this.el.querySelector('.lock-time')!;
     this.date = this.el.querySelector('.lock-date')!;
     this.tick();
+    const focus = this.el.querySelector<HTMLButtonElement>('.focus')!;
+    focus.addEventListener('click', () => {
+      const next = mode === 'work' ? 'personal' : 'work';
+      this.sfx.click();
+      const flash = document.createElement('div');
+      flash.className = `focus-flash to-${next}`;
+      flash.textContent = fill(work.focus.on, { name: next === 'work' ? work.focus.work : work.focus.personal });
+      this.el.append(flash);
+      focus.disabled = true;
+      setTimeout(() => switchMode(next), 650);
+    });
     this.card.addEventListener('click', (e) => {
       const act = (e.target as HTMLElement).dataset.act;
       if (act === 'claim') {

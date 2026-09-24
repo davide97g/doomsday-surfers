@@ -357,6 +357,25 @@ html, body {
   -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none;
 }
 
+/* Focus pill: Personal (moon) / Work (briefcase). Tapping it restarts in the other mode. */
+.focus {
+  display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; padding: 5px 12px 5px 9px;
+  border: 1px solid rgba(255,255,255,.14); border-radius: 999px; background: rgba(34,30,46,.55); color: var(--ink);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  font: 600 13px system-ui, -apple-system, sans-serif;
+}
+.focus:active { transform: scale(.96); }
+.focus-glyph { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset -4px -2px 0 0 #b69bff; }
+[data-mode="work"] .focus-glyph { border-radius: 2px; box-shadow: none; background: #4fb3ff; height: 9px; border-top: 2px solid #2a6fb0; }
+.focus-flash {
+  position: absolute; left: 50%; top: calc(var(--safe-top) + 12px); transform: translateX(-50%);
+  padding: 12px 20px; border-radius: 999px; white-space: nowrap;
+  background: rgba(20,18,28,.92); font: 700 15px system-ui, -apple-system, sans-serif;
+  animation: notif-in .3s cubic-bezier(.2,.9,.3,1.15) both;
+}
+.focus-flash.to-work { color: #7fc4ff; }
+.focus-flash.to-personal { color: #c9b6ff; }
+
 /* The streak nag, as a lock-screen notification. */
 .lock-note {
   margin-top: 14px; width: min(100%, 360px); display: flex; gap: 10px; padding: 10px 12px 12px;

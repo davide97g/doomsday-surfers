@@ -259,6 +259,24 @@
       "name": "NEWS DOOMER",
       "bio": "Knows everything happening everywhere. Nothing happening here.",
       "stats": ["Screen time: since the last crisis", "Phones: 3", "Battery: 5%, forever"]
+    },
+    {
+      "name": "MIDDLE MANAGER",
+      "mode": "work",
+      "bio": "Two monitors, zero decisions. Books meetings about meetings.",
+      "stats": ["Meetings today: 11 (back to back)", "Decisions made: pending alignment", "Lanyard: never removed"]
+    },
+    {
+      "name": "REMOTE WORKER",
+      "mode": "work",
+      "bio": "Hasn't worn trousers since 2020. The mouse jiggler does the work.",
+      "stats": ["Status: Available (jiggler)", "Camera: \"broken\"", "Commute: 4 steps"]
+    },
+    {
+      "name": "LINKEDIN LUNATIC",
+      "mode": "work",
+      "bio": "Humbled to announce another humbling. Thoughts?",
+      "stats": ["Posts today: 6 (all \"Agree?\")", "Connections: 500+ (friends: 0)", "Personal brand: load-bearing"]
     }
   ],
   "select": { "craving": "Craves {type}: +50% hit, tolerance builds faster", "unlock": "Swipe up to scroll" },

@@ -2,7 +2,7 @@
 // frames them and a profiling log types itself out from this run's stats.
 // When the scan lets go, the new feed zone is announced.
 
-import content from '../config/content.json';
+import { content } from '../content/content';
 import { fill } from '../content/templates';
 import { zoneLook, type SimEvent } from '../sim/types';
 import type { World } from '../sim/world';

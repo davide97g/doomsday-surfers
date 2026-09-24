@@ -30,9 +30,9 @@
   },
   "content": { "types": 4, "gain": 6, "toleranceDecay": 0.94, "toleranceFloor": 0.2 },
   "characters": {
-    "count": 7,
-    "favourite": [2, 1, 0, 3, 0, -1, 1],
-    "habitCost": [1, 1, 1, 1, 1, 0.5, 1],
+    "count": 10,
+    "favourite": [2, 1, 0, 3, 0, -1, 1, 2, 1, 0],
+    "habitCost": [1, 1, 1, 1, 1, 0.5, 1, 1, 1, 1],
     "cravingGain": 1.5,
     "cravingDecay": 0.9
   },
@@ -114,12 +114,15 @@
     "pricePer": { "reel": 10, "like": 40, "outrage": 3, "notification": 8, "thrill": 2, "ads": 5, "dodged": 4 },
     "printEvery": 0.09
   },
+  "work": { "status": { "awayBelow": 50, "brbBelow": 20 } },
   "ui": {
     "notifyMin": 3.5,
     "notifyMax": 7,
     "notifyShow": 4.5,
     "notifyMaxOnScreen": 2,
     "reelChance": 0.5,
+    "callChance": 0.4,
+    "callShow": 6,
     "bannerEvery": 40,
     "bannerShow": 6,
     "bannerCloseAfter": 3,

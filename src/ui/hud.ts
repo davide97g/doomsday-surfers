@@ -2,7 +2,7 @@
 // satire layer (fake ads, popups, feed overlays) is much faster to build in
 // HTML/CSS. Every interactive element carries data-ui so input ignores it.
 
-import content from '../config/content.json';
+import { content } from '../content/content';
 import type { Phase, SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
 import { restartAnimation } from './nags';

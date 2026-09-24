@@ -10,7 +10,7 @@
 // Everything is driven by World.gateT / nextGate; nothing here mutates the sim.
 
 import * as THREE from 'three';
-import content from '../config/content.json';
+import { content } from '../content/content';
 import { gateS } from '../sim/types';
 import type { World } from '../sim/world';
 import { atlasMaterial, cellAttribute } from './atlas';

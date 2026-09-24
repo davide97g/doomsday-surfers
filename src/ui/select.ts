@@ -1,22 +1,26 @@
 // Character select on the title screen. Swipe left/right (or the arrows) to
 // switch doomscroller; the renderer turns the chosen one on a turntable.
-// The pick is remembered in localStorage (a per-device convenience).
+// Only the current mode's cast is on the turntable (Work mode has its own).
+// The pick is remembered per mode in localStorage (a per-device convenience).
 
-import content from '../config/content.json';
+import { content, mode } from '../content/content';
 import { fill } from '../content/templates';
 import { TUNING, type Action } from '../sim/types';
 import { restartAnimation } from './nags';
 import type { Sfx } from './sfx';
 
-const KEY = 'ds.character';
-const COUNT = TUNING.characters.count;
+const KEY = mode === 'work' ? 'ds.character.work' : 'ds.character';
+/** Character indices (into tuning and content characters) playable in this mode. */
+const ROSTER = content.characters
+  .map((c: { mode?: string }, i) => ((c.mode ?? 'personal') === mode && i < TUNING.characters.count ? i : -1))
+  .filter((i) => i >= 0);
 
 function load(): number {
   try {
     const n = Number(localStorage.getItem(KEY));
-    return Number.isInteger(n) && n >= 0 && n < COUNT ? n : 0;
+    return ROSTER.includes(n) && localStorage.getItem(KEY) !== null ? n : ROSTER[0];
   } catch {
-    return 0;
+    return ROSTER[0];
   }
 }
 
@@ -66,7 +70,8 @@ export class Select {
   }
 
   private step(dir: number): void {
-    this.index = (this.index + dir + COUNT) % COUNT;
+    const at = ROSTER.indexOf(this.index);
+    this.index = ROSTER[(at + dir + ROSTER.length) % ROSTER.length];
     save(this.index);
     this.sfx.click();
     this.render();
@@ -84,6 +89,6 @@ export class Select {
     this.el.querySelector('.select-bio')!.textContent = c.bio;
     this.el.querySelector('.select-stats')!.innerHTML = c.stats.map((s) => `<div>${s}</div>`).join('');
     this.el.querySelector('.select-craving')!.textContent = c.perk ?? fill(content.select.craving, { type: content.contentTypes[fav].name });
-    this.el.querySelector('.select-dots')!.innerHTML = Array.from({ length: COUNT }, (_, i) => `<i class="${i === this.index ? 'on' : ''}"></i>`).join('');
+    this.el.querySelector('.select-dots')!.innerHTML = ROSTER.map((i) => `<i class="${i === this.index ? 'on' : ''}"></i>`).join('');
   }
 }

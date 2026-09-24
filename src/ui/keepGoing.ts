@@ -1,7 +1,7 @@
 // "You've been scrolling for N minutes. Keep going?" [YES] [yes]
 // Pauses the run (main stops stepping the sim) until you agree.
 
-import content from '../config/content.json';
+import { content } from '../content/content';
 import { fill } from '../content/templates';
 import { TUNING } from '../sim/types';
 import type { World } from '../sim/world';

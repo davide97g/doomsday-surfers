@@ -9,7 +9,7 @@
 // dome keeps the world's real orientation, so the horizon flips in a loop.
 
 import * as THREE from 'three';
-import content from '../config/content.json';
+import { content, mode } from '../content/content';
 import { TUNING, laneX, zoneLook, type ObstacleKind, type PadKind, type SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
 import { atlasMaterial, cellAttribute, hash } from './atlas';
@@ -42,7 +42,8 @@ const INTRO = 0.9;
 
 // Each doomscroller's Blender model (public/assets/characters/<model>.glb,
 // built by `npm run assets`) and display scale. The hitbox doesn't change.
-const CHARACTER_LOOKS: { model: string; scale: number }[] = [
+// Indices 7+ are the Work mode cast.
+const CHARACTER_LOOKS: { model: string; scale: number; work?: boolean }[] = [
   { model: 'goblin', scale: 1 },
   { model: 'bro', scale: 1 },
   { model: 'kid', scale: 0.72 },
@@ -50,6 +51,9 @@ const CHARACTER_LOOKS: { model: string; scale: number }[] = [
   { model: 'influencer', scale: 0.97 },
   { model: 'wellness', scale: 0.95 },
   { model: 'doomer', scale: 1.02 },
+  { model: 'manager', scale: 1.02, work: true },
+  { model: 'remote', scale: 0.98, work: true },
+  { model: 'linkedin', scale: 1, work: true },
 ];
 
 interface ZoneLook {
@@ -403,7 +407,7 @@ export class GameRenderer {
       this.hero = hero;
       this.player.add(hero.root);
       // Warm the rest so flicking through the select screen is instant.
-      for (const l of CHARACTER_LOOKS) void this.loadModel(l.model);
+      for (const l of CHARACTER_LOOKS) if (!!l.work === (mode === 'work')) void this.loadModel(l.model);
     });
     this.player.scale.setScalar(look.scale);
   }

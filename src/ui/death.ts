@@ -6,7 +6,7 @@
 // they are visible, so a panicked swipe can't skip the moment. The receipt
 // feeds up out of a printer slot line by line; drag it to read the top.
 
-import content from '../config/content.json';
+import { content } from '../content/content';
 import { fill, pick } from '../content/templates';
 import { TUNING } from '../sim/types';
 import type { World } from '../sim/world';

@@ -3,7 +3,7 @@
 // sell the idea that you're running on top of an endless feed.
 
 import * as THREE from 'three';
-import content from '../config/content.json';
+import { content } from '../content/content';
 import { fill, seeded } from '../content/templates';
 
 const PALETTE = ['#ff2e88', '#7b2eff', '#00e1ff', '#ffcc00', '#ff5a1f', '#1fff8f', '#ff3b3b', '#4d7cff'];

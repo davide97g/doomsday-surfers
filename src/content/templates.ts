@@ -2,7 +2,7 @@
 // drawn from `pools` in content.json; any other `{key}` comes from `vars`.
 // Pure (no DOM), so textures, UI and a future port can all share it.
 
-import content from '../config/content.json';
+import { content } from './content';
 
 type Pools = Record<string, string[]>;
 const POOLS: Pools = content.pools;

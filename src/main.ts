@@ -1,5 +1,6 @@
 import './style.css';
 import { GameAudio } from './audio/audio';
+import { mode } from './content/content';
 import { Bot } from './dev/bot';
 import { GameHaptics } from './fx/haptics';
 import { Input } from './input/input';
@@ -21,6 +22,7 @@ const params = new URLSearchParams(location.search);
 const useBot = params.has('bot');
 const seedParam = params.get('seed');
 
+document.documentElement.dataset.mode = mode;
 const app = document.getElementById('app')!;
 const world = new World(seedParam ? Number(seedParam) : Date.now());
 const view = new GameRenderer(app, TUNING.spawn.ahead - 10);

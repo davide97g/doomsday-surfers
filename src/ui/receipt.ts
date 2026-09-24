@@ -2,7 +2,7 @@
 // One layout feeds both the death screen (printed out line by line) and the
 // shared 9:16 image, so what you see is exactly what you post.
 
-import content from '../config/content.json';
+import { content } from '../content/content';
 import { fill, pick, seeded } from '../content/templates';
 import { TUNING, zoneLook } from '../sim/types';
 import type { World } from '../sim/world';

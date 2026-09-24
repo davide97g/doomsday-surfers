@@ -4,7 +4,7 @@
 // purpose: the last seconds you're still watching, and no longer immune. It
 // ignores pointers so swipes still reach the track underneath.
 
-import content from '../config/content.json';
+import { content } from '../content/content';
 import { fill } from '../content/templates';
 import { TUNING } from '../sim/types';
 import type { World } from '../sim/world';
