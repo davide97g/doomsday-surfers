@@ -158,6 +158,34 @@ function raceReceipt(race: RaceResult): Line[] {
   return [{ k: 'rule' }, { k: 'text', t: l.big, size: 'big' }, { k: 'text', t: l.small, size: 'small' }, { k: 'gap' }];
 }
 
+/** The hidden ending's receipt: nothing bought, nothing lost. */
+export function buildSecretReceipt(w: World, now = new Date()): Receipt {
+  const e = content.ending.receipt;
+  const lines: Line[] = [
+    { k: 'text', t: R.store, size: 'big' },
+    { k: 'text', t: e.storeLine, size: 'small' },
+    { k: 'text', t: fill(R.customer, { character: content.characters[w.character].name }), size: 'small' },
+    { k: 'row', l: `${p2(now.getDate())}.${p2(now.getMonth() + 1)}.${String(now.getFullYear()).slice(2)}`, r: `${p2(now.getHours())}:${p2(now.getMinutes())}` },
+    { k: 'rule' },
+    ...e.items.map(([l, r]): Line => ({ k: 'row', l, r })),
+    { k: 'rule' },
+    ...e.totals.map(([l, r]): Line => ({ k: 'row', l, r })),
+    { k: 'rule' },
+    { k: 'text', t: e.top },
+    { k: 'text', t: e.diagnosis, size: 'big' },
+    { k: 'text', t: e.quote, size: 'small' },
+    { k: 'gap' },
+    { k: 'text', t: e.killedBy, size: 'big' },
+    { k: 'gap' },
+    { k: 'barcode' },
+    { k: 'text', t: e.thanks },
+    { k: 'text', t: e.footer, size: 'small' },
+    { k: 'gap' },
+    { k: 'text', t: `${R.game} · ${R.hashtag}`, size: 'small' },
+  ];
+  return { lines, seed: w.seed ^ 0x60, killer: 'NOTHING', distance: Math.round(w.d) };
+}
+
 function font(size: 'big' | 'normal' | 'small'): string {
   return `${size === 'big' ? 800 : 600} ${SIZE[size]}px ${FONT}`;
 }
@@ -277,8 +305,8 @@ export function drawReceipt(r: Receipt, scale = 1.5): Paper {
   return { canvas: c, stops };
 }
 
-/** The 9:16 image people post: grey reality, the death line, the receipt slightly askew. */
-export function shareCard(paper: Paper): Promise<Blob> {
+/** The 9:16 image people post: grey reality, the death line (or `header`), the receipt slightly askew. */
+export function shareCard(paper: Paper, header: [string, string] = [content.death.line1, content.death.line2]): Promise<Blob> {
   const CW = 1080;
   const CH = 1920;
   const c = document.createElement('canvas');
@@ -295,8 +323,8 @@ export function shareCard(paper: Paper): Promise<Blob> {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   ctx.font = '900 66px system-ui, -apple-system, sans-serif';
-  ctx.fillText(content.death.line1, CW / 2, 190);
-  ctx.fillText(content.death.line2, CW / 2, 276);
+  ctx.fillText(header[0], CW / 2, 190);
+  ctx.fillText(header[1], CW / 2, 276);
 
   const boxTop = 350;
   const boxW = 860;

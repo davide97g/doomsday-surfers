@@ -66,7 +66,7 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 | 2 | Daily Feed + emoji line | reuses card, seed exists | built 2026-09-24, pending on-device check |
 | 3 | Ghost challenge links | reuses daily seed, social pull | built 2026-09-24, web hosting pending (name) |
 | 4 | Auto-clip highlight montage | video is the real TikTok fuel | built 2026-09-25, pending on-device perf + share check |
-| 5 | Hidden ending | the secret, content for 1 and 4 | todo |
+| 5 | Hidden ending | the secret, content for 1 and 4 | built 2026-09-25, pending on-device feel check |
 | 6 | Set pieces: The Thumb, Algorithm zone, Slop zone, reality intrusions | clip-worthy wow | todo |
 | 7 | Pitch-literal scroll gesture | makes the pitch visible in gameplay | todo (needs decision) |
 | 8 | Signature audio + first 5 seconds | memeable sound, instant hook | todo |
@@ -181,25 +181,26 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 
 **Still to check on device.** 60 fps with capture running on an iPhone 14, the share sheet with video + image (Photos, TikTok, Messages), and the audio on iOS 26.
 
-## 5. Hidden ending (60 s idle on the death screen)
+## 5. Hidden ending (built)
 
-**Hook.** The secret people tell friends about ("stay on the death screen, don't touch anything"). It is also the most Black Mirror beat in the game.
+**Decided 2026-09-25.** References: The Stanley Parable's waiting endings, WarGames, "Black Mirror" as a literal switched-off screen, and the 2026 dumbphone / go-analog trend.
 
-**Draft script** (each beat on a timer, any touch cancels back to the normal death screen):
-- 0–60 s: the normal death screen. The report sits there. At 30 s a notification tries to lure you back ("Still there? {number} new posts"). At 45 s: "We miss you." At 55 s: "Fine."
-- 60 s: the screen fades to true black and all audio cuts. Text, barely visible: "Screen off."
-- 63 s: in the black a faint reflection appears, the faceless runner's silhouette looking at the viewer: the black mirror, literal.
-- 68 s: the runner slowly lowers their phone. Its glow leaves their face. For the first time the face is lit by something else: warm daylight colour bleeds in, the real sky, wind and birds (no music).
-- 78 s: one line, flat: "This is the only ending."
-- 85 s: [SCROLL AGAIN] fades back in, greyed out, and stays disabled for 10 s. Its label slowly changes to [scroll again?].
-- Afterwards: an achievement-style notification on the next launch: "You found the ending. Don't tell anyone. (Tell everyone.)". This unlocks a secret card for feature 1 ("Diagnosis: Present. Disgusting.").
+- **Timeline** (`tuning.ending`, measured in seconds untouched on the final death screen):
+  - 30 / 45 / 55 s: escalating lures from "FEED": "Still there? 12 new posts", "We miss you.", "Fine."
+  - 60 s: true black, and silence (even the grey room tone cuts).
+  - 61 s: "Screen off."
+  - 63 s: the reflection, a faceless hooded silhouette in the black glass with a diagonal glare, lit from below by the phone.
+  - 68 s: the phone lowers and the glow leaves the face.
+  - 70 s: daylight bleeds in (sky gradient, warm rim light) with wind and birds (synth, in `GameAudio.setEnding`).
+  - 78 s: "This is the only ending."
+  - 85 s: the secret receipt and [PROOF OF DOOM] + [SCROLL AGAIN], greyed out.
+  - 95 s: the button unlocks as "scroll again?".
+- Any touch or key before the last line cancels back to the plain death screen: the feed wins.
+- **Secret receipt:** "STORE CLOSED · AISLE: OUTSIDE", "NOTHING x1 · FREE", "60 SECONDS · YOURS", "DAYLIGHT · INCLUDED", "0 MIN OF LIFE", "AURA · UNMEASURABLE", "BRAIN AGE · YOURS", "TOP 0.4% OF PLAYERS FOUND THIS", "DIAGNOSIS: PRESENT", "KILLED BY: NOTHING", "THANK YOU FOR YOUR INATTENTION", "Don't tell anyone. (Tell everyone.)". It shares as a 9:16 card headed "This is the only ending."
+- **Work mode:** "Still there? 12 unread messages", "Your status changed to Away.", "Laptop closed.", "OFFICE CLOSED · FLOOR: OUTSIDE", "DIAGNOSIS: OUT OF OFFICE", "Don't tell HR. (Tell everyone.)", and "clock in again?".
+- **Not chosen:** the real-camera reflection, an ending clip, a lock screen that remembers, and the flip-phone character.
 
-**Extreme option (needs decision).** At 63 s, instead of the silhouette, show the **player's real face** through the front camera, darkened and desaturated like a reflection in an off screen. Maximum wow. Cost: the camera permission prompt breaks the surprise unless the prompt itself is the joke. It could be asked earlier with the purpose string "Doomsday Surfers wants to see you." Needs `NSCameraUsageDescription`, must never record or upload, and App Review may question it.
-
-**Questions.**
-- Silhouette or real camera?
-- Does finding the ending change anything permanently (a new title-screen state, a "grey" character skin)?
-- Should the runner's face be revealed (breaks "faceless") or stay faceless and turn toward the light?
+**Where.** `src/ui/ending.ts` (overlay, timeline, lures, secret receipt share); `death.ts` owns the idle clock and cancels on touch; `receipt.ts` has `buildSecretReceipt`; `audio.ts` has `setEnding`.
 
 ## 6. Set pieces
 

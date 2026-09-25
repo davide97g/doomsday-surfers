@@ -142,6 +142,7 @@ death.onRevive = () => {
   clip.resume();
 };
 death.onRename = buildLink;
+death.ending.onAmbience = (m) => audio.setEnding(m);
 death.onRestart = () => {
   dailyDay = death.daily = null;
   newRun(endlessSeed());

@@ -105,6 +105,7 @@
     "favourChance": 0.5
   },
   "revive": { "perRun": 1, "dopamine": 40, "clearAhead": 40, "clearSeconds": 2, "adSeconds": 5 },
+  "ending": { "lures": [30, 45, 55], "black": 60, "off": 61, "reflection": 63, "lower": 68, "daylight": 70, "line": 78, "buttons": 85, "lock": 10 },
   "clip": {
     "width": 540,
     "height": 960,

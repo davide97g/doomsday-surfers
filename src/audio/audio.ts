@@ -49,6 +49,10 @@ export class GameAudio {
   private musicGain!: GainNode;
   private humGain!: GainNode;
   private noise!: AudioBuffer;
+  // Hidden ending: 'silent' cuts even the room tone, 'outside' is wind and birds.
+  private ending: 'off' | 'silent' | 'outside' = 'off';
+  private windGain: GainNode | null = null;
+  private nextChirp = 0;
   private nextNote = 0;
   private stepIdx = 0;
   private level = 1;
@@ -124,6 +128,52 @@ export class GameAudio {
     void ctx.resume();
   }
 
+  /** The hidden ending's soundscape (see ui/ending.ts). */
+  setEnding(mode: 'off' | 'silent' | 'outside'): void {
+    this.ending = mode;
+    const ctx = this.ctx;
+    if (mode !== 'outside' || !ctx || this.windGain) return;
+    // Wind: noise through a slowly wandering low-pass.
+    this.windGain = ctx.createGain();
+    this.windGain.gain.value = 0;
+    this.windGain.connect(this.master);
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 520;
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.13;
+    const depth = ctx.createGain();
+    depth.gain.value = 260;
+    lfo.connect(depth).connect(f.frequency);
+    src.connect(f).connect(this.windGain);
+    src.start();
+    lfo.start();
+    this.nextChirp = ctx.currentTime + 1.5;
+  }
+
+  /** A small bird: two or three quick upward whistles. */
+  private chirp(t: number): void {
+    const ctx = this.ctx!;
+    const base = 2400 + Math.random() * 1400;
+    const n = 2 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < n; i++) {
+      const at = t + i * 0.11;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.frequency.setValueAtTime(base, at);
+      o.frequency.exponentialRampToValueAtTime(base * 1.5, at + 0.07);
+      g.gain.setValueAtTime(0, at);
+      g.gain.linearRampToValueAtTime(0.035, at + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0005, at + 0.09);
+      o.connect(g).connect(this.master);
+      o.start(at);
+      o.stop(at + 0.1);
+    }
+  }
+
   /** Call once per frame, after the sim has stepped. */
   update(w: World, dt: number): void {
     const ctx = this.ctx;
@@ -141,7 +191,12 @@ export class GameAudio {
     const musicTarget = w.phase === 'dead' ? 0 : w.phase === 'ready' ? 0.18 : 0.08 + 0.3 * l;
     this.musicGain.gain.setTargetAtTime(musicTarget, now, gone ? 0.5 : 0.15);
     this.musicFilter.frequency.setTargetAtTime((250 + 11000 * l * l) * (0.15 + 0.85 * slowMo), now, 0.1);
-    this.humGain.gain.setTargetAtTime(gone ? 0.05 : 0, now, 0.8);
+    this.humGain.gain.setTargetAtTime(gone && this.ending === 'off' ? 0.05 : 0, now, this.ending === 'off' ? 0.8 : 0.3);
+    this.windGain?.gain.setTargetAtTime(this.ending === 'outside' ? 0.12 : 0, now, 2.5);
+    if (this.ending === 'outside' && now >= this.nextChirp) {
+      this.chirp(now);
+      this.nextChirp = now + 1.2 + Math.random() * 3;
+    }
 
     while (this.nextNote < now + LOOKAHEAD) {
       if (WORK) this.scheduleHold(this.nextNote, this.stepIdx);

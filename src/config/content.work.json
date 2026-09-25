@@ -180,6 +180,21 @@
     "cta": "Beat my overtime",
     "rendering": "Rendering your performance review…"
   },
+  "ending": {
+    "lures": ["Still there? {number} unread messages", "Your status changed to Away.", "Fine."],
+    "off": "Laptop closed.",
+    "again": "clock in again?",
+    "shareText": "I found the only ending. Don't tell HR. #ProofOfWork",
+    "receipt": {
+      "storeLine": "OFFICE CLOSED · FLOOR: OUTSIDE",
+      "items": [["NOTHING x1", "UNBILLABLE"], ["60 SECONDS", "OFF THE CLOCK"], ["DAYLIGHT", "NOT IN BUDGET"]],
+      "totals": [["SUBTOTAL", "0 MIN UNPAID"], ["AURA", "UNMEASURABLE"], ["ATTENTION SPAN", "60.0 s"], ["BRAIN AGE", "YOURS"]],
+      "diagnosis": "DIAGNOSIS: OUT OF OFFICE",
+      "quote": "“Unprofessional.”",
+      "thanks": "THANK YOU FOR YOUR ABSENCE",
+      "footer": "Don't tell HR. (Tell everyone.)"
+    }
+  },
   "keepGoing": { "title": "You've been online for {m} minutes.", "body": "Log overtime?" },
   "revive": {
     "title": "You appear offline.",

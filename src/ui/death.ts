@@ -14,6 +14,7 @@ import type { Nags } from './nags';
 import { buildReceipt, drawReceipt, shareCard, type Paper, type Receipt } from './receipt';
 import type { Sfx } from './sfx';
 import { shareLine } from './daily';
+import { Ending } from './ending';
 import { renameHandle } from './handle';
 import { raceShareLine, type Race } from './race';
 import type { ClipRecorder } from '../clip/clip';
@@ -42,6 +43,9 @@ export class Death {
   /** Auto-clip recorder; the montage starts rendering as soon as the receipt does. */
   clip: ClipRecorder | null = null;
   private clipReady: Promise<Blob | null> | null = null;
+  /** The hidden ending: stay untouched on the final screen (see ending.ts). */
+  readonly ending: Ending;
+  private idle = 0;
   private state: State = 'hidden';
   private readonly offer: HTMLElement;
   private readonly ad: HTMLElement;
@@ -150,6 +154,15 @@ export class Death {
     this.printer.addEventListener('pointercancel', endDrag);
 
     parent.append(this.offer, this.ad, this.final);
+    this.ending = new Ending(parent, sfx);
+    this.ending.onRestart = () => this.onRestart();
+    // Any touch or key resets the idle clock, and cancels the ending until its last line.
+    const touched = () => {
+      this.idle = 0;
+      if (!this.ending.found) this.ending.cancel();
+    };
+    window.addEventListener('pointerdown', touched, true);
+    window.addEventListener('keydown', touched, true);
   }
 
   update(w: World, dt: number, nags: Nags): void {
@@ -177,6 +190,8 @@ export class Death {
         if (r.el.classList.contains('dead-buttons')) this.buttonLive = true;
       }
       this.print();
+      this.idle += dt;
+      this.ending.update(this.idle, dt, w);
     }
   }
 
@@ -242,6 +257,8 @@ export class Death {
     this.ad.classList.toggle('hidden', state !== 'ad');
     this.final.classList.toggle('hidden', state !== 'final');
     if (state === 'ad') this.startAd();
+    this.idle = 0;
+    this.ending.cancel();
     if (state === 'final') {
       this.finalT = 0;
       this.printed = -1;

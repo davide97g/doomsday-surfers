@@ -201,6 +201,24 @@
     "cta": "Beat my scroll",
     "rendering": "Rendering your shame…"
   },
+  "ending": {
+    "lures": ["Still there? {number} new posts", "We miss you.", "Fine."],
+    "off": "Screen off.",
+    "line": "This is the only ending.",
+    "again": "scroll again?",
+    "shareText": "I found the only ending. Don't tell anyone. #ProofOfDoom",
+    "receipt": {
+      "storeLine": "STORE CLOSED · AISLE: OUTSIDE",
+      "items": [["NOTHING x1", "FREE"], ["60 SECONDS", "YOURS"], ["DAYLIGHT", "INCLUDED"]],
+      "totals": [["SUBTOTAL", "0 MIN OF LIFE"], ["AURA", "UNMEASURABLE"], ["ATTENTION SPAN", "60.0 s"], ["BRAIN AGE", "YOURS"]],
+      "top": "TOP 0.4% OF PLAYERS FOUND THIS",
+      "diagnosis": "DIAGNOSIS: PRESENT",
+      "quote": "“Disgusting.”",
+      "killedBy": "KILLED BY: NOTHING",
+      "thanks": "THANK YOU FOR YOUR INATTENTION",
+      "footer": "Don't tell anyone. (Tell everyone.)"
+    }
+  },
   "keepGoing": {
     "title": "You've been scrolling for {m} minutes.",
     "body": "Keep going?",
