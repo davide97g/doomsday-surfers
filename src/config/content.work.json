@@ -158,6 +158,16 @@
       "none": "🫥"
     }
   },
+  "race": {
+    "app": "Synergy Challenges",
+    "title": "{name} challenged you",
+    "text": "Beat {distance} of overtime. You won't.",
+    "daily": "Their ghost is in today's standup. Beat {distance} of overtime.",
+    "decline": "No thanks, I'm on PTO",
+    "passed": "You passed {name}. Their manager will be notified. (They won't.)",
+    "grave": "{name} logged off here. Cause: {killer}",
+    "you": "WORK ETHIC"
+  },
   "keepGoing": { "title": "You've been online for {m} minutes.", "body": "Log overtime?" },
   "revive": {
     "title": "You appear offline.",

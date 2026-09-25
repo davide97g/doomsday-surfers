@@ -11,9 +11,13 @@
 //    stretch (pickups are fine: they ride through).
 // 5. Today's Feed: day numbers count one per calendar day (DST included),
 //    seeds don't repeat for years, and the same seed plays out identically.
+// 6. Ghosts: a recorded bot run survives encode/decode within quantisation
+//    (no drift over the whole run), and reports its link size.
 
+import { deflateRawSync } from 'node:zlib';
 import { Bot } from '../src/dev/bot';
 import { dailySeed, dayNumber } from '../src/sim/daily';
+import { GhostRecorder, GhostTrack, type GhostFrame } from '../src/sim/ghost';
 import { TUNING, gateS } from '../src/sim/types';
 import { World } from '../src/sim/world';
 
@@ -169,4 +173,36 @@ const replay = (): string => {
 if (replay() !== replay()) dailyFailures++;
 console.log(`daily failures: ${dailyFailures}`);
 
-if (blockedFailures > 0 || habitFailures > 0 || reviveFailures > 0 || gateFailures > 0 || rideFailures > 0 || dailyFailures > 0 || revivesTested < 5) process.exit(1);
+// --- Ghosts ---
+let ghostFailures = 0;
+{
+  const w = new World(7);
+  const bot = new Bot();
+  const rec = new GhostRecorder();
+  const truth: { t: number; d: number; x: number; y: number }[] = [];
+  for (let i = 0; i < 120 * 180 && w.phase !== 'dead'; i++) {
+    w.step(DT, bot.think(w, DT));
+    const before = rec.samples;
+    rec.update(w);
+    if (rec.samples > before) truth.push({ t: w.time, d: w.d, x: w.player.x, y: w.player.y });
+  }
+  const bytes = rec.encode({ v: 1, seed: 7, ch: 0, name: '@check', mode: 'personal', day: 0, dist: Math.round(w.d), killer: 'a check' });
+  const track = GhostTrack.decode(bytes);
+  if (!track) ghostFailures++;
+  else {
+    let worstD = 0;
+    let worstX = 0;
+    const f: GhostFrame = { d: 0, x: 0, y: 0, roll: false, air: false };
+    truth.forEach((s, i) => {
+      track.at(i * TUNING.ghost.sampleEvery, f);
+      worstD = Math.max(worstD, Math.abs(f.d - s.d));
+      worstX = Math.max(worstX, Math.abs(f.x - s.x));
+    });
+    if (worstD > 0.1 || worstX > 0.05) ghostFailures++;
+    const packed = deflateRawSync(bytes);
+    console.log(`ghost: ${truth.length} samples over ${w.time.toFixed(0)}s · ${bytes.length} B raw, ~${Math.ceil((packed.length * 4) / 3)} B in the link · worst error d ${worstD.toFixed(3)} m, x ${worstX.toFixed(3)} m`);
+  }
+}
+console.log(`ghost failures: ${ghostFailures}`);
+
+if (blockedFailures > 0 || habitFailures > 0 || reviveFailures > 0 || gateFailures > 0 || rideFailures > 0 || dailyFailures > 0 || ghostFailures > 0 || revivesTested < 5) process.exit(1);

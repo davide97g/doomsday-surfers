@@ -7,6 +7,7 @@ import { fill, pick, seeded } from '../content/templates';
 import { TUNING, zoneLook } from '../sim/types';
 import type { World } from '../sim/world';
 import type { Nags } from './nags';
+import { raceLines, type RaceResult } from './race';
 
 type Line =
   | { k: 'row'; l: string; r: string }
@@ -55,7 +56,8 @@ export function topPct(d: number): string {
   return p >= 10 ? p.toFixed(0) : p >= 1 ? p.toFixed(1) : p.toFixed(2);
 }
 
-function killer(w: World): string {
+/** What killed you, in receipt caps ("A GLASS OF WATER"). */
+export function killerText(w: World): string {
   const k = R.killers;
   if (w.cause === 'crash' && w.crashKind && w.crashKind !== 'habit') return k.crash[w.crashKind];
   return k.habits[w.lastHabit] ?? k.none;
@@ -85,8 +87,8 @@ function item(it: Item, n: number, per: number): Line {
   return { k: 'row', l: fill(it.label, { n }), r: fill(pick(it.prices), plural) };
 }
 
-/** `daily` is today's feed number when this was the Daily run. */
-export function buildReceipt(w: World, nags: Nags, daily: number | null = null, now = new Date()): Receipt {
+/** `daily` is today's feed number when this was the Daily run; `race` the result against a ghost. */
+export function buildReceipt(w: World, nags: Nags, daily: number | null = null, race: RaceResult | null = null, now = new Date()): Receipt {
   const types = content.contentTypes;
   const by = (id: string) => w.takenByType[types.findIndex((c) => c.id === id)] ?? 0;
   const per = T.pricePer;
@@ -111,7 +113,7 @@ export function buildReceipt(w: World, nags: Nags, daily: number | null = null, 
     if (w.d >= d) tier = i;
   });
   const diag = R.tiers[tier];
-  const kill = killer(w);
+  const kill = killerText(w);
   const span = Math.max(0.4, 8 * Math.pow(0.985, w.pickupsTaken)).toFixed(1);
 
   const zone = content.zones[zoneLook(w.zone)].name;
@@ -141,6 +143,7 @@ export function buildReceipt(w: World, nags: Nags, daily: number | null = null, 
     { k: 'gap' },
     { k: 'text', t: fill(R.killedBy, { killer: kill }), size: 'big' },
     { k: 'gap' },
+    ...(race ? raceReceipt(race) : []),
     { k: 'barcode' },
     { k: 'text', t: R.thanks },
     { k: 'text', t: R.noRefunds, size: 'small' },
@@ -148,6 +151,11 @@ export function buildReceipt(w: World, nags: Nags, daily: number | null = null, 
     { k: 'text', t: `${R.game} · ${R.hashtag}`, size: 'small' },
   ];
   return { lines, seed: w.seed, killer: kill, distance: Math.round(w.d) };
+}
+
+function raceReceipt(race: RaceResult): Line[] {
+  const l = raceLines(race);
+  return [{ k: 'rule' }, { k: 'text', t: l.big, size: 'big' }, { k: 'text', t: l.small, size: 'small' }, { k: 'gap' }];
 }
 
 function font(size: 'big' | 'normal' | 'small'): string {

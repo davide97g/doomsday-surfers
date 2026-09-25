@@ -5,6 +5,8 @@
 // parody live counter and the streak nag; tap it to scroll today's feed. Once
 // played it turns into the result with a countdown to the next feed. It comes
 // back every time the lock screen does (a nag, on purpose).
+// Opened from a challenge link, the notification is the challenge instead
+// (race.ts): accept to race their ghost, as often as you like.
 // A Focus pill above the clock switches Personal / Work mode (content.ts):
 // it flashes the iOS-style "Work Focus on" banner, then restarts the app.
 // The character select (select.ts) mounts in `slot`. The streak (days you
@@ -61,9 +63,13 @@ export class Title {
 
   onDaily: () => void = () => {};
   onShare: (text: string) => void = () => {};
+  onChallenge: () => void = () => {};
+  onChallengeDecline: () => void = () => {};
+  private challenge: { name: string; distance: string; daily: boolean } | null = null;
   private readonly note: { app: HTMLElement; title: HTMLElement; text: HTMLElement; primary: HTMLElement; decline: HTMLElement };
   private cardDay = 0;
   private cardDone = false;
+  private cardChallenge = false;
   private shownSec = -1;
 
   constructor(parent: HTMLElement, private readonly sfx: Sfx) {
@@ -121,6 +127,12 @@ export class Title {
     });
     this.card.addEventListener('click', (e) => {
       const act = (e.target as HTMLElement).dataset.act;
+      if (this.cardChallenge) {
+        this.sfx.click();
+        if (act === 'decline') this.onChallengeDecline();
+        else this.onChallenge();
+        return;
+      }
       if (act === 'decline') {
         if (this.cardDone) {
           // "Claim nothing"
@@ -167,7 +179,13 @@ export class Title {
     return fill(s.escalation[Math.min(gap - 2, s.escalation.length - 1)], { n: st.n });
   }
 
-  /** Today's Feed invite, or today's result once played. Numbers tick in tickCard. */
+  /** A friend's challenge takes over the notification (null: back to Today's Feed). */
+  setChallenge(c: { name: string; distance: string; daily: boolean } | null): void {
+    this.challenge = c;
+    this.renderCard();
+  }
+
+  /** The challenge, Today's Feed invite, or today's result once played. Numbers tick in tickCard. */
   private renderCard(): void {
     const d = content.daily;
     const s = content.streak;
@@ -176,9 +194,20 @@ export class Title {
     const rec = loadToday();
     this.cardDay = n;
     this.cardDone = !!rec;
+    this.cardChallenge = !!this.challenge;
     this.shownSec = -1;
     const n$ = this.note;
-    if (!rec) {
+    if (this.challenge) {
+      // The name comes from a link someone sent: text only, never HTML.
+      const r = content.race;
+      const c = this.challenge;
+      n$.app.textContent = r.app;
+      n$.title.textContent = fill(r.title, { name: c.name });
+      n$.text.textContent = fill(c.daily ? r.daily : r.text, { distance: c.distance });
+      n$.primary.textContent = r.accept;
+      n$.primary.classList.remove('hidden');
+      n$.decline.textContent = r.decline;
+    } else if (!rec) {
       n$.app.textContent = d.app;
       n$.title.textContent = d.title;
       n$.text.innerHTML = `${fill(d.live, { name, count: '<span class="note-num"></span>' })} ${this.streakLine()}`;

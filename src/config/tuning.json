@@ -105,6 +105,7 @@
     "favourChance": 0.5
   },
   "revive": { "perRun": 1, "dopamine": 40, "clearAhead": 40, "clearSeconds": 2, "adSeconds": 5 },
+  "ghost": { "sampleEvery": 0.125, "maxSeconds": 900, "passMargin": 3, "toastSeconds": 3.2, "tagAhead": 90 },
   "daily": {
     "epoch": [2026, 9, 24],
     "sampleEvery": 10,

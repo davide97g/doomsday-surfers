@@ -14,6 +14,8 @@ import type { Nags } from './nags';
 import { buildReceipt, drawReceipt, shareCard, type Paper, type Receipt } from './receipt';
 import type { Sfx } from './sfx';
 import { shareLine } from './daily';
+import { renameHandle } from './handle';
+import { raceShareLine, type Race } from './race';
 import { shareImage } from './share';
 
 type State = 'hidden' | 'offer' | 'ad' | 'final';
@@ -29,6 +31,13 @@ export class Death {
   onRestart: () => void = () => {};
   /** Today's feed number when this run is the Daily, else null. */
   daily: number | null = null;
+  /** The friend's ghost this run raced, if any. */
+  race: Race | null = null;
+  /** This run's own challenge link (built async after death; null until then, or with nowhere to host it). */
+  link: string | null = null;
+  /** Your name on the link; tap to rename (main rebuilds the link). */
+  handle = '';
+  onRename: () => void = () => {};
   private state: State = 'hidden';
   private readonly offer: HTMLElement;
   private readonly ad: HTMLElement;
@@ -48,6 +57,7 @@ export class Death {
   private drag = 0;
   private dragFrom: { y: number; drag: number } | null = null;
   private sharing = false;
+  private readonly handleBtn: HTMLElement;
   private finalT = 0;
   private adLeft = 0;
   private buttonLive = false;
@@ -99,6 +109,7 @@ export class Death {
       <div class="dead-buttons">
         <button class="cta receipt-cta" id="proof" data-ui>${content.report.cta}</button>
         <button class="cta" id="again" data-ui>${d.cta}</button>
+        <button class="handle-as" data-ui></button>
       </div>`;
     this.printer = this.final.querySelector('.printer')!;
     this.strip = this.final.querySelector('.strip')!;
@@ -111,6 +122,14 @@ export class Death {
       if (!this.buttonLive) return;
       this.sfx.click();
       void this.share();
+    });
+    this.handleBtn = this.final.querySelector('.handle-as')!;
+    this.handleBtn.addEventListener('click', () => {
+      if (!this.buttonLive) return;
+      this.sfx.click();
+      this.handle = renameHandle(this.handle);
+      this.showHandle();
+      this.onRename();
     });
     this.printer.addEventListener('pointerdown', (e) => {
       if (!this.buttonLive) return;
@@ -180,6 +199,10 @@ export class Death {
     this.strip.style.transform = `translateY(${this.windowH - out + this.drag}px)`;
   }
 
+  private showHandle(): void {
+    this.handleBtn.textContent = fill(content.share.handleAs, { handle: this.handle });
+  }
+
   private async share(): Promise<void> {
     if (this.sharing || !this.paper || !this.receipt) return;
     this.sharing = true;
@@ -187,10 +210,16 @@ export class Death {
       const r = content.report;
       const blob = await shareCard(this.paper);
       // The Daily shares its Wordle-style grid; an endless run shares the one-liner.
-      const text =
-        this.daily !== null && this.world
-          ? shareLine(this.world, this.daily)
-          : fill(r.shareText, { distance: this.receipt.distance, killer: this.receipt.killer.toLowerCase() });
+      // A race leads with who mogged whom; the link lets them race this run.
+      const w = this.world!;
+      const res = this.race?.result(w);
+      const text = [
+        res ? raceShareLine(res) : null,
+        this.daily !== null ? shareLine(w, this.daily) : fill(r.shareText, { distance: this.receipt.distance, killer: this.receipt.killer.toLowerCase() }),
+        this.link ? fill(content.share.link, { url: this.link }) : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
       await shareImage(blob, 'proof-of-doom.png', r.shareTitle, text);
     } finally {
       this.sharing = false;
@@ -227,7 +256,8 @@ export class Death {
   }
 
   private buildReport(): void {
-    this.receipt = buildReceipt(this.world!, this.nags!, this.daily);
+    this.receipt = buildReceipt(this.world!, this.nags!, this.daily, this.race?.result(this.world!) ?? null);
+    this.showHandle();
     const paper = drawReceipt(this.receipt);
     this.paper = paper;
     const cssW = Math.min(320, window.innerWidth * 0.84);

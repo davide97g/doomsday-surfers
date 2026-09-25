@@ -64,7 +64,7 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 |---|---|---|---|
 | 1 | Proof of Doom receipt | cheapest share loop, needed by 2 and 3 | built 2026-09-24, pending on-device share check |
 | 2 | Daily Feed + emoji line | reuses card, seed exists | built 2026-09-24, pending on-device check |
-| 3 | Ghost challenge links | reuses daily seed, social pull | todo |
+| 3 | Ghost challenge links | reuses daily seed, social pull | built 2026-09-24, web hosting pending (name) |
 | 4 | Auto-clip (last 8 s) | video is the real TikTok fuel | todo |
 | 5 | Hidden ending | the secret, content for 1 and 4 | todo |
 | 6 | Set pieces: The Thumb, Algorithm zone, Slop zone, reality intrusions | clip-worthy wow | todo |
@@ -128,26 +128,31 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 
 **Still to check on device.** The share sheet with text only, how emoji render in Messages and WhatsApp, and the midnight rollover while the lock screen is open.
 
-## 3. Ghost challenge links
+## 3. Ghost challenge links (built, not hosted yet)
 
-**Hook.** "Beat my scroll." A friend opens the link and races your faceless ghost on the same course. The loser's card says "Out-scrolled by @friend". Direct competition drives installs.
+**Decided 2026-09-24.**
+- **Build now, host later.** Links use the page's own origin on the web, and `content.share.webUrl` in the native app. That field is empty until the public web build exists, so for now the app's shares leave the link out. Nothing goes public until the name is decided.
+- **The receiver plays in the browser** (GeoGuessr-style): same course, your ghost, unlimited retries, no install.
+- **Identity:** an auto roast handle ("@hoodie.goblin.4312", from the character at first share). The death screen shows "sharing as @… · rename", and renaming rebuilds the link.
+- **Opening a link:** the lock-screen notification becomes "@name challenged you / Beat 687 m of doomscrolling. You won't." with [ACCEPT CHALLENGE] and "No thanks, I'm scared" (decline also clears the link from the URL). If the link is a Daily, it's today's, and you haven't played yet, the race is your Daily ("Their ghost is in today's feed."). A link from the other mode switches mode first.
+- **Trash talk** (top-edge pushes from "Challenges"; the handle is always inserted as text, never HTML):
+  - "@name ghosted you. Again." when they overtake you after you'd led.
+  - "You passed @name. They'll be notified. (They won't.)" when you pass them or their grave.
+  - "@name: skill issue 💀" when you die short of their distance.
+- **The ghost:** your friend's character as a flickering cyan hologram with a name tag. Where they died it turns into a grey statue with its phone down, tagged "@name was killed by a book here" (Work: "@name logged off here. Cause: …").
+- **Receipt:** "YOU MOGGED @NAME / BY 629 M. SCROLLER DIFF." or "@NAME MOGGED YOU / BY 494 M. @NAME DIFF.". The share text leads with "I mogged @name by 629 m 💀" or "@name mogged me by 494 m. Rematch.", then "Beat my scroll: <link>". Every share (endless, Daily and race) carries your own link.
 
-**Extreme version.**
-- The ghost is a translucent, glitchy version of the sender's character with their phone glow, and the sender's name floats above it like a notification.
-- When you pass the ghost: a push notification "You passed {friend}. They'll be notified." (they won't, it's parody).
-- When the ghost passes you: "{friend} is more addicted than you. Pathetic."
-- The death card compares both runs side by side.
+**Tech.**
+- `src/sim/ghost.ts`: `GhostRecorder` records positions, not inputs (Math.* can differ between JavaScriptCore and V8). It samples distance, x, y and roll/air flags at 8 Hz of sim time and stores them struct-of-arrays. Distance deltas carry their rounding error forward, so the track never drifts. The header is validated field by field on decode, because links come from strangers.
+- `src/ui/ghostLink.ts`: deflate-raw + base64url in `#g=`, so it never reaches a server log.
+- `src/ui/race.ts`: pushes, tag and result. `src/ui/handle.ts`: the handle.
+- The renderer draws the ghost as its own copy of the hero glb, dressed in one bent MeshBasicMaterial, and projects a head point for the HTML tag.
+- `check:gen` round-trips a 169 s bot run: about 1.2 KB in the link, worst error 3 cm.
 
-**Tech and risks.**
-- **Determinism across devices is NOT guaranteed.** `Math.sin`, `Math.exp` and similar can differ in the last bits between JavaScriptCore (iPhone) and V8 (Android/Chrome). An input-only replay could drift. Plan: record inputs **plus position keyframes** (s, lane, y at ~2 Hz, quantized). The ghost follows the keyframes and interpolates, and the inputs are only there for flavour (lane-change timing). Budget: a 3 min run ≈ 360 keyframes × ~4 bytes ≈ 1.5 KB before deflate, so it fits a URL comfortably.
-- Encoding: `CompressionStream('deflate-raw')` + base64url in the URL fragment (`#g=`), which keeps it out of server logs.
-- Links need a web host. The Capacitor app handles universal links, and the web build plays the ghost in a browser for people who don't have the app (a zero-install try is a big viral multiplier).
-- Add a determinism test to `check:gen`: same seed + inputs gives the same final state on Bun.
-
-**Questions.**
-- Web host (Cloudflare Pages / Vercel / GitHub Pages) and domain. The name decision again.
-- Should the web version be fully playable (bigger reach) or ghost-watch only (pushes the app)?
-- Can the ghost be any character, or only the sender's?
+**Next, when hosting is decided.**
+- Deploy the web build and set `share.webUrl`.
+- Add universal links (Associated Domains + an AASA file) so the iOS app opens `#g=` links itself; today only the web build reads them.
+- Maybe an OG image for link previews in Messages/WhatsApp.
 
 ## 4. Auto-clip (last 8 seconds)
 

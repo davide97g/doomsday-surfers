@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import { content, mode } from '../content/content';
 import { TUNING, laneX, zoneLook, type ObstacleKind, type PadKind, type SimEvent } from '../sim/types';
+import type { GhostFrame, GhostTrack } from '../sim/ghost';
 import type { World } from '../sim/world';
 import { atlasMaterial, cellAttribute, hash } from './atlas';
 import { Bend } from './bend';
@@ -80,6 +81,15 @@ export class GameRenderer {
   private readonly particles: Particles;
   /** The shown doomscroller; the grey-box rig stands in until it has loaded. */
   private hero: Hero | null = null;
+  // Challenge ghost: the sender's run as a hologram (grey once it's over: their grave).
+  private ghostTrack: GhostTrack | null = null;
+  private ghostHero: Hero | null = null;
+  private readonly ghostRoot = new THREE.Group();
+  private readonly ghostMat = new THREE.MeshBasicMaterial({ color: 0x9ff3ff, transparent: true, opacity: 0.4, depthWrite: false });
+  private readonly ghostFrame: GhostFrame = { d: 0, x: 0, y: 0, roll: false, air: false };
+  private readonly ghostHead = new THREE.Vector3();
+  /** Screen point (CSS px) above the ghost's head, for the race UI's name tag. */
+  readonly ghostTag = { x: 0, y: 0, on: false, grave: false };
   private readonly heroes = new Map<string, Promise<Hero | null>>();
   settings: RenderSettings;
 
@@ -415,6 +425,30 @@ export class GameRenderer {
       for (const l of CHARACTER_LOOKS) if (!!l.work === (mode === 'work')) void this.loadModel(l.model);
     });
     this.player.scale.setScalar(look.scale);
+  }
+
+  /** Race `track`'s ghost on this run (null: no ghost). Loads its own copy of the character. */
+  setGhost(track: GhostTrack | null): void {
+    this.ghostTrack = track;
+    this.ghostRoot.visible = false;
+    if (this.ghostHero) this.ghostRoot.remove(this.ghostHero.root);
+    this.ghostHero = null;
+    if (!track) return;
+    if (!this.ghostRoot.parent) {
+      this.scene.add(this.ghostRoot);
+      this.bend.patch(this.ghostMat);
+    }
+    const look = CHARACTER_LOOKS[track.header.ch] ?? CHARACTER_LOOKS[0];
+    this.ghostRoot.scale.setScalar(look.scale);
+    Hero.load(`${import.meta.env.BASE_URL}assets/characters/${look.model}.glb`)
+      .then((hero) => {
+        if (this.ghostTrack !== track) return;
+        hero.dress(this.ghostMat);
+        this.bend.patchTree(hero.root);
+        this.ghostRoot.add(hero.root);
+        this.ghostHero = hero;
+      })
+      .catch((err) => console.warn('ghost model failed to load', err));
   }
 
   private loadModel(model: string): Promise<Hero | null> {
@@ -771,6 +805,7 @@ export class GameRenderer {
     this.gate.update(w, time);
     this.syncZone(w);
     this.syncCamera(w, dt);
+    this.syncGhost(w, sdt, time);
     // The sky keeps the world's real orientation, centred on the camera.
     this.sky.position.copy(this.camera.position);
     this.sky.quaternion.copy(this.bend.runner).invert();
@@ -927,6 +962,35 @@ export class GameRenderer {
       // Tolerance made visible: content you've had too much of stops glowing.
       (m.material as THREE.MeshBasicMaterial).color.setScalar(0.45 + 1.35 * w.tolerance[type]);
     });
+  }
+
+  private syncGhost(w: World, dt: number, time: number): void {
+    const tag = this.ghostTag;
+    tag.on = false;
+    const track = this.ghostTrack;
+    this.ghostRoot.visible = false;
+    if (!track || !this.ghostHero || w.phase === 'ready') return;
+    const g = track.at(w.time, this.ghostFrame);
+    const z = -(g.d - w.d);
+    // The bend only knows ~60 m behind and ~210 m ahead of the runner.
+    if (z > 50 || z < -200) return;
+    const grave = w.time >= track.duration;
+    this.ghostRoot.visible = true;
+    this.ghostRoot.position.set(g.x, g.y, z);
+    // A hologram that glitches; once they've died, a still grey statue.
+    this.ghostMat.color.set(grave ? 0x8d8d94 : 0x9ff3ff);
+    this.ghostMat.opacity = grave ? 0.6 : 0.48 + 0.14 * Math.sin(time * 31) * Math.sin(time * 7.3);
+    const clip = grave ? 'present' : g.roll ? 'roll' : g.air ? 'jump' : 'run';
+    this.ghostHero.animate(clip, w.speed, dt);
+
+    if (-z > TUNING.ghost.tagAhead) return;
+    const head = this.bend.map(this.ghostHead.set(g.x, g.y + 2.2 * this.ghostRoot.scale.y, z)).project(this.camera);
+    if (head.z > 1 || Math.abs(head.x) > 1.2 || Math.abs(head.y) > 1.2) return;
+    const el = this.renderer.domElement;
+    tag.x = (head.x * 0.5 + 0.5) * el.clientWidth;
+    tag.y = (-head.y * 0.5 + 0.5) * el.clientHeight;
+    tag.on = true;
+    tag.grave = grave;
   }
 
   private syncPlayer(w: World, dt: number): void {

@@ -161,6 +161,30 @@
       "none": "🫥"
     }
   },
+  "share": {
+    "webUrl": "",
+    "link": "Beat my scroll: {url}",
+    "handleAs": "sharing as {handle} · rename",
+    "renamePrompt": "What do your friends call you?"
+  },
+  "race": {
+    "app": "Challenges",
+    "title": "{name} challenged you",
+    "text": "Beat {distance} of doomscrolling. You won't.",
+    "daily": "Their ghost is in today's feed. Beat {distance}. You won't.",
+    "accept": "ACCEPT CHALLENGE",
+    "decline": "No thanks, I'm scared",
+    "ghosted": "{name} ghosted you. Again.",
+    "passed": "You passed {name}. They'll be notified. (They won't.)",
+    "skillIssue": "{name}: skill issue 💀",
+    "grave": "{name} was killed by {killer} here",
+    "won": "YOU MOGGED {name}",
+    "lost": "{name} MOGGED YOU",
+    "by": "BY {distance}. {diff} DIFF.",
+    "you": "SCROLLER",
+    "shareWon": "I mogged {name} by {distance} 💀",
+    "shareLost": "{name} mogged me by {distance}. Rematch."
+  },
   "keepGoing": {
     "title": "You've been scrolling for {m} minutes.",
     "body": "Keep going?",

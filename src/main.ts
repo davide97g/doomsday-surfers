@@ -1,14 +1,20 @@
 import './style.css';
 import { GameAudio } from './audio/audio';
-import { content, mode, realBrands } from './content/content';
+import { content, mode, realBrands, switchMode } from './content/content';
 import { Bot } from './dev/bot';
 import { GameHaptics } from './fx/haptics';
 import { Input } from './input/input';
 import { GameRenderer } from './render/renderer';
+import { fill } from './content/templates';
+import { GhostRecorder, type GhostTrack } from './sim/ghost';
 import { TUNING } from './sim/types';
 import { World } from './sim/world';
 import { distanceText, killerEmoji, loadToday, saveDaily, seedFor, shareLine, today } from './ui/daily';
 import { Death } from './ui/death';
+import { clearGhostFromUrl, ghostFromUrl, ghostUrl } from './ui/ghostLink';
+import { loadHandle } from './ui/handle';
+import { Race } from './ui/race';
+import { killerText } from './ui/receipt';
 import { GateScan } from './ui/gate';
 import { Hud } from './ui/hud';
 import { KeepGoing } from './ui/keepGoing';
@@ -96,18 +102,77 @@ nags.onSwipe = (a) => input.push(a);
 const keepGoing = new KeepGoing(hud.root, sfx);
 const death = new Death(hud.root, sfx);
 const gateScan = new GateScan(hud.root, sfx);
+const race = new Race(hud.root, sfx);
+death.race = race;
+// Every run is recorded as a ghost, so any death can be shared as a challenge.
+const recorder = new GhostRecorder();
+/** A friend's ghost from the link this page was opened with (see ghostLink.ts). */
+let challenge: GhostTrack | null = null;
+
+/** A fresh run on `seed`, racing `ghost` if given. */
+function newRun(seed: number, ghost: GhostTrack | null = null): void {
+  world.reset(seed);
+  recorder.reset();
+  death.link = null;
+  if (ghost) race.start(ghost);
+  else race.clear();
+  view.setGhost(ghost);
+}
+
+/** Pack this run into a challenge link (async; the share button uses it once ready). */
+function buildLink(): void {
+  death.handle = loadHandle(world.character);
+  const day = dailyDay;
+  const header = { v: 1 as const, seed: world.seed, ch: world.character, name: death.handle, mode, day: day ?? 0, dist: Math.round(world.d), killer: killerText(world).toLowerCase() };
+  const result = day !== null ? { distance: distanceText(world.d), emoji: killerEmoji(world), line: shareLine(world, day) } : null;
+  void ghostUrl(recorder, header).then((url) => {
+    if (header.seed !== world.seed) return; // a new run already started
+    death.link = url;
+    if (result && url) saveDaily({ day: day!, result: { ...result, line: `${result.line}\n${fill(content.share.link, { url })}` } });
+  });
+}
+
 death.onRevive = () => world.revive();
+death.onRename = buildLink;
 death.onRestart = () => {
   dailyDay = death.daily = null;
-  world.reset(endlessSeed());
+  newRun(endlessSeed());
 };
 // Tapping the "Time to Doom" notification: swap in today's course and go. One shot a day.
 title.onDaily = () => {
   if (world.phase !== 'ready' || loadToday()) return;
   dailyDay = death.daily = today();
-  world.reset(seedFor(dailyDay));
+  newRun(seedFor(dailyDay));
   input.push('up');
 };
+// A challenge link: their course, their ghost, as many tries as you want. If it
+// is today's feed and you haven't played it yet, this *is* your Daily.
+title.onChallenge = () => {
+  if (world.phase !== 'ready' || !challenge) return;
+  const h = challenge.header;
+  const asDaily = h.day > 0 && h.day === today() && !loadToday();
+  dailyDay = death.daily = asDaily ? h.day : null;
+  newRun(h.seed, challenge);
+  // Only the first go at today's feed is the Daily; the card says so next time.
+  if (asDaily) title.setChallenge({ name: h.name, distance: distanceText(h.dist), daily: false });
+  input.push('up');
+};
+title.onChallengeDecline = () => {
+  challenge = null;
+  clearGhostFromUrl();
+  title.setChallenge(null);
+};
+void ghostFromUrl().then((track) => {
+  if (!track) return;
+  // The course plays the same in both modes, but the ghost's world should match theirs.
+  if (track.header.mode !== mode) {
+    switchMode(track.header.mode);
+    return;
+  }
+  challenge = track;
+  const h = track.header;
+  title.setChallenge({ name: h.name, distance: distanceText(h.dist), daily: h.day > 0 && h.day === today() && !loadToday() });
+});
 title.onShare = (text) => void shareText(content.report.shareTitle, text);
 hud.onPerfChange = (p) => {
   view.post.settings.bloom = p.bloom;
@@ -119,7 +184,7 @@ hud.onPerfChange = (p) => {
 };
 
 // Expose for automated tests / debugging in the console.
-(window as unknown as { game: unknown }).game = { world, view, input, audio, nags, reel, desk, keepGoing, death };
+(window as unknown as { game: unknown }).game = { world, view, input, audio, nags, reel, desk, keepGoing, death, race, recorder };
 
 let last = performance.now();
 let acc = 0;
@@ -142,6 +207,7 @@ function frame(now: number): void {
   while (acc >= STEP) {
     if (bot) actions = actions.concat(bot.think(world, STEP));
     world.step(STEP, actions);
+    recorder.update(world);
     actions = [];
     acc -= STEP;
   }
@@ -156,6 +222,7 @@ function frame(now: number): void {
     reel.hide();
     desk.clear();
   }
+  if (events.some((e) => e.type === 'dead')) buildLink();
   if (dailyDay !== null) {
     // The Daily locks as soon as it starts (quitting mid-run doesn't buy a retry).
     // Each death (a revive can bring you back) overwrites the result.
@@ -183,6 +250,7 @@ function frame(now: number): void {
   gateScan.update(world, dt);
   if (!bot) keepGoing.update(world, dt);
   death.update(world, dt, nags);
+  race.update(world, dt, view.ghostTag);
 
   cpuAcc += performance.now() - cpuStart;
   fpsFrames++;

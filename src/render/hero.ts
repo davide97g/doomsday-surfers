@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { World } from '../sim/world';
 
-type Clip = 'idle' | 'run' | 'jump' | 'roll' | 'present';
+export type Clip = 'idle' | 'run' | 'jump' | 'roll' | 'present';
 
 const FADE = 0.12;
 // The run clip is one stride pair (16 frames at 30 fps). Match the old
@@ -74,6 +74,23 @@ export class Hero {
     const present = w.cause === 'empty' ? Math.min(1, w.fadeT / w.t.reality.fadeTime) : 0;
     for (const s of this.screens) s.mat.emissiveIntensity = s.glow * (1 - 0.97 * present);
     this.mixer.update(dt);
+  }
+
+  /** Drive the hero without a World (a challenge ghost): a clip and a speed for the run cadence. */
+  animate(clip: Clip, speed: number, dt: number): void {
+    const run = this.actions.get('run');
+    if (run) run.timeScale = ((6 + 0.32 * speed) / (Math.PI * 2)) * RUN_CLIP_SECONDS;
+    this.play(clip, FADE);
+    this.mixer.update(dt);
+  }
+
+  /** Every mesh wears `mat` (the ghost's hologram). */
+  dress(mat: THREE.Material): void {
+    this.screens.length = 0;
+    this.root.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.isMesh) mesh.material = mat;
+    });
   }
 
   private play(clip: Clip, fade: number): void {
