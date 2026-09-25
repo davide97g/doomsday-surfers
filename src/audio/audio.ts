@@ -73,6 +73,11 @@ export class GameAudio {
     window.addEventListener('keydown', unlock);
   }
 
+  /** The mixed output, for the clip recorder to listen to (null until the first gesture starts audio). */
+  get output(): { ctx: AudioContext; node: AudioNode } | null {
+    return this.ctx ? { ctx: this.ctx, node: this.master } : null;
+  }
+
   private start(): void {
     if (this.ctx) {
       void this.ctx.resume();

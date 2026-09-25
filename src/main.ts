@@ -1,5 +1,6 @@
 import './style.css';
 import { GameAudio } from './audio/audio';
+import { ClipRecorder } from './clip/clip';
 import { content, mode, realBrands, switchMode } from './content/content';
 import { Bot } from './dev/bot';
 import { GameHaptics } from './fx/haptics';
@@ -104,6 +105,10 @@ const death = new Death(hud.root, sfx);
 const gateScan = new GateScan(hud.root, sfx);
 const race = new Race(hud.root, sfx);
 death.race = race;
+// Auto-clip: every run is encoded as it plays; death cuts the montage.
+const clip = new ClipRecorder();
+death.clip = clip;
+race.onMoment = () => clip.mark('ghost');
 // Every run is recorded as a ghost, so any death can be shared as a challenge.
 const recorder = new GhostRecorder();
 /** A friend's ghost from the link this page was opened with (see ghostLink.ts). */
@@ -132,7 +137,10 @@ function buildLink(): void {
   });
 }
 
-death.onRevive = () => world.revive();
+death.onRevive = () => {
+  world.revive();
+  clip.resume();
+};
 death.onRename = buildLink;
 death.onRestart = () => {
   dailyDay = death.daily = null;
@@ -184,7 +192,7 @@ hud.onPerfChange = (p) => {
 };
 
 // Expose for automated tests / debugging in the console.
-(window as unknown as { game: unknown }).game = { world, view, input, audio, nags, reel, desk, keepGoing, death, race, recorder };
+(window as unknown as { game: unknown }).game = { world, view, input, audio, nags, reel, desk, keepGoing, death, race, recorder, clip };
 
 let last = performance.now();
 let acc = 0;
@@ -222,7 +230,14 @@ function frame(now: number): void {
     reel.hide();
     desk.clear();
   }
-  if (events.some((e) => e.type === 'dead')) buildLink();
+  for (const e of events) {
+    if (e.type === 'start') clip.startRun(loadHandle(world.character));
+    else if (e.type === 'dead') {
+      clip.stop();
+      buildLink();
+    } else if (e.type === 'gate') clip.mark('gate');
+    else if (e.type === 'thrill') clip.mark(e.kind);
+  }
   if (dailyDay !== null) {
     // The Daily locks as soon as it starts (quitting mid-run doesn't buy a retry).
     // Each death (a revive can bring you back) overwrites the result.
@@ -237,6 +252,8 @@ function frame(now: number): void {
 
   view.renderer.info.reset();
   view.render(world, dt);
+  clip.listen(audio.output);
+  clip.capture(view.renderer.domElement, world);
   audio.update(world, dt);
   haptics.update(world, dt);
   hud.update(world, dt);
@@ -256,6 +273,8 @@ function frame(now: number): void {
   fpsFrames++;
   fpsTime += dt;
   if (fpsTime >= 0.5) {
+    // Recording must never cost the run its frame rate.
+    if (world.phase === 'running' && fpsFrames / fpsTime < TUNING.clip.minFps) clip.lowPower = true;
     const s = view.stats();
     hud.setFps(fpsFrames / fpsTime, cpuAcc / fpsFrames, s.calls, s.tris);
     fpsFrames = 0;

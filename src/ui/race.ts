@@ -22,6 +22,8 @@ export interface RaceResult {
 
 export class Race {
   track: GhostTrack | null = null;
+  /** A clip-worthy moment: you overtook them, they ghosted you, or you passed their grave. */
+  onMoment: () => void = () => {};
   private readonly tag: HTMLElement;
   private readonly toast: HTMLElement;
   private readonly frame: GhostFrame = { d: 0, x: 0, y: 0, roll: false, air: false };
@@ -83,21 +85,26 @@ export class Race {
       if (w.time < track.duration) {
         const diff = w.d - track.at(w.time, this.frame).d;
         if (diff < -margin && this.lead >= 0) {
-          if (this.lead === 1) this.push(fill(r.ghosted, { name: this.name }));
+          if (this.lead === 1) this.moment(fill(r.ghosted, { name: this.name }));
           this.lead = -1;
         } else if (diff > margin && this.lead <= 0) {
-          if (this.lead === -1) this.push(fill(r.passed, { name: this.name }));
+          if (this.lead === -1) this.moment(fill(r.passed, { name: this.name }));
           this.lead = 1;
         }
       } else if (!this.passedGrave && w.d > track.finalD) {
         this.passedGrave = true;
-        this.push(fill(r.passed, { name: this.name }));
+        this.moment(fill(r.passed, { name: this.name }));
       }
     }
     if (w.phase === 'dead' && !this.deathSeen) {
       this.deathSeen = true;
       if (w.d < track.finalD) this.push(fill(r.skillIssue, { name: this.name }));
     } else if (w.phase === 'running') this.deathSeen = false;
+  }
+
+  private moment(text: string): void {
+    this.push(text);
+    this.onMoment();
   }
 
   private push(text: string): void {

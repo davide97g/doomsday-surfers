@@ -168,6 +168,18 @@
     "grave": "{name} logged off here. Cause: {killer}",
     "you": "WORK ETHIC"
   },
+  "clip": {
+    "captions": [
+      "POV: it's 4:59 on a Friday",
+      "me pretending to work in the standup",
+      "this meeting could have been an email",
+      "day {number} of quiet quitting",
+      "POV: your status has been 'Away' for 3 minutes",
+      "nobody:\nme at 11pm replying-all:"
+    ],
+    "cta": "Beat my overtime",
+    "rendering": "Rendering your performance review…"
+  },
   "keepGoing": { "title": "You've been online for {m} minutes.", "body": "Log overtime?" },
   "revive": {
     "title": "You appear offline.",

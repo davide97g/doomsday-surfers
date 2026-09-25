@@ -16,7 +16,8 @@ import type { Sfx } from './sfx';
 import { shareLine } from './daily';
 import { renameHandle } from './handle';
 import { raceShareLine, type Race } from './race';
-import { shareImage } from './share';
+import type { ClipRecorder } from '../clip/clip';
+import { shareFiles } from './share';
 
 type State = 'hidden' | 'offer' | 'ad' | 'final';
 
@@ -38,6 +39,9 @@ export class Death {
   /** Your name on the link; tap to rename (main rebuilds the link). */
   handle = '';
   onRename: () => void = () => {};
+  /** Auto-clip recorder; the montage starts rendering as soon as the receipt does. */
+  clip: ClipRecorder | null = null;
+  private clipReady: Promise<Blob | null> | null = null;
   private state: State = 'hidden';
   private readonly offer: HTMLElement;
   private readonly ad: HTMLElement;
@@ -208,7 +212,10 @@ export class Death {
     this.sharing = true;
     try {
       const r = content.report;
-      const blob = await shareCard(this.paper);
+      const proof = this.final.querySelector<HTMLElement>('#proof')!;
+      if (this.clipReady) proof.textContent = content.clip.rendering;
+      const [card, clip] = await Promise.all([shareCard(this.paper), this.clipReady]);
+      proof.textContent = content.report.cta;
       // The Daily shares its Wordle-style grid; an endless run shares the one-liner.
       // A race leads with who mogged whom; the link lets them race this run.
       const w = this.world!;
@@ -220,7 +227,9 @@ export class Death {
       ]
         .filter(Boolean)
         .join('\n');
-      await shareImage(blob, 'proof-of-doom.png', r.shareTitle, text);
+      const files = [{ blob: card, name: 'proof-of-doom.png' }];
+      if (clip) files.unshift({ blob: clip, name: 'proof-of-doom.mp4' });
+      await shareFiles(files, r.shareTitle, text);
     } finally {
       this.sharing = false;
     }
@@ -267,6 +276,7 @@ export class Death {
     paper.canvas.style.width = `${cssW}px`;
     paper.canvas.style.height = `${full}px`;
     this.strip.replaceChildren(paper.canvas);
+    this.clipReady = this.clip?.build(paper.canvas, this.handle) ?? null;
     this.printer.style.width = `${cssW}px`;
     this.printer.style.height = `${this.windowH}px`;
     this.strip.style.transform = `translateY(${this.windowH}px)`;

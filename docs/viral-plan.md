@@ -65,7 +65,7 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 | 1 | Proof of Doom receipt | cheapest share loop, needed by 2 and 3 | built 2026-09-24, pending on-device share check |
 | 2 | Daily Feed + emoji line | reuses card, seed exists | built 2026-09-24, pending on-device check |
 | 3 | Ghost challenge links | reuses daily seed, social pull | built 2026-09-24, web hosting pending (name) |
-| 4 | Auto-clip (last 8 s) | video is the real TikTok fuel | todo |
+| 4 | Auto-clip highlight montage | video is the real TikTok fuel | built 2026-09-25, pending on-device perf + share check |
 | 5 | Hidden ending | the secret, content for 1 and 4 | todo |
 | 6 | Set pieces: The Thumb, Algorithm zone, Slop zone, reality intrusions | clip-worthy wow | todo |
 | 7 | Pitch-literal scroll gesture | makes the pitch visible in gameplay | todo (needs decision) |
@@ -154,26 +154,32 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 - Add universal links (Associated Domains + an AASA file) so the iOS app opens `#g=` links itself; today only the web build reads them.
 - Maybe an OG image for link previews in Messages/WhatsApp.
 
-## 4. Auto-clip (last 8 seconds)
+## 4. Auto-clip highlight montage (built)
 
-**Hook.** The loop, the gate orbit and the crash into grey reality become a ready-made vertical video. This is the actual TikTok fuel.
+**Decided 2026-09-25.**
+- **Our own editor on WebCodecs, not ReplayKit.** iOS can already screen-record, so our value is the editing. It also means no permission prompt (reported to fire every time on iOS 26), no red recording pill, and it works in the browser too, so ghost-link receivers can post clips. `VideoEncoder` has been on iOS since 16.4, and `AudioEncoder` since iOS 26 (clips are silent before that).
+- **Highlight montage, ~15 s:**
+  1. Up to 2 highlights, chosen by priority. The gate's 360° orbit comes first, then loops, corkscrews and drops in slow motion (0.7×, with the audio pitched down along with them), ghost overtakes or grave passes, and big air.
+  2. The last 5 s into grey.
+  3. A 3.2 s end slate: "You are present." "… Disgusting.", the receipt sliding up, then "Beat my scroll · @handle" and "DOOMSDAY SURFERS · #PROOFOFDOOM".
+- **Burned in:**
+  - A reel-style caption, TikTok's classic white label, picked per run ("WAIT FOR IT", "POV: you said 'one more video' 2 hours ago"; Work: "this meeting could have been an email").
+  - Redraws of the notifications and the reel panel's video, plus a redrawn distance and battery.
+  - "PART 2 →" after an ad revive.
+  - An @handle · game-name watermark.
+- **Sharing:** [PROOF OF DOOM] now shares the MP4 and the receipt PNG together, plus the text and link. While the clip is still cutting, the button reads "Rendering your shame…".
 
-**Extreme version.**
-- Auto-save the last 8 s on death, plus special "wow" clips (loop, corkscrew, gate scan, big air), each with a burned-in caption from the reel caption bank ("POV: you have 4 min of battery", "WAIT FOR IT").
-- End slate: the death copy, then the game name.
-- "Part 2 →" if the run revived.
+**Tech.**
+- `src/clip/clip.ts`: `ClipRecorder`. Each render frame is composed into a 540×960 canvas (`compose.ts`), wrapped in a `VideoFrame` and hardware-encoded as H.264 at 60 fps with a keyframe every 0.5 s, into a rolling buffer of about 9 s.
+  - Highlight windows are copied out once they finish.
+  - The montage is cut with no re-encoding: every segment starts on a keyframe, and slow motion is just longer frame durations. The slate is encoded after the run's frames.
+  - Mediabunny (MPL-2.0) muxes the MP4 and is lazy-loaded (~114 KB) only when a clip is cut.
+- `src/clip/audio.ts`: a ScriptProcessor tap on the game's master bus, on the same clock as the video.
+- Safety valve: if the game drops under `clip.minFps` (52) while running, capture falls to 30 fps for the rest of the session.
+- Where WebCodecs is missing, there is simply no clip and the receipt still shares.
+- Browser test: a 20.8 s run clip came out at 5.9 MB, 540×960, AAC audio that fades to silence at the grey death.
 
-**Tech and risks.**
-- **HTML overlays are not in the WebGL canvas.** `canvas.captureStream` would miss notifications, the death text and the HUD, which are the funniest parts. So:
-- **Preferred on iOS: ReplayKit clip buffering.** `RPScreenRecorder.shared().startClipBuffering()` + `exportClip(to:duration:)` (iOS 15+) keeps a rolling buffer and exports the last N seconds of the whole screen *including HTML and app audio*. It needs a small custom Capacitor plugin in Swift (`ios/App/…`). Check whether iOS shows a recording indicator or prompt and whether that's acceptable.
-- Web fallback: MediaRecorder on a composite canvas (WebGL frame + a 2D redraw of the key overlays). It's more work. Could ship iOS-only first.
-- Perf gate: iPhone 14 must hold 60 fps while buffering. Measure before and after.
-- Share via the `@capacitor/share` flow from feature 1.
-
-**Questions.**
-- iOS-only first?
-- Which moments auto-clip, and is it opt-in or on by default?
-- Include audio?
+**Still to check on device.** 60 fps with capture running on an iPhone 14, the share sheet with video + image (Photos, TikTok, Messages), and the audio on iOS 26.
 
 ## 5. Hidden ending (60 s idle on the death screen)
 

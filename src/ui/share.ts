@@ -1,5 +1,6 @@
-// Hands an image to the system share sheet: Capacitor on device (writes a
-// cache file first), Web Share in a browser, a plain download as a last resort.
+// Hands files (the clip, the receipt) to the system share sheet: Capacitor on
+// device (writes cache files first), Web Share in a browser, plain downloads as
+// a last resort.
 
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
@@ -15,16 +16,20 @@ function base64(blob: Blob): Promise<string> {
 }
 
 /** Resolves once the sheet closes. Cancelling the sheet is not an error. */
-export async function shareImage(blob: Blob, name: string, title: string, text: string): Promise<void> {
+export async function shareFiles(files: { blob: Blob; name: string }[], title: string, text: string): Promise<void> {
   try {
     if (Capacitor.isNativePlatform()) {
-      const { uri } = await Filesystem.writeFile({ path: name, data: await base64(blob), directory: Directory.Cache });
-      await Share.share({ title, text, files: [uri] });
+      const uris: string[] = [];
+      for (const f of files) {
+        const { uri } = await Filesystem.writeFile({ path: f.name, data: await base64(f.blob), directory: Directory.Cache });
+        uris.push(uri);
+      }
+      await Share.share({ title, text, files: uris });
       return;
     }
-    const file = new File([blob], name, { type: blob.type });
-    if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title, text });
+    const list = files.map((f) => new File([f.blob], f.name, { type: f.blob.type }));
+    if (navigator.canShare?.({ files: list })) {
+      await navigator.share({ files: list, title, text });
       return;
     }
   } catch (e) {
@@ -32,11 +37,13 @@ export async function shareImage(blob: Blob, name: string, title: string, text: 
     if ((e as Error)?.name === 'AbortError' || /cancel/i.test(msg)) return;
     console.warn('share failed, downloading instead', e);
   }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  for (const f of files) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(f.blob);
+    a.download = f.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
 }
 
 /** Text only (the Daily's emoji grid, for group chats). Falls back to the clipboard. */

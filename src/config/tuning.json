@@ -105,6 +105,26 @@
     "favourChance": 0.5
   },
   "revive": { "perRun": 1, "dopamine": 40, "clearAhead": 40, "clearSeconds": 2, "adSeconds": 5 },
+  "clip": {
+    "width": 540,
+    "height": 960,
+    "fps": 60,
+    "minFps": 52,
+    "bitrate": 3000000,
+    "keyEvery": 0.5,
+    "keep": 9,
+    "finalSeconds": 5,
+    "slateSeconds": 3.2,
+    "maxHighlights": 2,
+    "highlights": {
+      "gate": { "priority": 3, "before": 0.3, "after": 3.0, "speed": 1 },
+      "loop": { "priority": 2, "before": 2.4, "after": 0.4, "speed": 0.7 },
+      "corkscrew": { "priority": 2, "before": 2.4, "after": 0.4, "speed": 0.7 },
+      "drop": { "priority": 2, "before": 2.0, "after": 0.4, "speed": 0.7 },
+      "ghost": { "priority": 2, "before": 1.5, "after": 1.2, "speed": 1 },
+      "air": { "priority": 1, "before": 1.6, "after": 0.3, "speed": 0.6 }
+    }
+  },
   "ghost": { "sampleEvery": 0.125, "maxSeconds": 900, "passMargin": 3, "toastSeconds": 3.2, "tagAhead": 90 },
   "daily": {
     "epoch": [2026, 9, 24],

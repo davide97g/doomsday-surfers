@@ -185,6 +185,22 @@
     "shareWon": "I mogged {name} by {distance} 💀",
     "shareLost": "{name} mogged me by {distance}. Rematch."
   },
+  "clip": {
+    "captions": [
+      "POV: you have 4 min of battery",
+      "WAIT FOR IT",
+      "this is what {number} hours of screen time looks like",
+      "POV: you said 'one more video' 2 hours ago",
+      "day {number} of doomscrolling until I feel something",
+      "the algorithm knows me better than my mum",
+      "watch till the end (you will)",
+      "nobody:\nme at 3am:",
+      "my thumb after {number} reels"
+    ],
+    "part2": "PART 2 →",
+    "cta": "Beat my scroll",
+    "rendering": "Rendering your shame…"
+  },
   "keepGoing": {
     "title": "You've been scrolling for {m} minutes.",
     "body": "Keep going?",
