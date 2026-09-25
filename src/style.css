@@ -834,3 +834,14 @@ html, body {
   position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s;
   background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.85) 100%);
 }
+
+/* ---------- doomscroll combo ---------- */
+.scroll-combo {
+  position: absolute; left: 50%; top: 30%; transform: translateX(-50%); pointer-events: none; z-index: 3;
+  font: 900 22px system-ui, sans-serif; letter-spacing: .04em; white-space: nowrap; color: #fff;
+  padding: 6px 14px; border-radius: 12px;
+  background: linear-gradient(90deg, #00e1ff, color-mix(in srgb, #00e1ff calc((1 - var(--heat, 0)) * 100%), #ff2e88));
+  box-shadow: 0 0 calc(12px + 30px * var(--heat, 0)) rgba(0,225,255,.6);
+}
+.scroll-combo.pop { animation: combo-pop .22s cubic-bezier(.2,1.8,.4,1); }
+@keyframes combo-pop { from { transform: translateX(-50%) scale(1.35); } }

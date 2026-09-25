@@ -235,6 +235,10 @@ export class GameAudio {
             this.tone(90, 38, 0.5, 'sine', 0.6);
           }
           break;
+        case 'scroll':
+          // A flick: a tick that climbs with the combo.
+          this.tone(520 + e.combo * 90, 700 + e.combo * 110, 0.06, 'square', 0.05);
+          break;
         case 'algorithm':
           // It noticed you (a rising sparkle) / it lost interest (a flat falling sigh).
           if (e.watching) this.tone(880, 1760, 0.25, 'triangle', 0.12);

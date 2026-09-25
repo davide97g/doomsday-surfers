@@ -103,6 +103,12 @@ export class World {
   crashKind: ObstacleKind | null = null;
   /** Habit type of the last healthy habit walked into, -1 if none (the usual killer on 'empty'). */
   lastHabit = -1;
+  /** Doomscroll flicks: quick repeated swipes up build a combo (speed + dopamine, own tolerance). */
+  combo = 0;
+  scrolls = 0;
+  scrollTolerance = 1;
+  private lastUp = -1;
+  private scrollT = 0;
   /** Algorithm zone: seconds the eye stays turned away after you hit a habit. */
   sulkT = 0;
   /** Average dopamine over each `daily.sampleEvery` s of sim time (the Daily's share grid). */
@@ -179,6 +185,11 @@ export class World {
     this.lastHabit = -1;
     this.history = [];
     this.sulkT = 0;
+    this.combo = 0;
+    this.scrolls = 0;
+    this.scrollTolerance = 1;
+    this.lastUp = -1;
+    this.scrollT = 0;
     this.sampleSum = 0;
     this.sampleT = 0;
     this.fadeT = 0;
@@ -222,7 +233,9 @@ export class World {
     const slow = this.slowT > 0 ? 1 - (1 - h.slowFactor) * (this.slowT / h.slowTime) : 1;
     const a = this.t.pads.autoplay;
     const autoplay = 1 + (a.speed - 1) * Math.min(1, this.autoplayT / a.ramp);
-    return this.speed * slow * (1 + this.rush) * autoplay * (1 + (this.t.notify.boostSpeed - 1) * this.boost);
+    const sc = this.t.scroll;
+    const scroll = 1 + sc.speedPerCombo * this.combo * Math.min(1, this.scrollT / sc.burst);
+    return this.speed * slow * (1 + this.rush) * autoplay * scroll * (1 + (this.t.notify.boostSpeed - 1) * this.boost);
   }
 
   /** Sim speed multiplier: dips to gate.timeScale during a gate scan. */
@@ -304,6 +317,8 @@ export class World {
     const ride = this.course.finished(prevD, this.d);
     if (ride && (ride.kind === 'loop' || ride.kind === 'corkscrew' || ride.kind === 'drop')) this.thrill(ride.kind);
 
+    this.scrollT = Math.max(0, this.scrollT - dt);
+    if (this.combo > 0 && this.time - this.lastUp > this.t.scroll.reset) this.combo = 0;
     if (this.sulkT > 0) {
       this.sulkT -= dt;
       if (this.sulkT <= 0 && this.setPiece === 'algorithm') this.events.push({ type: 'algorithm', watching: true });
@@ -382,6 +397,8 @@ export class World {
     this.phase = 'running';
     this.cause = null;
     this.crashKind = null;
+    this.combo = 0;
+    this.scrollT = 0;
     this.fadeT = 0;
     this.slowT = 0;
     this.boostT = 0;
@@ -497,6 +514,21 @@ export class World {
     p.stumbleT = Math.max(0, p.stumbleT - dt);
   }
 
+  /** The doomscroll gesture: a swipe up within `scroll.window` of the last one is a flick. */
+  private flick(): void {
+    const sc = this.t.scroll;
+    if (this.time - this.lastUp <= sc.window) {
+      this.combo = Math.min(sc.maxCombo, Math.max(2, this.combo + 1));
+      this.scrolls++;
+      const gain = sc.gain * this.scrollTolerance;
+      this.dopamine = Math.min(this.t.dopamine.max, this.dopamine + gain);
+      this.scrollTolerance = Math.max(sc.toleranceFloor, this.scrollTolerance * sc.toleranceDecay);
+      this.scrollT = sc.burst;
+      this.events.push({ type: 'scroll', combo: this.combo, gain });
+    }
+    this.lastUp = this.time;
+  }
+
   private applyAction(a: Action): void {
     const t = this.t;
     const p = this.player;
@@ -515,6 +547,7 @@ export class World {
         return;
       }
       case 'up': {
+        this.flick();
         if (!p.grounded) return;
         p.grounded = false;
         p.vy = t.jump.velocity;

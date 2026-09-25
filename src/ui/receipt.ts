@@ -94,6 +94,7 @@ export function buildReceipt(w: World, nags: Nags, daily: number | null = null, 
   const per = T.pricePer;
   const it = R.items;
   const counts: [Item, number, number][] = [
+    [it.scrolls, w.scrolls, per.scrolls],
     [it.reel, by('reel'), per.reel],
     [it.like, by('like'), per.like],
     [it.outrage, by('outrage'), per.outrage],

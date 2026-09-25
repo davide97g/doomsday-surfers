@@ -258,6 +258,7 @@
       ]
     }
   },
+  "scroll": { "combo": "SCROLL SPEED ×{n}" },
   "keepGoing": {
     "title": "You've been scrolling for {m} minutes.",
     "body": "Keep going?",
@@ -279,6 +280,7 @@
     "storeLine": "STORE #{store} · AISLE: {zone}",
     "customer": "CUSTOMER: {character}",
     "items": {
+      "scrolls": { "label": "SCROLLS x{n}", "prices": ["{k} THUMB TENDON{s}", "YOUR GRIP STRENGTH", "{k}0 M OF THUMB TRAVEL"] },
       "reel": { "label": "REELS x{n}", "prices": ["{k} FRIENDSHIP{s}", "{k} HOUR{s} OF SLEEP", "{k} BOOK{s} UNREAD", "YOUR 20s"] },
       "like": { "label": "LIKES x{n}", "prices": ["{k} SELF-ESTEEM", "YOUR PERSONALITY", "{k} REAL COMPLIMENT{s}"] },
       "outrage": { "label": "OUTRAGE x{n}", "prices": ["YOUR UNCLE (LOST)", "{k} FAMILY DINNER{s}", "BLOOD PRESSURE +{k}0"] },

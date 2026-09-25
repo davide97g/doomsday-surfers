@@ -68,7 +68,7 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 | 4 | Auto-clip highlight montage | video is the real TikTok fuel | built 2026-09-25, pending on-device perf + share check |
 | 5 | Hidden ending | the secret, content for 1 and 4 | built 2026-09-25, pending on-device feel check |
 | 6 | Set pieces: The Thumb, Algorithm zone, Slop zone, reality intrusions | clip-worthy wow | built 2026-09-25, pending on-device feel + balance check |
-| 7 | Pitch-literal scroll gesture | makes the pitch visible in gameplay | todo (needs decision) |
+| 7 | Pitch-literal scroll gesture (flick combo) | makes the pitch visible in gameplay | built 2026-09-25, pending on-device feel test |
 | 8 | Signature audio + first 5 seconds | memeable sound, instant hook | todo |
 | 9 | Wildcards (aura, 6-7, -A texts, …) | cheap spice, sprinkle any time | todo |
 | — | Work mode (corporate parody, see `docs/work-mode.md`) | niche entry: office humour | built 2026-09-24, pending on-device sound check |
@@ -237,16 +237,20 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 
 **Note.** Generator weights change inside set-piece zones, so courses (and any Daily or ghost links shared before this) differ from zone 1 onward.
 
-## 7. Pitch-literal scroll gesture (decision needed)
+## 7. Flick-scroll combo (built)
 
-**Problem.** The pitch is "you die if you stop doomscrolling", but dopamine never drains on its own, so stopping is safe. A viewer never sees the pitch happen.
+**Decided 2026-09-25: option A**, the flick combo. The pitch wording stays.
+- One swipe up still jumps. A second swipe up within `scroll.window` (0.35 s) is a doomscroll flick, and each further one raises the combo up to ×10.
+- Each flick gives:
+  - A little dopamine (`scroll.gain` × its own tolerance). The tolerance never recovers and has a 0.03 floor, so spamming runs dry: about 60 dopamine per run in total.
+  - A speed burst of +3.5% per combo level, fading over 0.8 s.
+- The combo breaks 0.7 s after the last flick.
+- Feedback: the "SCROLL SPEED ×N" badge pops (Work: "PING SPEED ×N"), heating from cyan to pink; a tick climbs in pitch; a selection haptic.
+- Receipt line: "SCROLLS x87 · 3 THUMB TENDONS" (Work: "SWIPES x87 · 2 CARPAL TUNNELS").
 
-**Options.**
-- A. **Flick-scroll combo.** Rapid repeated short swipe-ups (the real scroll motion) give a small speed/dopamine tick with its own tolerance, and the HUD shows "SCROLL SPEED ×3". Conflict: swipe-up is jump. It could use a two-finger flick or "repeated micro-flicks within 150 ms". Needs a feel test.
-- B. **Idle = the feed pauses the run** with a "keep going?" style guilt prompt (already a comedy element) that escalates. No drain, but stopping is visibly punished.
-- C. **Reword the pitch** to match the mechanic ("An endless runner where healthy habits kill you").
+**Where.** `World.flick()` / `combo` / `scrolls` / `scrollTolerance` and `runSpeed`; `tuning.scroll`; the badge lives in `ui/setpieces.ts`.
 
-**Questions.** Pick A, B or C.
+**To check on device.** Whether rapid thumb flicks feel natural next to jump, and whether 0.35 s is the right window.
 
 ## 8. Signature audio + first 5 seconds
 

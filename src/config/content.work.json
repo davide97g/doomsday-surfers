@@ -225,6 +225,7 @@
       ]
     }
   },
+  "scroll": { "combo": "PING SPEED ×{n}" },
   "keepGoing": { "title": "You've been online for {m} minutes.", "body": "Log overtime?" },
   "revive": {
     "title": "You appear offline.",
@@ -239,6 +240,7 @@
     "storeLine": "OFFICE #{store} · FLOOR: {zone}",
     "customer": "EMPLOYEE: {character}",
     "items": {
+      "scrolls": { "label": "SWIPES x{n}", "prices": ["{k} CARPAL TUNNEL{s}", "YOUR WRIST", "{k} UNREAD THREAD{s}"] },
       "reel": {
         "label": "MEETINGS x{n}",
         "prices": ["{k} HOUR{s} YOU WON'T GET BACK", "YOUR LUNCH (ALL OF THEM)", "{k} EMAIL{s} IT COULD HAVE BEEN"]

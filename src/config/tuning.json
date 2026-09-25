@@ -105,6 +105,7 @@
     "favourChance": 0.5
   },
   "revive": { "perRun": 1, "dopamine": 40, "clearAhead": 40, "clearSeconds": 2, "adSeconds": 5 },
+  "scroll": { "window": 0.35, "reset": 0.7, "gain": 1.6, "toleranceDecay": 0.975, "toleranceFloor": 0.03, "speedPerCombo": 0.035, "maxCombo": 10, "burst": 0.8 },
   "setPieces": {
     "thumb": { "weight": 0.3, "lead": 3.2, "descend": 1.3, "drag": 1.7, "lift": 0.7, "speed": 14, "length": 8, "height": 3.6, "halfWidth": 1.0, "dropHeight": 26 },
     "algorithm": { "bonus": 0.5, "sulk": 8, "pickupBoost": 0.22 },
@@ -146,7 +147,7 @@
     "topScale": 700,
     "brainAge": { "base": 19, "perPickup": 0.25, "numbness": 45, "max": 120 },
     "aura": { "thrill": 1000, "gate": 500, "opened": 67, "smashed": 150, "habit": -800, "crash": -5000, "empty": -2000 },
-    "pricePer": { "reel": 10, "like": 40, "outrage": 3, "notification": 8, "thrill": 2, "ads": 5, "dodged": 4 },
+    "pricePer": { "scrolls": 12, "reel": 10, "like": 40, "outrage": 3, "notification": 8, "thrill": 2, "ads": 5, "dodged": 4 },
     "printEvery": 0.09
   },
   "work": {

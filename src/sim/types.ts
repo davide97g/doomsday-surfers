@@ -106,7 +106,9 @@ export type SimEvent =
   /** The Thumb: starts dropping onto `lane` (warn), lands and drags (slam), lets go (lift). */
   | { type: 'thumb'; stage: 'warn' | 'slam' | 'lift'; lane: number }
   /** The Algorithm zone's eye turned to you (watching: content +bonus) or away (you hit a habit). */
-  | { type: 'algorithm'; watching: boolean };
+  | { type: 'algorithm'; watching: boolean }
+  /** A doomscroll flick (a quick second swipe up): combo level and the dopamine it gave. */
+  | { type: 'scroll'; combo: number; gain: number };
 
 export function laneX(lane: number, t: Tuning = TUNING): number {
   return (lane - (t.lanes.count - 1) / 2) * t.lanes.width;
