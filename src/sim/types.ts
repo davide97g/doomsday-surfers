@@ -13,8 +13,9 @@ export type Phase = 'ready' | 'running' | 'fading' | 'dead';
 
 export type DeathCause = 'empty' | 'crash';
 
-/** `habit` is a healthy habit: it drains dopamine and slows you, but never kills. */
-export type ObstacleKind = 'low' | 'high' | 'post' | 'movingPost' | 'habit';
+/** `habit` is a healthy habit: it drains dopamine and slows you, but never kills.
+ *  `thumb` is the Thumb set piece: a giant thumb that drops onto a lane and drags down it. */
+export type ObstacleKind = 'low' | 'high' | 'post' | 'movingPost' | 'habit' | 'thumb';
 
 export interface Obstacle {
   id: number;
@@ -32,6 +33,8 @@ export interface Obstacle {
   variant: number;
   /** Already walked into (habits) or smashed during a boost (anything). Never collides again. */
   hit: boolean;
+  /** Thumbs: seconds since it started dropping (only counts once `active`). */
+  age: number;
 }
 
 /** Rideable track toys: a "Swipe up" ramp and a pull-to-refresh bouncer launch
@@ -99,7 +102,11 @@ export type SimEvent =
   /** Crossed a checkpoint gate: bullet time + scan begin, the feed moves to `zone`. */
   | { type: 'gate'; zone: number }
   | { type: 'gateEnd'; zone: number }
-  | { type: 'dead'; cause: DeathCause };
+  | { type: 'dead'; cause: DeathCause }
+  /** The Thumb: starts dropping onto `lane` (warn), lands and drags (slam), lets go (lift). */
+  | { type: 'thumb'; stage: 'warn' | 'slam' | 'lift'; lane: number }
+  /** The Algorithm zone's eye turned to you (watching: content +bonus) or away (you hit a habit). */
+  | { type: 'algorithm'; watching: boolean };
 
 export function laneX(lane: number, t: Tuning = TUNING): number {
   return (lane - (t.lanes.count - 1) / 2) * t.lanes.width;

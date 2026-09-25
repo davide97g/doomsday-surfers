@@ -820,3 +820,17 @@ html, body {
 .ending.s-buttons .end-receipt { opacity: 1; transform: translate(-50%, 0); }
 .ending.s-buttons .end-buttons { opacity: 1; }
 .ending.s-buttons .end-figure { opacity: .35; }
+
+/* ---------- set pieces: the Algorithm's badge, reality's vignette ---------- */
+.algo-badge {
+  position: absolute; left: 50%; top: calc(var(--safe-top) + 64px); transform: translateX(-50%);
+  white-space: nowrap; pointer-events: none; z-index: 3;
+  font: 800 12px ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: .06em;
+  color: #0b0812; background: #f4f2fa; padding: 6px 12px; border-radius: 999px;
+  box-shadow: 0 0 24px rgba(244,242,250,.55); animation: pulse 1.6s ease-in-out infinite;
+}
+.algo-badge.sulking { color: #c9c4dd; background: rgba(30,26,40,.85); box-shadow: none; animation: none; }
+.reality-vignette {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.85) 100%);
+}

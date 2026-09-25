@@ -19,11 +19,11 @@ export class Bot {
     const clearance = (lane: number): number => {
       let best = Infinity;
       for (const o of w.obstacles) {
-        if (o.lane !== lane || (o.kind !== 'post' && o.kind !== 'movingPost')) continue;
+        if (o.lane !== lane || (o.kind !== 'post' && o.kind !== 'movingPost' && o.kind !== 'thumb')) continue;
         if (o.s + o.length < w.d - 0.5) continue;
         if (o.s <= w.d + 0.6) return 0;
         let dist = o.s - w.d;
-        if (o.kind === 'movingPost') dist *= v / (v + o.speed);
+        if (o.kind === 'movingPost' || o.kind === 'thumb') dist *= v / (v + o.speed);
         best = Math.min(best, dist);
       }
       return best;

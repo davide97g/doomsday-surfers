@@ -755,3 +755,231 @@ function makePtoForm(): THREE.CanvasTexture {
   ctx.strokeRect(22, 22, 212, 212);
   return tex(c);
 }
+
+// ---------- set pieces ----------
+
+/** A hand with six fingers: the AI-slop signature (people count them in the comments). */
+function slopHand(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, rand: () => number): void {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((rand() - 0.5) * 0.5);
+  const skin = ctx.createRadialGradient(-s * 0.2, -s * 0.3, s * 0.1, 0, 0, s * 1.3);
+  skin.addColorStop(0, '#ffe2cf');
+  skin.addColorStop(1, '#d99a78');
+  ctx.fillStyle = skin;
+  for (let f = 0; f < 6; f++) {
+    const a = -Math.PI / 2 + (f - 2.5) * 0.3;
+    const len = s * (0.9 + 0.25 * Math.sin(f * 1.7));
+    ctx.save();
+    ctx.rotate(a + Math.PI / 2);
+    ctx.beginPath();
+    ctx.roundRect(-s * 0.1, -s * 0.35 - len, s * 0.2, len, s * 0.1);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 0.62, s * 0.52, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Too-perfect gloss.
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(-s * 0.2, -s * 0.18, s * 0.22, s * 0.1, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Everything drips a little, the way slop does. */
+function melt(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, rand: () => number): void {
+  for (let i = 0; i < 16; i++) {
+    const sx = x + rand() * w;
+    const sw = 4 + rand() * 12;
+    const drop = 6 + rand() * 26;
+    ctx.globalAlpha = 0.55;
+    ctx.drawImage(ctx.canvas, sx, y, sw, h, sx, y + drop, sw, h);
+  }
+  ctx.globalAlpha = 1;
+}
+
+/** The Slop zone's feed: six-fingered hands, engagement bait, typos, melting captions. */
+export function makeSlopAtlas(): THREE.CanvasTexture {
+  const { cols, rows, cellW: W, cellH: H } = FEED_ATLAS;
+  const [c, ctx] = canvas(cols * W, rows * H);
+  const rand = seeded(606);
+  const captions = content.setPieces.slop.captions;
+  for (let i = 0; i < cols * rows; i++) {
+    const ox = (i % cols) * W;
+    const oy = Math.floor(i / cols) * H;
+    ctx.save();
+    ctx.translate(ox, oy);
+    ctx.fillStyle = '#0d0b14';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = PALETTE[(i * 5) % PALETTE.length];
+    ctx.beginPath();
+    ctx.arc(30, 32, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e9e6f5';
+    ctx.font = 'bold 17px system-ui, sans-serif';
+    ctx.fillText(HANDLES[(i * 7 + 3) % HANDLES.length], 56, 38);
+    // Oversaturated dreamy gradient, then the hand.
+    const g = ctx.createLinearGradient(0, 60, W, 390);
+    g.addColorStop(0, ['#ffb3e6', '#b3f0ff', '#ffe08a', '#c7b3ff'][i % 4]);
+    g.addColorStop(1, ['#8affc1', '#ff9ab3', '#9ab8ff', '#ffc38a'][i % 4]);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.roundRect(10, 60, W - 20, 330, 14);
+    ctx.fill();
+    slopHand(ctx, W / 2 + (rand() - 0.5) * 30, 250, 70 + rand() * 20, rand);
+    ctx.fillStyle = '#ff2e63';
+    ctx.font = 'bold 22px system-ui, sans-serif';
+    ctx.fillText(`♥ ${400 + Math.floor(rand() * 599)}K`, 14, 430);
+    ctx.fillStyle = '#f1eefb';
+    ctx.font = 'bold 17px system-ui, sans-serif';
+    const cap = captions[i % captions.length];
+    const words = cap.split(' ');
+    let line = '';
+    let y = 468;
+    for (const w of words) {
+      if (ctx.measureText(`${line} ${w}`).width > W - 28 && line) {
+        ctx.fillText(line, 14, y);
+        line = w;
+        y += 22;
+      } else line = line ? `${line} ${w}` : w;
+    }
+    ctx.fillText(line, 14, y);
+    ctx.restore();
+    melt(ctx, ox + 12, oy + 300, W - 24, 200, rand);
+  }
+  return tex(c);
+}
+
+/** Reality leaking in at low dopamine: a sunset, a park bench, a friend waving, a dog that wants a walk. */
+export function makeReality(i: number): THREE.CanvasTexture {
+  const W = 512;
+  const H = 720;
+  const [c, ctx] = canvas(W, H);
+  const rand = seeded(900 + i);
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.62);
+  switch (i % 4) {
+    case 0: {
+      sky.addColorStop(0, '#3b2a5c');
+      sky.addColorStop(0.55, '#e0785a');
+      sky.addColorStop(1, '#f7c07a');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#ffe3a8';
+      ctx.beginPath();
+      ctx.arc(W * 0.55, H * 0.56, 70, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#2a1f33';
+      ctx.fillRect(0, H * 0.6, W, H * 0.4);
+      ctx.strokeStyle = 'rgba(255,214,150,0.5)';
+      for (let k = 0; k < 14; k++) {
+        ctx.lineWidth = 2 + rand() * 3;
+        const y = H * 0.63 + k * 16;
+        ctx.beginPath();
+        ctx.moveTo(W * 0.55 - 80 + rand() * 30, y);
+        ctx.lineTo(W * 0.55 + 80 - rand() * 30, y);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 1: {
+      sky.addColorStop(0, '#7fb3de');
+      sky.addColorStop(1, '#d6ecf5');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#5f8f4e';
+      ctx.fillRect(0, H * 0.58, W, H * 0.42);
+      ctx.fillStyle = '#5a4332';
+      ctx.fillRect(W * 0.72, H * 0.18, 28, H * 0.45);
+      ctx.fillStyle = '#3f6e3a';
+      for (let k = 0; k < 7; k++) {
+        ctx.beginPath();
+        ctx.arc(W * 0.74 + (rand() - 0.5) * 180, H * 0.18 + (rand() - 0.5) * 120, 60 + rand() * 40, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#7a5638';
+      for (let k = 0; k < 3; k++) ctx.fillRect(W * 0.14, H * 0.6 + k * 26, W * 0.5, 16);
+      ctx.fillRect(W * 0.18, H * 0.6, 14, 120);
+      ctx.fillRect(W * 0.56, H * 0.6, 14, 120);
+      break;
+    }
+    case 2: {
+      sky.addColorStop(0, '#9cc9e8');
+      sky.addColorStop(1, '#f2e6d0');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+      for (let k = 0; k < 4; k++) {
+        ctx.fillStyle = ['#c9a98a', '#b3876b', '#d8c3a5', '#a07a60'][k];
+        ctx.fillRect(k * 130 - 10, H * 0.2 + (k % 2) * 40, 140, H * 0.5);
+      }
+      ctx.fillStyle = '#b8b2a6';
+      ctx.fillRect(0, H * 0.68, W, H * 0.32);
+      // A friend, faceless like everyone here, waving at you.
+      ctx.fillStyle = '#3b3f4a';
+      ctx.beginPath();
+      ctx.arc(W / 2, H * 0.42, 34, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.roundRect(W / 2 - 46, H * 0.47, 92, 170, 30);
+      ctx.fill();
+      ctx.save();
+      ctx.translate(W / 2 + 40, H * 0.5);
+      ctx.rotate(-0.9);
+      ctx.beginPath();
+      ctx.roundRect(0, -12, 110, 24, 12);
+      ctx.fill();
+      ctx.restore();
+      break;
+    }
+    default: {
+      sky.addColorStop(0, '#a9cfe6');
+      sky.addColorStop(1, '#e8f1f2');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#6f9a58';
+      ctx.fillRect(0, H * 0.55, W, H * 0.45);
+      ctx.fillStyle = '#8a5f3c';
+      ctx.beginPath();
+      ctx.ellipse(W / 2, H * 0.66, 110, 55, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(W / 2 + 110, H * 0.56, 48, 42, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(W / 2 + 128, H * 0.5, 16, 30, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      for (const lx of [-70, -30, 40, 80]) ctx.fillRect(W / 2 + lx, H * 0.68, 18, 70);
+      ctx.save();
+      ctx.translate(W / 2 - 104, H * 0.62);
+      ctx.rotate(-0.9);
+      ctx.fillRect(0, -7, 60, 14);
+      ctx.restore();
+      // The leash goes up, out of frame: someone is waiting to take it for a walk.
+      ctx.strokeStyle = '#c23a2a';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(W / 2 + 104, H * 0.6);
+      ctx.bezierCurveTo(W / 2 + 60, H * 0.35, W / 2 + 20, H * 0.2, W / 2 - 20, 0);
+      ctx.stroke();
+    }
+  }
+  // Photo feel: grain and a soft vignette.
+  const img = ctx.getImageData(0, 0, W, H);
+  for (let p = 0; p < img.data.length; p += 4) {
+    const n = (rand() - 0.5) * 22;
+    img.data[p] += n;
+    img.data[p + 1] += n;
+    img.data[p + 2] += n;
+  }
+  ctx.putImageData(img, 0, 0);
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#f4f1ea';
+  ctx.lineWidth = 14;
+  ctx.strokeRect(7, 7, W - 14, H - 14);
+  return tex(c);
+}

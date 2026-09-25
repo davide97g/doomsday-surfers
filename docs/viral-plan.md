@@ -67,7 +67,7 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 | 3 | Ghost challenge links | reuses daily seed, social pull | built 2026-09-24, web hosting pending (name) |
 | 4 | Auto-clip highlight montage | video is the real TikTok fuel | built 2026-09-25, pending on-device perf + share check |
 | 5 | Hidden ending | the secret, content for 1 and 4 | built 2026-09-25, pending on-device feel check |
-| 6 | Set pieces: The Thumb, Algorithm zone, Slop zone, reality intrusions | clip-worthy wow | todo |
+| 6 | Set pieces: The Thumb, Algorithm zone, Slop zone, reality intrusions | clip-worthy wow | built 2026-09-25, pending on-device feel + balance check |
 | 7 | Pitch-literal scroll gesture | makes the pitch visible in gameplay | todo (needs decision) |
 | 8 | Signature audio + first 5 seconds | memeable sound, instant hook | todo |
 | 9 | Wildcards (aura, 6-7, -A texts, …) | cheap spice, sprinkle any time | todo |
@@ -202,17 +202,40 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 
 **Where.** `src/ui/ending.ts` (overlay, timeline, lures, secret receipt share); `death.ts` owns the idle clock and cancels on touch; `receipt.ts` has `buildSecretReceipt`; `audio.ts` has `setEnding`.
 
-## 6. Set pieces
+## 6. Set pieces (built)
 
-All clip bait. Each is a zone or event in the course generator, obstacle rules unchanged (gates on flat straights, no falling deaths).
+**Decided 2026-09-25.** References: Shrimp Jesus-style AI slop ("Type YES for 7 years of luck"; no religious imagery), creators keeping the six fingers on purpose, and Threads' "Dear algo" meme.
 
-- **The Thumb.** A colossal human thumb comes out of the sky and swipes down the track like it's scrolling the world. It crushes one lane at a time, telegraphed by a lane-wide glow and a haptic tick. Your own gesture is the monster. It is readable in any clip without sound.
-- **Algorithm zone ("the clanker").** A huge eye/feed made of stacked screens chases you. It shouts glazing notifications ("you're literally so valid for this", "king behaviour") while spawning denser content. A boss-lite chase with no new death rule; it ends at the next gate.
-- **Slop zone.** AI-slop visuals: six-fingered hands as posts, melting text, morphing reels, captions with slightly wrong grammar. It rides the Merriam-Webster 2025 word and "clanker" discourse.
-- **Reality intrusions near zero dopamine.** Below ~15%, near-photoreal fragments fade into the grey (a park bench, a friend waving, a sunset, a dog wanting a walk), treated as horror (a sting sound, a vignette). Must stay procedural or free-licensed, and cheap on perf.
-- **Infinite-scroll drop as a literal feed.** On vertical drops the track becomes a wall of giant posts, and likes burst as you pass.
+- **Placement:** one set piece per zone, starting with the zone after the first gate. Every block of three zones plays each of them once, in an order shuffled from the course seed (`src/sim/setpiece.ts`), so the Daily and ghost races see the same ones. The gate's profiling log announces it ("Assigning: THE THUMB"), and the zone card shows "THE THUMB: Your own thumb. Scrolling the world."
+- **The Thumb** (Thumb zones, `setPieces.thumb`):
+  - Your own colossal thumb comes down from above and behind the camera onto a lane, `lead` s before you reach it. The lane flashes red, and a falling whoosh plays with a light haptic.
+  - It lands (slam, shake, heavy haptic) and drags toward you, then lets go. While it's down it counts as a crash: "KILLED BY: YOUR OWN THUMB" 👍.
+  - The generator reserves its whole stretch like a moving post, with one lane only and a pickup line in another. `check:gen` verifies that thumbs only spawn in Thumb zones, and the bot dodges them.
+- **The Algorithm** (Algorithm zones):
+  - A giant eye of feed screens hangs in the sky, fixed to the view and drawn over everything, and follows your lane.
+  - While it watches, content gives +50% ("👁 THE ALGORITHM IS WATCHING · +50%" badge, rising sparkle) and pickup runs spawn more often.
+  - Hit a habit and it loses interest for 8 s: it squints, looks away, a falling sigh plays, and the badge reads "The algorithm lost interest."
+  - Pushes speak "Dear algo" ("Dear algo, show me more", "The algorithm thinks you're special. (It says that to everyone.)").
+  - Work: "PERFORMANCE REVIEW", "YOUR MANAGER IS WATCHING".
+- **Slop** (Slop zones):
+  - The whole feed swaps to a slop atlas: oversaturated dreamy posts with six-fingered glossy hands, engagement-bait captions with typos ("Say NICE if you'd eat this", "Only real ones can count the fingers") and melting drips.
+  - Pushes use the slop voice.
+  - Work: "WORKSLOP" ("Q3 deck (AI-generated): 14 slides, 0 content").
+- **Reality intrusions** (any zone):
+  - Below 15% dopamine, over-bright "photos" of real life stand at the track's edge (a sunset, a park bench, a faceless friend waving, a dog whose leash goes up out of frame) with grain and a vignette.
+  - A detuned horror sting plays once per dip, and a CSS vignette closes in.
 
-**Questions.** Which one first? Does The Thumb crushing count as a barrier crash (instant zero) or a big dopamine hit?
+**Where.**
+- `src/sim/setpiece.ts`: the schedule.
+- `world.ts`: thumb timing and box, `setPiece`, `watching`, `sulkT`.
+- `generator.ts`: thumb chunks and the Algorithm's pickup boost.
+- `renderer.ts`: `buildThumb`, `buildEye`/`syncEye`, the slop atlas swap in `syncZone`, `syncReality`.
+- `textures.ts`: `makeSlopAtlas`, `makeReality`.
+- `ui/setpieces.ts`: badge and vignette.
+- `ui/gate.ts`: the announcement. `ui/nags.ts`: zone voices.
+- `audio.ts`: thumb, algorithm and reality sting. `haptics.ts`: thumb.
+
+**Note.** Generator weights change inside set-piece zones, so courses (and any Daily or ghost links shared before this) differ from zone 1 onward.
 
 ## 7. Pitch-literal scroll gesture (decision needed)
 

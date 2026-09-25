@@ -4,6 +4,7 @@
 
 import { content } from '../content/content';
 import { fill } from '../content/templates';
+import type { SetPiece } from '../sim/setpiece';
 import { zoneLook, type SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
 import { restartAnimation } from './nags';
@@ -42,7 +43,7 @@ export class GateScan {
   handle(events: readonly SimEvent[], w: World): void {
     for (const e of events) {
       if (e.type === 'gate') this.startScan(w);
-      if (e.type === 'gateEnd') this.showZone(e.zone);
+      if (e.type === 'gateEnd') this.showZone(e.zone, w.setPiece);
     }
   }
 
@@ -88,6 +89,9 @@ export class GateScan {
     const pool = [...g.lines];
     const rows = [fill(g.header, vars)];
     for (let i = 0; i < LINES && pool.length > 0; i++) rows.push(fill(pool.splice(Math.floor(Math.random() * pool.length), 1)[0], vars));
+    // The next zone's set piece gets assigned in the log.
+    const piece = w.setPiece;
+    if (piece) rows.push(fill(content.setPieces.assign, { name: content.setPieces[piece].name }));
     rows.push(g.final, fill(g.verdict, vars));
     this.log.innerHTML = rows.map((r, i) => `<div class="scan-line${i === rows.length - 1 ? ' verdict' : ''}">${r}</div>`).join('');
 
@@ -101,12 +105,12 @@ export class GateScan {
     restartAnimation(this.scan);
   }
 
-  private showZone(zone: number): void {
+  private showZone(zone: number, piece: SetPiece | null): void {
     const z = content.zones[zoneLook(zone) % content.zones.length];
     this.scan.classList.add('hidden');
     this.scanT = -1;
     this.zone.querySelector('.zone-name')!.textContent = z.name;
-    this.zone.querySelector('.zone-tag')!.textContent = z.tagline;
+    this.zone.querySelector('.zone-tag')!.textContent = piece ? `${content.setPieces[piece].name}: ${content.setPieces[piece].tagline}` : z.tagline;
     // The zone's seam colour, squashed out of HDR for CSS.
     const [r, g, b] = z.seam.map((v) => Math.round(Math.min(255, v * 150)));
     this.zone.style.setProperty('--zone', `rgb(${r}, ${g}, ${b})`);

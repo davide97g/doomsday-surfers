@@ -13,11 +13,14 @@
 //    seeds don't repeat for years, and the same seed plays out identically.
 // 6. Ghosts: a recorded bot run survives encode/decode within quantisation
 //    (no drift over the whole run), and reports its link size.
+// 7. Set pieces: every block of three zones plays each one once, thumbs only
+//    spawn in Thumb zones, and the bot's runs report what killed it there.
 
 import { deflateRawSync } from 'node:zlib';
 import { Bot } from '../src/dev/bot';
 import { dailySeed, dayNumber } from '../src/sim/daily';
 import { GhostRecorder, GhostTrack, type GhostFrame } from '../src/sim/ghost';
+import { setPieceFor } from '../src/sim/setpiece';
 import { TUNING, gateS } from '../src/sim/types';
 import { World } from '../src/sim/world';
 
@@ -205,4 +208,38 @@ let ghostFailures = 0;
 }
 console.log(`ghost failures: ${ghostFailures}`);
 
-if (blockedFailures > 0 || habitFailures > 0 || reviveFailures > 0 || gateFailures > 0 || rideFailures > 0 || dailyFailures > 0 || ghostFailures > 0 || revivesTested < 5) process.exit(1);
+// --- Set pieces ---
+let pieceFailures = 0;
+for (let seed = 1; seed <= 200; seed++) {
+  for (let block = 0; block < 4; block++) {
+    const got = new Set([1, 2, 3].map((i) => setPieceFor(block * 3 + i, seed)));
+    if (got.size !== 3) pieceFailures++;
+  }
+  if (setPieceFor(0, seed) !== null) pieceFailures++;
+}
+let thumbs = 0;
+let thumbDeaths = 0;
+for (let seed = 1; seed <= SEEDS; seed++) {
+  const w = new World(seed);
+  const bot = new Bot();
+  const seen = new Set<number>();
+  for (let i = 0; i < 120 * 60 * 5 && w.phase !== 'dead'; i++) {
+    w.step(DT, bot.think(w, DT));
+    for (const o of w.obstacles) {
+      if (o.kind !== 'thumb' || seen.has(o.id)) continue;
+      seen.add(o.id);
+      thumbs++;
+      // Zone the thumb's chunk belongs to: gates strictly behind where it was placed.
+      let k = 0;
+      while (gateS(k) < o.s) k++;
+      if (setPieceFor(k, seed) !== 'thumb') {
+        pieceFailures++;
+        console.log(`seed ${seed}: a thumb outside a Thumb zone (zone ${k})`);
+      }
+    }
+  }
+  if (w.crashKind === 'thumb') thumbDeaths++;
+}
+console.log(`set pieces: ${thumbs} thumbs over ${SEEDS} bot runs, ${thumbDeaths} bot deaths by thumb · failures: ${pieceFailures}`);
+
+if (blockedFailures > 0 || habitFailures > 0 || reviveFailures > 0 || gateFailures > 0 || rideFailures > 0 || dailyFailures > 0 || ghostFailures > 0 || pieceFailures > 0 || revivesTested < 5) process.exit(1);

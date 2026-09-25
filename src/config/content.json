@@ -157,7 +157,7 @@
     "more": "…",
     "killers": {
       "habits": ["💧", "📖", "👟", "📞"],
-      "crash": { "low": "🔔", "high": "📢", "post": "🎞️", "movingPost": "🚆" },
+      "crash": { "low": "🔔", "high": "📢", "post": "🎞️", "movingPost": "🚆", "thumb": "👍" },
       "none": "🫥"
     }
   },
@@ -219,6 +219,45 @@
       "footer": "Don't tell anyone. (Tell everyone.)"
     }
   },
+  "setPieces": {
+    "assign": "Assigning: {name}",
+    "thumb": { "name": "THE THUMB", "tagline": "Your own thumb. Scrolling the world." },
+    "algorithm": {
+      "name": "THE ALGORITHM",
+      "tagline": "Dear algo, notice me.",
+      "watching": "👁 THE ALGORITHM IS WATCHING · +50%",
+      "sulking": "👁 The algorithm lost interest.",
+      "lines": [
+        "Dear algo, show me more",
+        "The algorithm has noticed you.",
+        "You're literally so valid for this",
+        "King behaviour. Keep scrolling.",
+        "The algorithm thinks you're special. (It says that to everyone.)",
+        "Dear algo, I'll do anything"
+      ]
+    },
+    "slop": {
+      "name": "SLOP",
+      "tagline": "Made by nobody. For everybody.",
+      "captions": [
+        "Type YES for 7 years of luck",
+        "My grandson made this 😢 no likes?",
+        "Say NICE if you'd eat this",
+        "This dog built a house. why nobody talk about it",
+        "They said it was imposible",
+        "Beautyful!! 👏👏👏",
+        "Only real ones can count the fingers",
+        "Scroll past if you hate hands"
+      ],
+      "lines": [
+        "{handle} posted AI art of {thing}. It has six fingers.",
+        "Type YES for 7 years of luck",
+        "My grandson made this 😢 no likes?",
+        "Say NICE if you'd eat this",
+        "847K people liked a picture of bread. Join them."
+      ]
+    }
+  },
   "keepGoing": {
     "title": "You've been scrolling for {m} minutes.",
     "body": "Keep going?",
@@ -268,7 +307,7 @@
     "killedBy": "KILLED BY: {killer}",
     "killers": {
       "habits": ["A GLASS OF WATER", "A BOOK", "RUNNING SHOES", "YOUR MUM"],
-      "crash": { "low": "A NOTIFICATION", "high": "AN AD", "post": "A REEL", "movingPost": "A REEL (IT WAS MOVING)" },
+      "crash": { "low": "A NOTIFICATION", "high": "AN AD", "post": "A REEL", "movingPost": "A REEL (IT WAS MOVING)", "thumb": "YOUR OWN THUMB" },
       "none": "NOTHING. YOU JUST STOPPED."
     },
     "thanks": "THANK YOU FOR YOUR ATTENTION",

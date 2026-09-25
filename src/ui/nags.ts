@@ -12,6 +12,7 @@
 
 import { content, mode, work } from '../content/content';
 import { SWIPE_PX } from '../input/input';
+import type { SetPiece } from '../sim/setpiece';
 import { TUNING, type Action } from '../sim/types';
 import type { World } from '../sim/world';
 import { fill, pick } from '../content/templates';
@@ -115,6 +116,7 @@ export class Nags {
   private lastClip = -1;
   /** Next Work card kind, forced (console/testing: game.nags.demo('call')). */
   private force: string | null = null;
+  private piece: SetPiece | null = null;
 
   constructor(parent: HTMLElement, private readonly sfx: Sfx) {
     this.layer = document.createElement('div');
@@ -143,6 +145,7 @@ export class Nags {
   }
 
   update(w: World, dt: number, paused: boolean): void {
+    this.piece = w.setPiece;
     const running = w.phase === 'running';
     if (running !== this.running) {
       this.running = running;
@@ -247,7 +250,9 @@ export class Nags {
       el.querySelector('.notif-text')!.textContent = fill(pick(N.reel.lines), { friend: reel.friend });
       el.querySelector('.notif-cta b')!.textContent = N.reel.cta;
     } else {
-      el.querySelector('.notif-text')!.textContent = fill(pick(N.lines));
+      // The Algorithm and Slop zones talk in their own voice most of the time.
+      const zoneLines = this.piece === 'algorithm' || this.piece === 'slop' ? content.setPieces[this.piece].lines : null;
+      el.querySelector('.notif-text')!.textContent = fill(pick(zoneLines && Math.random() < 0.65 ? zoneLines : N.lines));
     }
     return { reel, call: null, kind: 'feed', app: null };
   }

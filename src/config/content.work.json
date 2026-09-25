@@ -154,7 +154,7 @@
     "hashtag": "#ProofOfWork",
     "killers": {
       "habits": ["🍱", "🏖️", "🏋️", "🏠"],
-      "crash": { "low": "💬", "high": "📢", "post": "📊", "movingPost": "📽️" },
+      "crash": { "low": "💬", "high": "📢", "post": "📊", "movingPost": "📽️", "thumb": "👍" },
       "none": "🫥"
     }
   },
@@ -195,6 +195,36 @@
       "footer": "Don't tell HR. (Tell everyone.)"
     }
   },
+  "setPieces": {
+    "algorithm": {
+      "name": "PERFORMANCE REVIEW",
+      "tagline": "Your manager is watching.",
+      "watching": "👁 YOUR MANAGER IS WATCHING · +50%",
+      "sulking": "👁 Your manager went back to Humbl.",
+      "lines": [
+        "Your manager viewed your screen.",
+        "Great energy today! (Noted in your file.)",
+        "Visibility is everything. Keep pinging.",
+        "Dear algo, please promote me"
+      ]
+    },
+    "slop": {
+      "name": "WORKSLOP",
+      "tagline": "Generated. Never read.",
+      "captions": [
+        "Q3 deck (AI-generated): 14 slides, 0 content",
+        "Per my last email (written by AI)",
+        "Circling back on the summary of the summary",
+        "Synergy framework v7 FINAL final (2)",
+        "Thrilled to announce this handshake (6 fingers)"
+      ],
+      "lines": [
+        "{handle} shared an AI summary of your AI summary.",
+        "Per my last email (written by AI)",
+        "Thrilled to announce this handshake (6 fingers)"
+      ]
+    }
+  },
   "keepGoing": { "title": "You've been online for {m} minutes.", "body": "Log overtime?" },
   "revive": {
     "title": "You appear offline.",
@@ -233,7 +263,7 @@
     ],
     "killers": {
       "habits": ["A LUNCH BREAK", "PTO", "THE GYM", "YOUR FAMILY"],
-      "crash": { "low": "A PING", "high": "SPONSORED CONTENT", "post": "A SLIDE DECK", "movingPost": "A DECK (IT WAS BEING PRESENTED)" },
+      "crash": { "low": "A PING", "high": "SPONSORED CONTENT", "post": "A SLIDE DECK", "movingPost": "A DECK (IT WAS BEING PRESENTED)", "thumb": "YOUR OWN THUMB" },
       "none": "NOTHING. YOU JUST LOGGED OFF."
     },
     "thanks": "THANK YOU FOR YOUR SERVICE",

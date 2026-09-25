@@ -51,6 +51,8 @@ export class GameAudio {
   private noise!: AudioBuffer;
   // Hidden ending: 'silent' cuts even the room tone, 'outside' is wind and birds.
   private ending: 'off' | 'silent' | 'outside' = 'off';
+  /** Reality started leaking in (low dopamine): the sting only plays once per dip. */
+  private stung = false;
   private windGain: GainNode | null = null;
   private nextChirp = 0;
   private nextNote = 0;
@@ -193,6 +195,14 @@ export class GameAudio {
     this.musicFilter.frequency.setTargetAtTime((250 + 11000 * l * l) * (0.15 + 0.85 * slowMo), now, 0.1);
     this.humGain.gain.setTargetAtTime(gone && this.ending === 'off' ? 0.05 : 0, now, this.ending === 'off' ? 0.8 : 0.3);
     this.windGain?.gain.setTargetAtTime(this.ending === 'outside' ? 0.12 : 0, now, 2.5);
+    const below = w.t.setPieces.reality.below;
+    if (w.phase === 'running' && w.dopamine < below && !this.stung) {
+      // A horror sting as the real world shows up by the track.
+      this.stung = true;
+      this.tone(220, 207, 1.6, 'sawtooth', 0.12);
+      this.tone(233, 220, 1.6, 'sawtooth', 0.1);
+      this.noiseHit(1.2, 400, 0.4);
+    } else if (w.dopamine > below + 8 || w.phase !== 'running') this.stung = false;
     if (this.ending === 'outside' && now >= this.nextChirp) {
       this.chirp(now);
       this.nextChirp = now + 1.2 + Math.random() * 3;
@@ -216,6 +226,19 @@ export class GameAudio {
       switch (e.type) {
         case 'pickup':
           this.blip(e.content, e.tolerance);
+          break;
+        case 'thumb':
+          // The Thumb: a falling whoosh, then a skin-on-glass slam.
+          if (e.stage === 'warn') this.sweep(this.ctx.currentTime, 1.2, 300, 2200, 0.25);
+          else if (e.stage === 'slam') {
+            this.noiseHit(0.6, 700, 0.9);
+            this.tone(90, 38, 0.5, 'sine', 0.6);
+          }
+          break;
+        case 'algorithm':
+          // It noticed you (a rising sparkle) / it lost interest (a flat falling sigh).
+          if (e.watching) this.tone(880, 1760, 0.25, 'triangle', 0.12);
+          else this.tone(520, 180, 0.6, 'sawtooth', 0.08);
           break;
         case 'habit':
           this.thud();

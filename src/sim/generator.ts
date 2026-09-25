@@ -25,12 +25,13 @@
 
 import type { Course } from './course';
 import { Rng } from './rng';
+import { setPieceFor } from './setpiece';
 import { TUNING, gateS, zoneLook, type Obstacle, type ObstacleKind, type Pad, type PadKind, type Pickup, type Tuning } from './types';
 
 /** Habit rows start their pickup line this far before the habit. */
 const HABIT_LEAD = 8;
 
-type ChunkKind = 'barrierRow' | 'doubleBarrier' | 'postRow' | 'movingPost' | 'pickupRun' | 'habitRow' | PadKind;
+type ChunkKind = 'barrierRow' | 'doubleBarrier' | 'postRow' | 'movingPost' | 'pickupRun' | 'habitRow' | 'thumb' | PadKind;
 
 interface Zone {
   from: number;
@@ -57,7 +58,7 @@ export class Generator {
   private pads: Pad[] = [];
 
   constructor(
-    seed: number,
+    private readonly seed: number,
     private readonly course: Course,
     t: Tuning = TUNING,
   ) {
@@ -120,7 +121,7 @@ export class Generator {
   }
 
   private obstacle(kind: ObstacleKind, lane: number, s: number, length = 0, speed = 0): Obstacle {
-    return { id: nextId++, kind, lane, s, length, speed, active: false, variant: this.rng.int(0, 7), hit: false };
+    return { id: nextId++, kind, lane, s, length, speed, active: false, variant: this.rng.int(0, 7), hit: false, age: 0 };
   }
 
   private contentType(): number {
@@ -139,12 +140,16 @@ export class Generator {
 
   private chunk(ctx: GenContext, obstacles: Obstacle[], pickups: Pickup[]): void {
     const d = ctx.difficulty;
+    // The zone's set piece: the Thumb adds thumb drops, the Algorithm feeds you more content.
+    const piece = setPieceFor(this.gate, this.seed);
+    const sp = this.t.setPieces;
     const weights: Record<ChunkKind, number> = {
       barrierRow: 0.34,
       doubleBarrier: d > 0.25 ? 0.12 * d : 0,
       postRow: 0.34,
       movingPost: d >= this.t.movingPost.minDifficulty ? 0.06 + 0.12 * d : 0,
-      pickupRun: 0.16,
+      pickupRun: 0.16 + (piece === 'algorithm' ? sp.algorithm.pickupBoost : 0),
+      thumb: piece === 'thumb' ? sp.thumb.weight : 0,
       habitRow: this.t.habit.weight + this.t.habit.weightByDifficulty * d,
       ramp: this.t.pads.ramp.weight,
       bouncer: this.t.pads.bouncer.weight,
@@ -195,6 +200,18 @@ export class Generator {
         const other = shuffle(range(lanes).filter((l) => l !== lane), this.rng)[0];
         this.pickupLine(pickups, other, s + 10, s0 + length);
         this.cursor = s0 + length + this.gap(ctx);
+        break;
+      }
+      case 'thumb': {
+        // Like a moving post: reserve the stretch where it drops, drags toward
+        // you and lets go, with room for the fastest approach. One lane only.
+        const th = this.t.setPieces.thumb;
+        const lane = this.rng.int(0, lanes - 1);
+        const s0 = s + ctx.speed * (th.lead + 0.6);
+        obstacles.push(this.obstacle('thumb', lane, s0, th.length, th.speed));
+        const other = shuffle(range(lanes).filter((l) => l !== lane), this.rng)[0];
+        this.pickupLine(pickups, other, s + 10, s0 + th.length);
+        this.cursor = s0 + th.length + this.gap(ctx);
         break;
       }
       case 'pickupRun': {

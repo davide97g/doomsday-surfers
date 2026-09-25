@@ -33,6 +33,10 @@ export class GameHaptics {
         case 'crash':
           void H.impact({ style: ImpactStyle.Heavy });
           break;
+        case 'thumb':
+          if (e.stage === 'warn') void H.impact({ style: ImpactStyle.Light });
+          else if (e.stage === 'slam') void H.impact({ style: ImpactStyle.Heavy });
+          break;
         case 'stumble':
           void H.impact({ style: ImpactStyle.Medium });
           break;

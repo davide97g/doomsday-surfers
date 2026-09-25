@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { content, mode } from '../content/content';
 import { TUNING, laneX, zoneLook, type ObstacleKind, type PadKind, type SimEvent } from '../sim/types';
 import type { GhostFrame, GhostTrack } from '../sim/ghost';
+import { setPieceFor } from '../sim/setpiece';
 import type { World } from '../sim/world';
 import { atlasMaterial, cellAttribute, hash } from './atlas';
 import { Bend } from './bend';
@@ -19,7 +20,7 @@ import { Gate } from './gate';
 import { Hero } from './hero';
 import { Particles } from './particles';
 import { Post } from './post';
-import { FEED_ATLAS, makeAd, makeAutoplay, makeBookCover, makeBouncerTop, makeContent, makeFeedAtlas, makeMumCall, makeNotification, makeRampFace, makeReel, makeReelFront } from './textures';
+import { FEED_ATLAS, makeAd, makeAutoplay, makeBookCover, makeBouncerTop, makeContent, makeFeedAtlas, makeMumCall, makeNotification, makeRampFace, makeReality, makeReel, makeReelFront, makeSlopAtlas } from './textures';
 
 const VARIANTS = 8;
 // like, notification, reel, outrage (Work: reaction, ping, meeting, reply-all)
@@ -81,6 +82,15 @@ export class GameRenderer {
   private readonly particles: Particles;
   /** The shown doomscroller; the grey-box rig stands in until it has loaded. */
   private hero: Hero | null = null;
+  // Set pieces (sim/setpiece.ts): the Algorithm's eye, the Slop feed, reality leaking in at low dopamine.
+  private feedAtlas!: THREE.Texture;
+  private slopAtlas: THREE.Texture | null = null;
+  private eye!: { root: THREE.Group; pupil: THREE.Object3D; lids: THREE.Object3D; mats: THREE.MeshBasicMaterial[] };
+  private eyeLevel = 0;
+  private readonly realityMats: THREE.MeshBasicMaterial[] = [];
+  private readonly reality: { obj: THREE.Mesh; s: number }[] = [];
+  private realityIn = 0;
+  private realityNext = 0;
   // Challenge ghost: the sender's run as a hologram (grey once it's over: their grave).
   private ghostTrack: GhostTrack | null = null;
   private ghostHero: Hero | null = null;
@@ -211,6 +221,7 @@ export class GameRenderer {
 
     // --- materials ---
     const feedAtlas = makeFeedAtlas();
+    this.feedAtlas = feedAtlas;
     this.mats = {
       // Ground screens are dimmer than towers and obstacles so hazards pop.
       feed: atlasMaterial(feedAtlas, new THREE.Color(0.55, 0.55, 0.6)),
@@ -327,6 +338,9 @@ export class GameRenderer {
     this.scene.add(this.towerBacks);
 
     this.gate = new Gate(this.scene, feedAtlas, this.mats.dark, this.seamMat, visibleAhead);
+    this.eye = this.buildEye(feedAtlas);
+    // Slightly over-bright: windows onto the real world, glaring in the grey.
+    for (let i = 0; i < 4; i++) this.realityMats.push(new THREE.MeshBasicMaterial({ map: makeReality(i), color: new THREE.Color(1.35, 1.35, 1.35), transparent: true, opacity: 0, depthWrite: false }));
 
     // --- pickups: one instanced mesh per content type; brightness follows tolerance ---
     const pickupGeo = new THREE.PlaneGeometry(0.85, 0.85);
@@ -345,6 +359,7 @@ export class GameRenderer {
       post: (v) => this.buildPost(v, false),
       movingPost: (v) => this.buildPost(v, true),
       habit: (v) => this.buildHabit(v),
+      thumb: () => this.buildThumb(),
     };
     this.autoplayTex = makeAutoplay();
     const glow = (hex: string) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(2.2) });
@@ -511,6 +526,89 @@ export class GameRenderer {
       g.add(bar);
     }
     return g;
+  }
+
+  /** The Thumb: your own thumb, colossal, coming down from above and behind the camera
+   *  with its nail toward you and its pad pressing the lane ahead (the footprint).
+   *  Built around the footprint's centre; a warning strip marks the lane it will drag down. */
+  private buildThumb(): THREE.Object3D {
+    const th = TUNING.setPieces.thumb;
+    const g = new THREE.Group();
+    const skin = new THREE.MeshStandardMaterial({ color: '#e3ad8c', roughness: 0.7, emissive: new THREE.Color('#e3ad8c'), emissiveIntensity: 0.3 });
+    const nailMat = new THREE.MeshStandardMaterial({ color: '#f6d6ca', roughness: 0.25, emissive: new THREE.Color('#f6d6ca'), emissiveIntensity: 0.35 });
+    const r = th.halfWidth * 1.3;
+    const len = 44;
+    // Pivot at the tip (far edge of the footprint); the thumb rises toward the camera.
+    const tilt = new THREE.Group();
+    tilt.position.set(0, 0, -th.length / 2);
+    tilt.rotation.x = -0.62;
+    const finger = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 10, 20, 24), skin);
+    finger.rotation.x = Math.PI / 2;
+    finger.position.set(0, r * 0.8, len / 2 + r);
+    finger.scale.set(1.15, 1, 1);
+    const nail = new THREE.Mesh(new THREE.CapsuleGeometry(r * 0.7, 4.2, 6, 14, 6), nailMat);
+    nail.rotation.x = Math.PI / 2;
+    nail.scale.set(1.1, 1, 0.3);
+    nail.position.set(0, r * 1.75, 3.2);
+    // Knuckle crease.
+    const crease = new THREE.Mesh(new THREE.TorusGeometry(r * 1.02, 0.08, 6, 24, Math.PI), new THREE.MeshStandardMaterial({ color: '#b98068', roughness: 0.9 }));
+    crease.position.set(0, r * 0.8, 10);
+    tilt.add(finger, nail, crease);
+    const body = new THREE.Group();
+    body.name = 'body';
+    body.add(tilt);
+    // Warning strip: the footprint plus the stretch it drags toward you.
+    const drag = th.speed * th.drag;
+    const warn = new THREE.Mesh(
+      new THREE.PlaneGeometry(th.halfWidth * 2, th.length + drag, 1, 16),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 0.45, 0.5), transparent: true, opacity: 0.7, depthWrite: false }),
+    );
+    warn.name = 'warn';
+    warn.rotation.x = -Math.PI / 2;
+    warn.position.set(0, 0.14, drag / 2);
+    warn.renderOrder = 2;
+    g.add(body, warn);
+    return g;
+  }
+
+  /** The Algorithm: a giant eye of stacked screens in the sky. */
+  private buildEye(atlas: THREE.Texture): { root: THREE.Group; pupil: THREE.Object3D; lids: THREE.Object3D; mats: THREE.MeshBasicMaterial[] } {
+    // Drawn over everything (no depth test): it looms in front of the towers, always visible.
+    const opts = { transparent: true, opacity: 0, fog: false, depthWrite: false, depthTest: false };
+    const white = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.55, 0.55, 0.62), ...opts });
+    const screen = new THREE.MeshBasicMaterial({ map: atlas, color: new THREE.Color(1.05, 1.05, 1.1), ...opts });
+    const black = new THREE.MeshBasicMaterial({ color: '#000000', ...opts });
+    const root = new THREE.Group();
+    // `lids` squashes the whole eye vertically: a bored squint when it loses interest.
+    const lids = new THREE.Group();
+    const sclera = new THREE.Mesh(new THREE.CircleGeometry(16, 48), white);
+    sclera.scale.y = 0.62;
+    sclera.renderOrder = 10;
+    lids.add(sclera);
+    const iris = new THREE.Group();
+    const cell = new THREE.PlaneGeometry(2.2, 4.4);
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2;
+      const m = new THREE.Mesh(cell, screen);
+      m.position.set(Math.cos(a) * 6.2, Math.sin(a) * 6.2, 0.1);
+      m.rotation.z = a - Math.PI / 2;
+      m.renderOrder = 11;
+      iris.add(m);
+    }
+    const pupil = new THREE.Mesh(new THREE.CircleGeometry(4.2, 32), black);
+    pupil.position.z = 0.2;
+    pupil.renderOrder = 12;
+    iris.add(pupil);
+    lids.add(iris);
+    root.add(lids);
+    // It hangs in the sky, fixed to the view (like the sky dome, not bent with the track):
+    // wherever the course goes, it's up there, watching.
+    root.position.set(0, 6.5, -32);
+    root.scale.setScalar(0.34);
+    root.visible = false;
+    this.camera.add(root);
+    if (!this.camera.parent) this.scene.add(this.camera);
+    return { root, pupil: iris, lids, mats: [white, screen, black] };
   }
 
   private buildHabit(v: number): THREE.Object3D {
@@ -748,6 +846,10 @@ export class GameRenderer {
       if (e.type === 'crash') fx.burst(p.x, 1.2, -0.7, 44, '#bfe9ff', { speed: 7, size: 0.16, life: 1, gravity: 14, bright: 2.2, up: 3 });
       if (e.type === 'revive') fx.burst(p.x, 1, 0, 36, '#ff2e88', { speed: 5, size: 0.3, life: 0.8, gravity: 2, bright: 2.5, up: 2 });
       if (e.type === 'stumble') this.shake = Math.max(this.shake, 0.6);
+      if (e.type === 'thumb' && e.stage === 'slam') {
+        this.shake = Math.max(this.shake, 0.9);
+        fx.burst(laneX(e.lane), 0.2, -14, 40, '#e3ad8c', { speed: 7, size: 0.35, life: 0.8, gravity: 8, bright: 1.4, up: 2 });
+      }
       if (e.type === 'boost') {
         this.shake = Math.max(this.shake, 0.5);
         fx.burst(p.x, 1.1, 0, 48, '#ff2e3b', { speed: 6, size: 0.26, life: 0.9, gravity: 1, bright: 2.6, up: 2 });
@@ -804,6 +906,8 @@ export class GameRenderer {
     this.syncPlayer(w, sdt);
     this.gate.update(w, time);
     this.syncZone(w);
+    this.syncEye(w, dt, time);
+    this.syncReality(w, dt);
     this.syncCamera(w, dt);
     this.syncGhost(w, sdt, time);
     // The sky keeps the world's real orientation, centred on the camera.
@@ -927,6 +1031,19 @@ export class GameRenderer {
           warn.position.z = o.length / 2 - 0.1;
           warn.visible = !o.active || Math.floor(performance.now() / 120) % 2 === 0;
         }
+      } else if (o.kind === 'thumb') {
+        const th = w.t.setPieces.thumb;
+        const up = th.descend + th.drag;
+        obj.visible = o.active && !o.hit && o.age < up + th.lift;
+        const ease = (k: number) => k * k * k;
+        const fall = o.age < th.descend ? 1 - ease(o.age / th.descend) : 0;
+        const rise = o.age > up ? ease(Math.min(1, (o.age - up) / th.lift)) : 0;
+        const y = th.dropHeight * Math.max(fall, rise);
+        obj.position.set(x, 0, -(o.s + o.length / 2 - w.d));
+        obj.getObjectByName('body')!.position.y = y;
+        const warn = obj.getObjectByName('warn')!;
+        warn.visible = o.age < th.descend;
+        ((warn as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.35 + 0.45 * (Math.floor(performance.now() / 110) % 2);
       } else if (o.kind === 'habit') {
         obj.position.set(x, 0, -(o.s - w.d));
         const ring = obj.getObjectByName('ring');
@@ -1067,6 +1184,11 @@ export class GameRenderer {
     const to = ZONES[zoneLook(w.zone) % ZONES.length];
     const from = ZONES[zoneLook(Math.max(0, w.zone - 1)) % ZONES.length];
     const k = w.gateT >= 0 ? THREE.MathUtils.smoothstep(w.gateT / w.t.gate.duration, 0.3, 0.7) : 1;
+    // The Slop zone swaps the whole feed for slop, halfway through the gate's turn.
+    const slop = (k > 0.5 ? w.setPiece : setPieceFor(Math.max(0, w.zone - 1), w.seed)) === 'slop';
+    if (slop && !this.slopAtlas) this.slopAtlas = makeSlopAtlas();
+    const map = slop ? this.slopAtlas! : this.feedAtlas;
+    if (this.mats.feed.map !== map) this.mats.feed.map = this.mats.tower.map = map;
     this.seamMat.color.copy(from.seam).lerp(to.seam, k);
     this.hemi.color.copy(from.light).lerp(to.light, k);
     this.skyColour.copy(from.sky).lerp(to.sky, k);
@@ -1077,6 +1199,58 @@ export class GameRenderer {
     u.top.value.copy(this.skyColour).multiplyScalar(0.35);
     u.bottom.value.copy(this.skyColour).multiplyScalar(0.25);
     u.glow.value.copy(this.seamMat.color);
+  }
+
+  /** The Algorithm's eye fades in over its zone, follows you, and looks away while it sulks. */
+  private syncEye(w: World, dt: number, time: number): void {
+    const target = w.setPiece === 'algorithm' && w.gateT < 0 && w.phase !== 'ready' ? 1 : 0;
+    this.eyeLevel += (target - this.eyeLevel) * (1 - Math.exp(-dt * 1.5));
+    const eye = this.eye;
+    eye.root.visible = this.eyeLevel > 0.01;
+    if (!eye.root.visible) return;
+    const [white, screen, black] = eye.mats;
+    white.opacity = 0.9 * this.eyeLevel;
+    screen.opacity = this.eyeLevel;
+    black.opacity = this.eyeLevel;
+    const sulking = w.sulkT > 0;
+    const px = sulking ? 7.5 : THREE.MathUtils.clamp(w.player.x * 1.6, -6, 6);
+    const py = sulking ? 2.5 : -1.5 + Math.sin(time * 0.7) * 0.6;
+    eye.pupil.position.x += (px - eye.pupil.position.x) * (1 - Math.exp(-dt * 6));
+    eye.pupil.position.y += (py - eye.pupil.position.y) * (1 - Math.exp(-dt * 6));
+    // A bored squint when it has lost interest; wide open (and throbbing) when it's feeding you.
+    const open = sulking ? 0.35 : 1 + 0.05 * Math.sin(time * 5);
+    eye.lids.scale.y += (open - eye.lids.scale.y) * (1 - Math.exp(-dt * 6));
+  }
+
+  /** Below `reality.below` dopamine, fragments of real life stand by the track: horror, in this world. */
+  private syncReality(w: World, dt: number): void {
+    const r = w.t.setPieces.reality;
+    const low = w.phase === 'running' && w.dopamine < r.below;
+    const target = low ? Math.min(1, 0.45 + (r.below - w.dopamine) / r.below) : 0;
+    this.realityIn += (target - this.realityIn) * (1 - Math.exp(-dt * (low ? 2 : 5)));
+    for (const m of this.realityMats) m.opacity = this.realityIn;
+    this.realityNext -= dt;
+    if (low && this.realityNext <= 0) {
+      this.realityNext = r.every;
+      const n = this.reality.length;
+      const obj = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 4.6), this.realityMats[Math.floor(w.d / 7) % 4]);
+      obj.userData.side = n % 2 === 0 ? -1 : 1;
+      this.bend.patchTree(obj);
+      this.scene.add(obj);
+      this.reality.push({ obj, s: w.d + 48 });
+    }
+    for (let i = this.reality.length - 1; i >= 0; i--) {
+      const it = this.reality[i];
+      const z = -(it.s - w.d);
+      if (z > 8 || w.phase === 'ready') {
+        this.scene.remove(it.obj);
+        it.obj.geometry.dispose();
+        this.reality.splice(i, 1);
+        continue;
+      }
+      it.obj.position.set(it.obj.userData.side * 4.1, 2.5, z);
+      it.obj.rotation.y = -it.obj.userData.side * 0.5;
+    }
   }
 
   private syncCamera(w: World, dt: number): void {

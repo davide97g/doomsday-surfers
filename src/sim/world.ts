@@ -27,6 +27,7 @@
 
 import { Course } from './course';
 import { Generator } from './generator';
+import { setPieceFor, type SetPiece } from './setpiece';
 import {
   TUNING,
   gateS,
@@ -102,6 +103,8 @@ export class World {
   crashKind: ObstacleKind | null = null;
   /** Habit type of the last healthy habit walked into, -1 if none (the usual killer on 'empty'). */
   lastHabit = -1;
+  /** Algorithm zone: seconds the eye stays turned away after you hit a habit. */
+  sulkT = 0;
   /** Average dopamine over each `daily.sampleEvery` s of sim time (the Daily's share grid). */
   history: number[] = [];
   private sampleSum = 0;
@@ -175,6 +178,7 @@ export class World {
     this.crashKind = null;
     this.lastHabit = -1;
     this.history = [];
+    this.sulkT = 0;
     this.sampleSum = 0;
     this.sampleT = 0;
     this.fadeT = 0;
@@ -240,9 +244,20 @@ export class World {
   }
 
   /** Gain the next pickup of this content type would give. */
+  /** The current zone's set piece (null before the first gate). */
+  get setPiece(): SetPiece | null {
+    return setPieceFor(this.zone, this.seed);
+  }
+
+  /** Algorithm zone, and the eye is on you: content hits harder. */
+  get watching(): boolean {
+    return this.sulkT <= 0 && this.setPiece === 'algorithm';
+  }
+
   gainFor(type: number): number {
     const craving = type === this.favourite ? this.t.characters.cravingGain : 1;
-    return this.t.content.gain * this.tolerance[type] * craving;
+    const watched = this.watching ? 1 + this.t.setPieces.algorithm.bonus : 1;
+    return this.t.content.gain * this.tolerance[type] * craving * watched;
   }
 
   step(dt: number, actions: readonly Action[]): void {
@@ -289,7 +304,16 @@ export class World {
     const ride = this.course.finished(prevD, this.d);
     if (ride && (ride.kind === 'loop' || ride.kind === 'corkscrew' || ride.kind === 'drop')) this.thrill(ride.kind);
 
+    if (this.sulkT > 0) {
+      this.sulkT -= dt;
+      if (this.sulkT <= 0 && this.setPiece === 'algorithm') this.events.push({ type: 'algorithm', watching: true });
+    }
+
     for (const o of this.obstacles) {
+      if (o.kind === 'thumb') {
+        this.stepThumb(o, dt);
+        continue;
+      }
       if (o.speed > 0) {
         if (!o.active && o.s - this.d < t.movingPost.trigger) o.active = true;
         if (o.active) o.s -= o.speed * dt;
@@ -539,6 +563,10 @@ export class World {
       case 'post':
       case 'movingPost':
         return { x0: cx - t.post.halfWidth, x1: cx + t.post.halfWidth, y0: 0, y1: t.post.height, s0: o.s, s1: o.s + o.length };
+      case 'thumb': {
+        const th = t.setPieces.thumb;
+        return { x0: cx - th.halfWidth, x1: cx + th.halfWidth, y0: 0, y1: th.height, s0: o.s, s1: o.s + o.length };
+      }
       case 'habit':
         return { x0: cx - t.habit.halfWidth, x1: cx + t.habit.halfWidth, y0: 0, y1: t.habit.height, s0: o.s - t.habit.halfDepth, s1: o.s + t.habit.halfDepth };
     }
@@ -547,7 +575,7 @@ export class World {
   private collide(prev: Box): void {
     const pb = this.playerBox();
     for (const o of this.obstacles) {
-      if (o.hit) continue;
+      if (o.hit || (o.kind === 'thumb' && !this.thumbDown(o))) continue;
       const ob = this.obstacleBox(o);
       if (!overlaps(pb, ob)) continue;
 
@@ -562,7 +590,7 @@ export class World {
         this.hitHabit(o);
         continue;
       }
-      const isPost = o.kind === 'post' || o.kind === 'movingPost';
+      const isPost = o.kind === 'post' || o.kind === 'movingPost' || o.kind === 'thumb';
       // Side hit: we were already alongside the post last tick, and only the
       // lateral axis started overlapping. That's a stumble, not a crash.
       const wasAlongside = prev.s1 > ob.s0 + 0.05 && prev.s0 < ob.s1;
@@ -578,12 +606,42 @@ export class World {
     }
   }
 
+  /** The Thumb drops once you're `lead` seconds away, lands, drags toward you, then lets go. */
+  private stepThumb(o: Obstacle, dt: number): void {
+    const th = this.t.setPieces.thumb;
+    if (!o.active) {
+      if (o.s - this.d < this.speed * th.lead) {
+        o.active = true;
+        o.age = 0;
+        this.events.push({ type: 'thumb', stage: 'warn', lane: o.lane });
+      }
+      return;
+    }
+    const before = o.age;
+    o.age += dt;
+    const up = th.descend + th.drag;
+    if (before < th.descend && o.age >= th.descend) this.events.push({ type: 'thumb', stage: 'slam', lane: o.lane });
+    if (this.thumbDown(o)) o.s -= th.speed * dt;
+    if (before < up && o.age >= up) this.events.push({ type: 'thumb', stage: 'lift', lane: o.lane });
+  }
+
+  /** On the track (solid): between landing and letting go. */
+  thumbDown(o: Obstacle): boolean {
+    const th = this.t.setPieces.thumb;
+    return o.active && o.age >= th.descend && o.age < th.descend + th.drag;
+  }
+
   private hitHabit(o: Obstacle): void {
     const h = this.t.habit;
     const cost = h.cost * this.t.characters.habitCost[this.character];
     o.hit = true;
     this.habitsHit++;
     this.lastHabit = o.variant;
+    // The Algorithm loses interest in someone drinking water.
+    if (this.setPiece === 'algorithm') {
+      if (this.sulkT <= 0) this.events.push({ type: 'algorithm', watching: false });
+      this.sulkT = this.t.setPieces.algorithm.sulk;
+    }
     this.dopamine -= cost;
     this.slowT = h.slowTime;
     this.events.push({ type: 'habit', id: o.id, habit: o.variant, cost });

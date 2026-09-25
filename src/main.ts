@@ -23,6 +23,7 @@ import { Desk } from './ui/desk';
 import { Nags } from './ui/nags';
 import { Reel } from './ui/reel';
 import { Select } from './ui/select';
+import { SetPieceUi } from './ui/setpieces';
 import { shareText } from './ui/share';
 import type { Sfx } from './ui/sfx';
 import { Title } from './ui/title';
@@ -103,6 +104,7 @@ nags.onSwipe = (a) => input.push(a);
 const keepGoing = new KeepGoing(hud.root, sfx);
 const death = new Death(hud.root, sfx);
 const gateScan = new GateScan(hud.root, sfx);
+const setPieceUi = new SetPieceUi(hud.root);
 const race = new Race(hud.root, sfx);
 death.race = race;
 // Auto-clip: every run is encoded as it plays; death cuts the montage.
@@ -269,6 +271,7 @@ function frame(now: number): void {
   if (!bot) keepGoing.update(world, dt);
   death.update(world, dt, nags);
   race.update(world, dt, view.ghostTag);
+  setPieceUi.update(world);
 
   cpuAcc += performance.now() - cpuStart;
   fpsFrames++;
