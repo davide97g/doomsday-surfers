@@ -32,14 +32,14 @@
     "notificationTitles": ["New follower", "3 new likes", "Someone replied", "You were tagged", "Streak ending!", "Trending now"]
   },
   "brands": [
-    { "name": "SlopCola", "line": "Taste the Content", "bg": "#ff2e2e", "fg": "#fff5c2", "jingle": [0, 4, 7, 12] },
-    { "name": "GrindsetGPT", "line": "Hustle while you sleep", "bg": "#111111", "fg": "#ffcc00", "jingle": [0, 0, 7, 5] },
-    { "name": "DopaMint", "line": "Now 40% more mint", "bg": "#1fff8f", "fg": "#0a2a1a", "jingle": [7, 4, 0, 4] },
-    { "name": "FOMOfone", "line": "You are missing out", "bg": "#7b2eff", "fg": "#ffffff", "jingle": [0, 2, 4, 11] },
-    { "name": "BrainFog", "line": "Energy drink. Focus is overrated.", "bg": "#ff7a1f", "fg": "#1a0b00", "jingle": [12, 7, 3, 0] },
-    { "name": "Lonely.ai", "line": "She's always online", "bg": "#ff8ad8", "fg": "#2a0020", "jingle": [0, 3, 7, 10] },
-    { "name": "NapLess", "line": "Sleep is for the unsubscribed", "bg": "#0a1a3a", "fg": "#9fd2ff", "jingle": [0, 5, 9, 12] },
-    { "name": "Serotonin+", "line": "0% serotonin. 100% plus.", "bg": "#00e1ff", "fg": "#002a33", "jingle": [4, 7, 12, 16] }
+    { "name": "SlopCola", "line": "Taste the Content", "slang": "main character hydration 💯", "bg": "#ff2e2e", "fg": "#fff5c2", "jingle": [0, 4, 7, 12] },
+    { "name": "GrindsetGPT", "line": "Hustle while you sleep", "slang": "delulu is the solulu (for Q3)", "bg": "#111111", "fg": "#ffcc00", "jingle": [0, 0, 7, 5] },
+    { "name": "DopaMint", "line": "Now 40% more mint", "slang": "+1000 aura per sip", "bg": "#1fff8f", "fg": "#0a2a1a", "jingle": [7, 4, 0, 4] },
+    { "name": "FOMOfone", "line": "You are missing out", "slang": "lowkey the only phone with a feed", "bg": "#7b2eff", "fg": "#ffffff", "jingle": [0, 2, 4, 11] },
+    { "name": "BrainFog", "line": "Energy drink. Focus is overrated.", "slang": "brainrot, but make it caffeinated", "bg": "#ff7a1f", "fg": "#1a0b00", "jingle": [12, 7, 3, 0] },
+    { "name": "Lonely.ai", "line": "She's always online", "slang": "she's literally so delulu for you", "bg": "#ff8ad8", "fg": "#2a0020", "jingle": [0, 3, 7, 10] },
+    { "name": "NapLess", "line": "Sleep is for the unsubscribed", "slang": "sleep is for NPCs", "bg": "#0a1a3a", "fg": "#9fd2ff", "jingle": [0, 5, 9, 12] },
+    { "name": "Serotonin+", "line": "0% serotonin. 100% plus.", "slang": "now 6-7% more serotonin", "bg": "#00e1ff", "fg": "#002a33", "jingle": [4, 7, 12, 16] }
   ],
   "contentTypes": [
     { "id": "like", "name": "Likes" },
@@ -259,6 +259,13 @@
     }
   },
   "scroll": { "combo": "SCROLL SPEED ×{n}" },
+  "aura": { "plus": "+{n} AURA", "minus": "-{n} AURA", "crash": "-∞ AURA" },
+  "sixSeven": {
+    "line2": "… Six. Seven.",
+    "voice": ["s", "ih", "k", "s", "_", "s", "eh:", "v", "ax", "n"],
+    "diagnosis": "DIAGNOSIS: 6-7",
+    "quote": "“Nobody knows what it means. You laughed.”"
+  },
   "keepGoing": {
     "title": "You've been scrolling for {m} minutes.",
     "body": "Keep going?",
@@ -319,7 +326,7 @@
     "shareText": "I scrolled {distance} m and was killed by {killer}. #ProofOfDoom",
     "shareTitle": "Proof of Doom"
   },
-  "battery": { "label": "DOPAMINE", "low": "LOW DOPAMINE" },
+  "battery": { "label": "DOPAMINE", "low": "LOW DOPAMINE", "cooked": "you're cooked" },
   "hud": { "distance": "SCROLLED", "score": "ENGAGEMENT" },
   "gate": {
     "tag": "PERSONALIZATION CHECKPOINT",

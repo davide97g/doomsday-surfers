@@ -2,7 +2,7 @@
 export interface Sfx {
   chime(): void;
   /** The system voice says the death line's last word ("Disgusting."). */
-  voice(): void;
+  voice(phonemes?: readonly string[]): void;
   jingle(notes: readonly number[]): void;
   tick(): void;
   click(): void;

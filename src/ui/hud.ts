@@ -16,6 +16,8 @@ export interface PerfToggles {
 }
 
 const LOW = 25;
+/** Below this the label drops the clinical voice: "you're cooked". */
+const COOKED = 10;
 const WORK = mode === 'work';
 type Presence = keyof typeof work.status;
 
@@ -57,6 +59,7 @@ export class Hud {
   private readonly toast: HTMLElement;
   private toastTimer = 0;
   private low = false;
+  private cooked = false;
   private boosting = false;
   private shownPct = -1;
   private presence: Presence = 'available';
@@ -125,10 +128,12 @@ export class Hud {
       this.batFill.style.transform = `scaleX(${pct / 100})`;
       this.batPct.textContent = `${pct}%`;
       const low = pct <= LOW;
-      if (low !== this.low) {
+      const cooked = pct <= COOKED;
+      if (low !== this.low || cooked !== this.cooked) {
         this.low = low;
+        this.cooked = cooked;
         this.battery.classList.toggle('low', low);
-        if (!WORK) this.batLabel.textContent = low ? content.battery.low : content.battery.label;
+        if (!WORK) this.batLabel.textContent = cooked ? content.battery.cooked : low ? content.battery.low : content.battery.label;
       }
       const p = presence(pct);
       if (WORK && p !== this.presence) {

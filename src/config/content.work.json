@@ -61,12 +61,12 @@
     "notificationTitles": ["RE: RE: FW:", "Action required", "URGENT", "Reply all", "Meeting updated", "Out of office"]
   },
   "brands": [
-    { "name": "Delegate.ai", "line": "Let AI attend your meetings", "bg": "#0b1d3a", "fg": "#7fe0ff", "jingle": [0, 4, 7, 11] },
-    { "name": "JiggleMate", "line": "Always Available™", "bg": "#1fbf5f", "fg": "#04210f", "jingle": [0, 7, 0, 7] },
-    { "name": "Workslop Pro", "line": "Deliverables that look done", "bg": "#f2f2f2", "fg": "#1a1a1a", "jingle": [0, 2, 4, 5] },
-    { "name": "ProductiviTea", "line": "Hustle, steeped", "bg": "#2e5e3a", "fg": "#f4ffe0", "jingle": [7, 5, 4, 0] },
-    { "name": "Humbl Premium", "line": "See who ignored your post", "bg": "#123a6b", "fg": "#ffffff", "jingle": [0, 4, 9, 12] },
-    { "name": "StandDesk 3000", "line": "Suffer upright", "bg": "#ff7a1f", "fg": "#1a0b00", "jingle": [12, 7, 4, 0] }
+    { "name": "Delegate.ai", "line": "Let AI attend your meetings", "slang": "your AI twin has main character energy", "bg": "#0b1d3a", "fg": "#7fe0ff", "jingle": [0, 4, 7, 11] },
+    { "name": "JiggleMate", "line": "Always Available™", "slang": "+1000 aura on the org chart", "bg": "#1fbf5f", "fg": "#04210f", "jingle": [0, 7, 0, 7] },
+    { "name": "Workslop Pro", "line": "Deliverables that look done", "slang": "delulu deliverables, on time", "bg": "#f2f2f2", "fg": "#1a1a1a", "jingle": [0, 2, 4, 5] },
+    { "name": "ProductiviTea", "line": "Hustle, steeped", "slang": "brainrot, but billable", "bg": "#2e5e3a", "fg": "#f4ffe0", "jingle": [7, 5, 4, 0] },
+    { "name": "Humbl Premium", "line": "See who ignored your post", "slang": "lowkey see who's watching your posts", "bg": "#123a6b", "fg": "#ffffff", "jingle": [0, 4, 9, 12] },
+    { "name": "StandDesk 3000", "line": "Suffer upright", "slang": "posture is the new aura", "bg": "#ff7a1f", "fg": "#1a0b00", "jingle": [12, 7, 4, 0] }
   ],
   "contentTypes": [
     { "id": "like", "name": "Reactions" },
@@ -226,6 +226,7 @@
     }
   },
   "scroll": { "combo": "PING SPEED ×{n}" },
+  "aura": { "plus": "+{n} VISIBILITY", "minus": "-{n} VISIBILITY", "crash": "-∞ VISIBILITY" },
   "keepGoing": { "title": "You've been online for {m} minutes.", "body": "Log overtime?" },
   "revive": {
     "title": "You appear offline.",

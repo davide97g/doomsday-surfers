@@ -403,7 +403,8 @@ export class Nags {
     this.banner.style.setProperty('--ad-bg', brand.bg);
     this.banner.style.setProperty('--ad-fg', brand.fg);
     this.banner.querySelector('.banner-copy b')!.textContent = brand.name;
-    this.banner.querySelector('.banner-copy span')!.textContent = brand.line;
+    // Half the time the brand tries to talk like you. It shouldn't.
+    this.banner.querySelector('.banner-copy span')!.textContent = brand.slang && Math.random() < 0.5 ? brand.slang : brand.line;
     this.bannerClose.classList.add('hidden');
     this.banner.classList.remove('hidden');
     restartAnimation(this.banner);

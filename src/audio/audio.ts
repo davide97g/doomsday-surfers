@@ -314,9 +314,9 @@ export class GameAudio {
   }
 
   /** The system voice: the death line's last word, flat. */
-  voice(): void {
+  voice(phonemes: readonly string[] = content.death.voice): void {
     if (!this.ready) return;
-    scheduleWord(this.ctx!, this.master, this.ctx!.currentTime + 0.02, content.death.voice, 0.8);
+    scheduleWord(this.ctx!, this.master, this.ctx!.currentTime + 0.02, phonemes, 0.8);
   }
 
   /** Work card arrival, one sound per app (and 'decline' for a hung-up call). */

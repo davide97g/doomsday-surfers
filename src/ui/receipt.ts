@@ -72,7 +72,14 @@ function aura(w: World): string {
     w.smashed * a.smashed +
     w.habitsHit * a.habit +
     (w.cause === 'crash' ? a.crash : a.empty);
+  // A crash is infinite aura loss (the popup said so).
+  if (w.cause === 'crash') return '-∞';
   return `${n > 0 ? '+' : n < 0 ? '-' : ''}${Math.abs(n).toLocaleString('en-US')}`;
+}
+
+/** The 6-7 easter egg: die at a distance ending in 67 m, or with exactly 67 pickups. */
+export function sixSeven(w: World): boolean {
+  return Math.floor(w.d) % 100 === 67 || w.pickupsTaken === 67;
 }
 
 export function brainAge(w: World): number {
@@ -139,8 +146,15 @@ export function buildReceipt(w: World, nags: Nags, daily: number | null = null, 
     { k: 'row', l: R.brainAge, r: String(brainAge(w)) },
     { k: 'rule' },
     { k: 'text', t: top < 0 ? R.topNone : fill(R.top, { pct: topPct(w.d), craving: types[top].name.toUpperCase() }) },
-    { k: 'text', t: fill(R.diagnosis, { tier: diag.name }), size: 'big' },
-    { k: 'text', t: `“${diag.line}”`, size: 'small' },
+    ...(sixSeven(w)
+      ? ([
+          { k: 'text', t: content.sixSeven.diagnosis, size: 'big' },
+          { k: 'text', t: content.sixSeven.quote, size: 'small' },
+        ] as Line[])
+      : ([
+          { k: 'text', t: fill(R.diagnosis, { tier: diag.name }), size: 'big' },
+          { k: 'text', t: `“${diag.line}”`, size: 'small' },
+        ] as Line[])),
     { k: 'gap' },
     { k: 'text', t: fill(R.killedBy, { killer: kill }), size: 'big' },
     { k: 'gap' },

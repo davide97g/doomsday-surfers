@@ -849,3 +849,19 @@ html, body {
 /* First launch: nothing but the clock and the unlock prompt. */
 .lock.first .lock-note, .lock.first .lock-slot, .lock.first .focus, .lock.first .keys { display: none; }
 .lock.first .unlock-label { font-size: 22px; font-weight: 800; animation: pulse 1.2s ease-in-out infinite; }
+
+/* ---------- aura popups, the brands' slang line ---------- */
+.aura-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
+.aura-pop {
+  position: absolute; left: 50%; top: 56%; white-space: nowrap;
+  font: 900 20px system-ui, sans-serif; letter-spacing: .03em;
+  transform: translate(calc(-50% + var(--dx, 0px)), 0); animation: aura-rise 1.15s ease-out forwards;
+}
+.aura-pop.good { color: #ffd23f; text-shadow: 0 0 14px rgba(255,210,63,.8), 0 2px 0 #000; }
+.aura-pop.bad { color: #ff4d5e; text-shadow: 0 0 10px rgba(255,77,94,.6), 0 2px 0 #000; }
+@keyframes aura-rise {
+  0% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), 10px) scale(.8); }
+  15% { opacity: 1; transform: translate(calc(-50% + var(--dx, 0px)), 0) scale(1.1); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), -90px) scale(1); }
+}
+.ad-slang { font-size: 14px; font-weight: 800; font-style: italic; opacity: .85; }

@@ -11,7 +11,7 @@ import { fill, pick } from '../content/templates';
 import { TUNING } from '../sim/types';
 import type { World } from '../sim/world';
 import type { Nags } from './nags';
-import { buildReceipt, drawReceipt, shareCard, type Paper, type Receipt } from './receipt';
+import { buildReceipt, drawReceipt, shareCard, sixSeven, type Paper, type Receipt } from './receipt';
 import type { Sfx } from './sfx';
 import { shareLine } from './daily';
 import { Ending } from './ending';
@@ -100,6 +100,7 @@ export class Death {
       <div class="ad-product"></div>
       <div class="ad-brand"></div>
       <div class="ad-line"></div>
+      <div class="ad-slang"></div>
       <button class="ad-skip">${r.skip}</button>`;
     this.adCount = this.ad.querySelector('.ad-count')!;
     this.adSkip = this.ad.querySelector('.ad-skip')!;
@@ -188,7 +189,7 @@ export class Death {
         if (r.at > this.finalT || r.el.classList.contains('on')) continue;
         r.el.classList.add('on');
         if (r.el.classList.contains('dead-buttons')) this.buttonLive = true;
-        if ('voice' in r.el.dataset) this.sfx.voice();
+        if ('voice' in r.el.dataset) this.sfx.voice(this.world && sixSeven(this.world) ? content.sixSeven.voice : content.death.voice);
       }
       this.print();
       this.idle += dt;
@@ -276,6 +277,7 @@ export class Death {
     this.ad.style.setProperty('--ad-fg', brand.fg);
     this.ad.querySelector('.ad-brand')!.textContent = brand.name;
     this.ad.querySelector('.ad-line')!.textContent = brand.line;
+    this.ad.querySelector('.ad-slang')!.textContent = brand.slang ?? '';
     this.adSkip.textContent = content.revive.skip;
     this.adLeft = TUNING.revive.adSeconds;
     this.adCount.textContent = fill(content.revive.countdown, { n: this.adLeft });
@@ -283,6 +285,8 @@ export class Death {
   }
 
   private buildReport(): void {
+    // 6-7: the death line itself changes.
+    this.final.querySelector<HTMLElement>('[data-voice]')!.textContent = sixSeven(this.world!) ? content.sixSeven.line2 : content.death.line2;
     this.receipt = buildReceipt(this.world!, this.nags!, this.daily, this.race?.result(this.world!) ?? null);
     this.showHandle();
     const paper = drawReceipt(this.receipt);

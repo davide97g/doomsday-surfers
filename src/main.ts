@@ -25,6 +25,7 @@ import { Nags } from './ui/nags';
 import { Reel } from './ui/reel';
 import { Select } from './ui/select';
 import { SetPieceUi } from './ui/setpieces';
+import { AuraPops } from './ui/aura';
 import { shareText } from './ui/share';
 import type { Sfx } from './ui/sfx';
 import { Title } from './ui/title';
@@ -61,7 +62,7 @@ const audio = new GameAudio();
 const haptics = new GameHaptics();
 // UI sounds, plus the phone buzz that makes a fake notification feel real.
 const sfx: Sfx = {
-  voice: () => audio.voice(),
+  voice: (phonemes) => audio.voice(phonemes),
   chime: () => {
     audio.chime();
     haptics.buzz();
@@ -107,6 +108,7 @@ const keepGoing = new KeepGoing(hud.root, sfx);
 const death = new Death(hud.root, sfx);
 const gateScan = new GateScan(hud.root, sfx);
 const setPieceUi = new SetPieceUi(hud.root);
+const aura = new AuraPops(hud.root);
 const race = new Race(hud.root, sfx);
 death.race = race;
 // Auto-clip: every run is encoded as it plays; death cuts the montage.
@@ -219,7 +221,7 @@ hud.onPerfChange = (p) => {
 };
 
 // Expose for automated tests / debugging in the console.
-(window as unknown as { game: unknown }).game = { world, view, input, audio, nags, reel, desk, keepGoing, death, race, recorder, clip };
+(window as unknown as { game: unknown }).game = { world, view, input, audio, nags, reel, desk, keepGoing, death, race, recorder, clip, aura };
 
 let last = performance.now();
 let acc = 0;
@@ -252,6 +254,7 @@ function frame(now: number): void {
   haptics.handle(events);
   hud.handle(events);
   gateScan.handle(events, world);
+  aura.handle(events);
   if (events.some((e) => e.type === 'gate')) {
     nags.hideAll();
     reel.hide();

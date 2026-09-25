@@ -27,6 +27,7 @@ const FRICATIVES: Record<string, Noise> = {
   s: { band: 6200, q: 0.9, gain: 0.5 },
   sh: { band: 2800, q: 1.1, gain: 0.55 },
   f: { band: 4000, q: 0.4, gain: 0.25 },
+  v: { band: 3600, q: 0.5, gain: 0.18 },
 };
 // Plosives: a closure (silence), then a short burst.
 const PLOSIVES: Record<string, { closure: number; band: number; voiced: boolean }> = {
@@ -34,6 +35,7 @@ const PLOSIVES: Record<string, { closure: number; band: number; voiced: boolean 
   t: { closure: 0.05, band: 4200, voiced: false },
   d: { closure: 0.03, band: 3000, voiced: true },
   g: { closure: 0.04, band: 1800, voiced: true },
+  k: { closure: 0.05, band: 2200, voiced: false },
 };
 
 const BASE_PITCH = 98;
@@ -45,7 +47,7 @@ function noiseBuffer(ctx: BaseAudioContext): AudioBuffer {
   return b;
 }
 
-/** Says `phonemes` (e.g. ["d","ih","s","g","uh:","s","t","ih","ng"]; ':' = stressed, longer) at `t`. Returns its length. */
+/** Says `phonemes` (e.g. ["d","ih","s","g","uh:","s","t","ih","ng"]; ':' = stressed, longer; '_' = a pause) at `t`. Returns its length. */
 export function scheduleWord(ctx: BaseAudioContext, out: AudioNode, t: number, phonemes: readonly string[], vol = 0.5): number {
   // Voice source: a buzzy pulse through three parallel formant filters.
   const src = ctx.createOscillator();
@@ -82,7 +84,11 @@ export function scheduleWord(ctx: BaseAudioContext, out: AudioNode, t: number, p
     const v = VOICED[ph];
     const fr = FRICATIVES[ph];
     const pl = PLOSIVES[ph];
-    if (v) {
+    if (ph === '_') {
+      voiceGain.gain.setTargetAtTime(0, at, 0.02);
+      hissGain.gain.setTargetAtTime(0, at, 0.02);
+      at += 0.28;
+    } else if (v) {
       const dur = (v.nasal ? 0.12 : 0.1) * (stressed ? 1.7 : 1) * (i === n - 1 ? 1.8 : 1);
       formants.forEach((bp, k) => bp.frequency.setTargetAtTime(v.f[k], at, 0.025));
       voiceGain.gain.setTargetAtTime(vol * (v.nasal ? 0.45 : 1), at, 0.02);
@@ -93,7 +99,9 @@ export function scheduleWord(ctx: BaseAudioContext, out: AudioNode, t: number, p
       hissBand.frequency.setValueAtTime(fr.band, at);
       hissBand.Q.setValueAtTime(fr.q, at);
       hissGain.gain.setTargetAtTime(vol * fr.gain, at, 0.015);
-      at += 0.13;
+      // 'v' is a voiced 'f': keep a little buzz under the hiss.
+      if (ph === 'v') voiceGain.gain.setTargetAtTime(vol * 0.3, at, 0.015);
+      at += ph === 'v' ? 0.08 : 0.13;
       hissGain.gain.setTargetAtTime(0, at, 0.015);
     } else if (pl) {
       voiceGain.gain.setTargetAtTime(0, at, 0.008);

@@ -70,7 +70,7 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 | 6 | Set pieces: The Thumb, Algorithm zone, Slop zone, reality intrusions | clip-worthy wow | built 2026-09-25, pending on-device feel + balance check |
 | 7 | Pitch-literal scroll gesture (flick combo) | makes the pitch visible in gameplay | built 2026-09-25, pending on-device feel test |
 | 8 | Signature audio + first 5 seconds | memeable sound, instant hook | built 2026-09-25, pending on-device listen |
-| 9 | Wildcards (aura, 6-7, -A texts, …) | cheap spice, sprinkle any time | todo |
+| 9 | Wildcards: aura popups, 6-7, brand slang, 'you're cooked' | cheap spice, sprinkle any time | built 2026-09-25 |
 | — | Work mode (corporate parody, see `docs/work-mode.md`) | niche entry: office humour | built 2026-09-24, pending on-device sound check |
 
 ---
@@ -264,13 +264,13 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 
 **To check on device.** Whether the voice is intelligible and funny (tweak the formants or durations in `voice.ts`); volume against the grey room tone.
 
-## 9. Wildcards (cheap spice, each needs a yes)
+## 9. Wildcards (built)
 
-- **Aura score.** Live popups: loop +1000 aura, gate +500, opening a notification +67, crash "−∞ aura". The death card shows the net aura. Rides *aura farming*.
-- **6-7 easter egg.** Dying at a distance ending in 67 m, or with exactly 67 pickups, swaps the death line for a special cold one and shows a rare card. People will hunt for it.
-- **"-A" texts.** A notification subtype with anonymous callouts of your actual run stats ("You ignored Mum 3 times. -A").
-- **Brands speaking slang wrong.** SlopCola: "no cap this cola is bussin fr fr 🧢". The corporate cringe is the joke.
-- **"cooked" HUD.** The battery below 10% reads "you're cooked".
+**Decided 2026-09-25.** The "-A" texts were not chosen.
+- **Aura popups** (`ui/aura.ts`): "+1,000 AURA" on thrills, "+500" on gates, "+67" on opening a push, "+150" on a boosted smash, "-800 AURA" on a habit, "-∞ AURA" on a crash. They use the same weights as the receipt's aura line, which now reads "-∞" after a crash. Work: "VISIBILITY".
+- **6-7 easter egg:** die at a final distance ending in 67 m, or with exactly 67 pickups. The death line becomes "… Six. Seven." (the synth voice says it) and the receipt reads "DIAGNOSIS: 6-7" / "Nobody knows what it means. You laughed." Note: the meme is fading (Dictionary.com's 2025 word, still hanging on in 2026), so remove it when it dates.
+- **Brands say slang wrong:** every invented brand has a `slang` tagline, shown half the time on banners and under the revive ad ("SlopCola: main character hydration 💯", "GrindsetGPT: delulu is the solulu (for Q3)", "Serotonin+: now 6-7% more serotonin"; Work: "ProductiviTea: brainrot, but billable"). **Tone rule:** meme-native words only (aura, delulu, main character, brainrot, NPC, 6-7). Much brand "Gen Z slang" is really African American English, and the joke is the brand, never a dialect.
+- **"you're cooked":** the battery label below 10% (Personal only; Work keeps its presence pill).
 
 ---
 
