@@ -69,7 +69,7 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 | 5 | Hidden ending | the secret, content for 1 and 4 | built 2026-09-25, pending on-device feel check |
 | 6 | Set pieces: The Thumb, Algorithm zone, Slop zone, reality intrusions | clip-worthy wow | built 2026-09-25, pending on-device feel + balance check |
 | 7 | Pitch-literal scroll gesture (flick combo) | makes the pitch visible in gameplay | built 2026-09-25, pending on-device feel test |
-| 8 | Signature audio + first 5 seconds | memeable sound, instant hook | todo |
+| 8 | Signature audio + first 5 seconds | memeable sound, instant hook | built 2026-09-25, pending on-device listen |
 | 9 | Wildcards (aura, 6-7, -A texts, …) | cheap spice, sprinkle any time | todo |
 | — | Work mode (corporate parody, see `docs/work-mode.md`) | niche entry: office humour | built 2026-09-24, pending on-device sound check |
 
@@ -252,13 +252,17 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 
 **To check on device.** Whether rapid thumb flicks feel natural next to jump, and whether 0.35 s is the right window.
 
-## 8. Signature audio + first 5 seconds
+## 8. Signature audio + first 5 seconds (built)
 
-- **Voice sting.** A flat, cold "Disgusting." on the death line. It's meme-able as a TikTok sound. The source must be clean: Davide records it, or it is commissioned. Check TTS licences before using any synthesized voice (macOS `say` voices are not cleared for commercial redistribution).
-- **Notification ping.** A unique 3-note ping that becomes the game's audio logo, and every share clip ends on it.
-- **First launch skips the menu.** The lock screen unlocks straight into a run within 1 s, and character select only appears on the second run. Clips need action in the first second.
+**Decided 2026-09-25.**
+- **System voice, synthesised in code** (`src/audio/voice.ts`): a small three-formant synthesiser (buzzy source, bandpass formants, noise fricatives and plosives) says the death line's last word, flat and bored, with a monotone that sags at the end.
+  - The phonemes live in the content bank: `death.voice` = d ih s g uh: s t ih ng ("Disgusting."); Work: uh n p r ax f eh: sh ax n ax l ("Unprofessional.").
+  - It plays on the "… Disgusting." reveal. No licence risk.
+- **Ping logo:** B5, E6, then D#6, left unresolved. It is every push's chime (race toasts and ending lures too), and the last sound of every clip.
+- **Clips:** the end slate now carries the voice on the "… Disgusting." beat and ends on the ping (both rendered offline at the tap's sample rate).
+- **First launch:** no menu, no widgets, no notification. Just the clock, "Swipe up to scroll", and the run starts by itself after `ui.firstStart` (1.6 s) unless a challenge link opened the app. From the second launch on, the lock screen is back to normal.
 
-**Questions.** Whose voice? Is the menu skip OK for returning players too?
+**To check on device.** Whether the voice is intelligible and funny (tweak the formants or durations in `voice.ts`); volume against the grey room tone.
 
 ## 9. Wildcards (cheap spice, each needs a yes)
 

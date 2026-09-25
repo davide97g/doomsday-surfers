@@ -12,9 +12,10 @@
 // the real apps; calendar, ticket and Humbl (and anything not loaded yet) use
 // the synthesized fallbacks below.
 
-import { mode } from '../content/content';
+import { content, mode } from '../content/content';
 import type { SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
+import { schedulePing, scheduleWord } from './voice';
 
 const BPM = 124;
 const STEP = 60 / BPM / 4; // sixteenth note
@@ -306,10 +307,16 @@ export class GameAudio {
   }
 
   /** Fake push notification: the two-note ping everyone's nervous system knows. */
+  /** Every push: the ping logo (voice.ts). */
   chime(): void {
     if (!this.ready) return;
-    this.tone(1568, 1568, 0.09, 'sine', 0.12);
-    this.tone(2093, 2093, 0.16, 'sine', 0.1, 0.1);
+    schedulePing(this.ctx!, this.master, this.ctx!.currentTime);
+  }
+
+  /** The system voice: the death line's last word, flat. */
+  voice(): void {
+    if (!this.ready) return;
+    scheduleWord(this.ctx!, this.master, this.ctx!.currentTime + 0.02, content.death.voice, 0.8);
   }
 
   /** Work card arrival, one sound per app (and 'decline' for a hung-up call). */

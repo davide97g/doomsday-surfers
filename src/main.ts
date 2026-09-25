@@ -1,5 +1,6 @@
 import './style.css';
 import { GameAudio } from './audio/audio';
+import { renderSound, schedulePing, scheduleWord } from './audio/voice';
 import { ClipRecorder } from './clip/clip';
 import { content, mode, realBrands, switchMode } from './content/content';
 import { Bot } from './dev/bot';
@@ -60,6 +61,7 @@ const audio = new GameAudio();
 const haptics = new GameHaptics();
 // UI sounds, plus the phone buzz that makes a fake notification feel real.
 const sfx: Sfx = {
+  voice: () => audio.voice(),
   chime: () => {
     audio.chime();
     haptics.buzz();
@@ -110,6 +112,13 @@ death.race = race;
 // Auto-clip: every run is encoded as it plays; death cuts the montage.
 const clip = new ClipRecorder();
 death.clip = clip;
+clip.slateSounds = async (sr) => {
+  const [voice, ping] = await Promise.all([
+    renderSound(sr, (c, o) => scheduleWord(c, o, 0.02, content.death.voice, 0.8), 1.8),
+    renderSound(sr, (c, o) => schedulePing(c, o, 0.01, 0.2), 0.7),
+  ]);
+  return { voice, ping };
+};
 race.onMoment = () => clip.mark('ghost');
 // Every run is recorded as a ghost, so any death can be shared as a challenge.
 const recorder = new GhostRecorder();
@@ -173,6 +182,21 @@ title.onChallengeDecline = () => {
   clearGhostFromUrl();
   title.setChallenge(null);
 };
+// First launch: no menu, no widgets. The lock screen says "Swipe up to scroll" and
+// the run starts by itself a moment later. The character select comes back after.
+const firstLaunch = (() => {
+  try {
+    return !localStorage.getItem('ds.launched');
+  } catch {
+    return false;
+  }
+})();
+if (firstLaunch && !location.hash.includes('g=')) {
+  title.firstLaunch();
+  setTimeout(() => {
+    if (world.phase === 'ready' && !challenge) input.push('up');
+  }, TUNING.ui.firstStart * 1000);
+}
 void ghostFromUrl().then((track) => {
   if (!track) return;
   // The course plays the same in both modes, but the ghost's world should match theirs.
@@ -234,7 +258,14 @@ function frame(now: number): void {
     desk.clear();
   }
   for (const e of events) {
-    if (e.type === 'start') clip.startRun(loadHandle(world.character));
+    if (e.type === 'start') {
+      clip.startRun(loadHandle(world.character));
+      try {
+        localStorage.setItem('ds.launched', '1');
+      } catch {
+        // Every launch is the first one, then.
+      }
+    }
     else if (e.type === 'dead') {
       clip.stop();
       buildLink();

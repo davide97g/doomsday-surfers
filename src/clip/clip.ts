@@ -64,6 +64,8 @@ export class ClipRecorder {
   private deathAt = 0;
   private readonly last = document.createElement('canvas');
   private cache: Promise<Blob | null> | null = null;
+  /** The end slate's sounds (the system voice, the ping logo), rendered at the tap's sample rate. */
+  slateSounds: ((sampleRate: number) => Promise<{ voice: [Float32Array, Float32Array]; ping: [Float32Array, Float32Array] }>) | null = null;
 
   constructor() {
     this.last.width = C.width;
@@ -313,6 +315,21 @@ export class ClipRecorder {
       }
       parts.push(out);
       total += n;
+    }
+    // The slate isn't silent: the voice lands on "… Disgusting." and it ends on the ping logo.
+    const slate = parts[parts.length - 1];
+    const sounds = this.slateSounds ? await this.slateSounds(sr) : null;
+    if (sounds && !segs[segs.length - 1].audio) {
+      const mix = ([l, r]: [Float32Array, Float32Array], at: number) => {
+        const o = Math.round(at * sr);
+        for (let i = 0; i < l.length && o + i < slate[0].length; i++) {
+          if (o + i < 0) continue;
+          slate[0][o + i] += l[i];
+          slate[1][o + i] += r[i];
+        }
+      };
+      mix(sounds.voice, 0.95);
+      mix(sounds.ping, C.slateSeconds - 0.7);
     }
     const chunks: EncodedAudioChunk[] = [];
     let decoderConfig: AudioDecoderConfig | null = null;

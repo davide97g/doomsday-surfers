@@ -162,8 +162,9 @@ export class Title {
       this.tickCard();
     }
     if (phase === this.phase) return;
-    // Back on the lock screen: the notification is back too.
+    // Back on the lock screen: the notification is back too (and the first-launch minimalism is over).
     if (phase === 'ready') this.renderCard();
+    if (phase === 'running') this.el.classList.remove('first');
     this.phase = phase;
     this.el.classList.toggle('hidden', phase !== 'ready');
   }
@@ -257,6 +258,11 @@ export class Title {
     this.shownTime = time;
     this.time.textContent = time;
     this.date.textContent = now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  /** First launch: just the clock and "Swipe up to scroll" (main starts the run by itself). */
+  firstLaunch(): void {
+    this.el.classList.add('first');
   }
 
   /** A Daily run started: keep (or restart) the streak. */

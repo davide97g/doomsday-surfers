@@ -112,7 +112,7 @@ export class Death {
     this.final.className = 'overlay dead final hidden';
     this.final.innerHTML = `
       <div class="dead-line" data-at="${LINE1_AT}">${d.line1}</div>
-      <div class="dead-line" data-at="${LINE2_AT}">${d.line2}</div>
+      <div class="dead-line" data-at="${LINE2_AT}" data-voice>${d.line2}</div>
       <div class="printer" data-at="${PRINT_AT}" data-ui><div class="strip"></div><div class="slot"></div></div>
       <div class="dead-buttons">
         <button class="cta receipt-cta" id="proof" data-ui>${content.report.cta}</button>
@@ -188,6 +188,7 @@ export class Death {
         if (r.at > this.finalT || r.el.classList.contains('on')) continue;
         r.el.classList.add('on');
         if (r.el.classList.contains('dead-buttons')) this.buttonLive = true;
+        if ('voice' in r.el.dataset) this.sfx.voice();
       }
       this.print();
       this.idle += dt;

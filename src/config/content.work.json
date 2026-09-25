@@ -328,7 +328,7 @@
     },
     { "name": "FRIDAY 4:59 PM", "tagline": "One more quick thing.", "seam": [1.7, 0.9, 0.2], "sky": "#120a02", "light": "#ffc27a" }
   ],
-  "death": { "line1": "You logged off.", "line2": "… Unprofessional.", "cta": "CLOCK IN AGAIN" },
+  "death": { "line1": "You logged off.", "line2": "… Unprofessional.", "cta": "CLOCK IN AGAIN", "voice": ["uh", "n", "p", "r", "ax", "f", "eh:", "sh", "ax", "n", "ax", "l"] },
   "work": {
     "suite": "Synergy 365",
     "focus": { "personal": "Personal", "work": "Work", "on": "{name} Focus on" },

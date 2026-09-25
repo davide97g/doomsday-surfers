@@ -420,5 +420,5 @@
     { "name": "OUTRAGE", "tagline": "Stay mad. Stay here.", "seam": [1.7, 0.25, 0.2], "sky": "#0f0305", "light": "#ff8a7a" },
     { "name": "3 AM", "tagline": "Tomorrow is a rumour.", "seam": [0.3, 0.45, 1.8], "sky": "#010209", "light": "#6f7dff" }
   ],
-  "death": { "line1": "You are present.", "line2": "… Disgusting.", "cta": "SCROLL AGAIN" }
+  "death": { "line1": "You are present.", "line2": "… Disgusting.", "cta": "SCROLL AGAIN", "voice": ["d", "ih", "s", "g", "uh:", "s", "t", "ih", "ng"] }
 }

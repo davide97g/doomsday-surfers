@@ -155,6 +155,7 @@
     "windows": { "max": 4, "trickle": 0.5, "toleranceDecay": 0.85, "toleranceFloor": 0.2, "tickMin": 1.2, "tickMax": 2.6 }
   },
   "ui": {
+    "firstStart": 1.6,
     "notifyMin": 3.5,
     "notifyMax": 7,
     "notifyShow": 4.5,
