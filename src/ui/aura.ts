@@ -26,6 +26,10 @@ export class AuraPops {
       else if (e.type === 'smash') this.pop(a.smashed);
       else if (e.type === 'habit') this.pop(a.habit);
       else if (e.type === 'crash') this.pop(-Infinity);
+      else if (e.type === 'power') this.pop(a.power);
+      else if (e.type === 'shield') this.pop(a.shield);
+      else if (e.type === 'grind' && !e.on) this.pop(a.grind);
+      else if (e.type === 'mantle') this.pop(a.roof);
     }
   }
 

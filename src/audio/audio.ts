@@ -11,9 +11,14 @@
 // sounds from Freesound and Pixabay (public/assets/sfx, CREDITS.md), never recordings of
 // the real apps; calendar, ticket and Humbl (and anything not loaded yet) use
 // the synthesized fallbacks below.
+//
+// v2: loops for grinding (a hiss off the cable), the Going Viral jetpack (a
+// roar) and the For You Magnet (a hum), one-shots for power-ups and the second
+// level, and a quiet ambience bed per biome (canyon wind, sewer drips, bedroom
+// fan and clock, mall muzak), all synthesized and all dimming with dopamine.
 
 import { content, mode } from '../content/content';
-import type { SimEvent } from '../sim/types';
+import { zoneLook, type SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
 import { schedulePing, scheduleWord } from './voice';
 
@@ -65,6 +70,15 @@ export class GameAudio {
   private ringSrc: AudioBufferSourceNode | null = null;
   private nextRing = 0;
   private readonly samples = new Map<string, AudioBuffer>();
+  // v2 loops and the biome beds.
+  private grindGain: GainNode | null = null;
+  private jetGain: GainNode | null = null;
+  private magnetGain: GainNode | null = null;
+  private readonly beds: GainNode[] = [];
+  private nextDrip = 0;
+  private nextTick = 0;
+  private nextMuzak = 0;
+  private muzakIdx = 0;
 
   constructor() {
     const unlock = () => {
@@ -128,7 +142,67 @@ export class GameAudio {
 
     this.nextNote = ctx.currentTime + 0.05;
     if (WORK) this.loadSamples(ctx);
+    this.startLoops(ctx);
     void ctx.resume();
+  }
+
+  /** Continuous sounds that fade in and out with sim state. */
+  private startLoops(ctx: AudioContext): void {
+    const noiseLoop = (type: BiquadFilterType, freq: number, q: number): { gain: GainNode; filter: BiquadFilterNode } => {
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      gain.connect(this.master);
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      src.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = type;
+      filter.frequency.value = freq;
+      filter.Q.value = q;
+      src.connect(filter).connect(gain);
+      src.start(0, Math.random());
+      return { gain, filter };
+    };
+    this.grindGain = noiseLoop('bandpass', 3200, 1.6).gain;
+    const jet = noiseLoop('lowpass', 700, 0.9);
+    this.jetGain = jet.gain;
+    const rumble = ctx.createOscillator();
+    rumble.type = 'sawtooth';
+    rumble.frequency.value = 48;
+    const rl = ctx.createGain();
+    rl.gain.value = 0.25;
+    rumble.connect(rl).connect(jet.gain);
+    rumble.start();
+    // The magnet: two detuned sines, wobbling.
+    this.magnetGain = ctx.createGain();
+    this.magnetGain.gain.value = 0;
+    this.magnetGain.connect(this.master);
+    for (const f of [220, 223.5]) {
+      const o = ctx.createOscillator();
+      o.frequency.value = f;
+      o.connect(this.magnetGain);
+      o.start();
+    }
+    // Biome beds (index = biome): canyon wind; the sewer's low drone; the bedroom fan; the mall's air handling.
+    this.beds.push(ctx.createGain()); // Feed City: the music is the bed.
+    const wind = noiseLoop('lowpass', 480, 0.7);
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.11;
+    const depth = ctx.createGain();
+    depth.gain.value = 240;
+    lfo.connect(depth).connect(wind.filter.frequency);
+    lfo.start();
+    this.beds.push(wind.gain);
+    this.beds.push(noiseLoop('lowpass', 160, 2).gain);
+    const fan = noiseLoop('bandpass', 260, 0.6);
+    const hum = ctx.createOscillator();
+    hum.frequency.value = 118;
+    const hg = ctx.createGain();
+    hg.gain.value = 0.06;
+    hum.connect(hg).connect(fan.gain);
+    hum.start();
+    this.beds.push(fan.gain);
+    this.beds.push(noiseLoop('highpass', 5200, 0.5).gain);
   }
 
   /** The hidden ending's soundscape (see ui/ending.ts). */
@@ -208,6 +282,19 @@ export class GameAudio {
       this.chirp(now);
       this.nextChirp = now + 1.2 + Math.random() * 3;
     }
+
+    // v2 loops: grinding, the jetpack, the magnet; and the biome's bed.
+    const p = w.player;
+    const run = w.phase === 'running';
+    const grinding = run && p.grounded && p.on === 'rail';
+    this.grindGain?.gain.setTargetAtTime(grinding ? 0.09 * (0.4 + 0.6 * l) : 0, now, 0.05);
+    this.jetGain?.gain.setTargetAtTime(run && w.flying ? 0.22 * (0.5 + 0.5 * l) : 0, now, 0.12);
+    this.magnetGain?.gain.setTargetAtTime(run && w.power.magnet > 0 ? 0.025 * (0.5 + 0.5 * Math.sin(now * 14)) : 0, now, 0.05);
+    const biome = zoneLook(w.zone);
+    const bedLevel = gone ? 0 : 0.35 + 0.65 * l;
+    const bedVol = [0, 0.07, 0.09, 0.05, 0.035];
+    this.beds.forEach((g, i) => g.gain.setTargetAtTime(i === biome && w.phase !== 'ready' ? bedVol[i] * bedLevel : 0, now, 1.2));
+    if (!gone && w.phase !== 'ready') this.biomeDetails(biome, now, l);
 
     while (this.nextNote < now + LOOKAHEAD) {
       if (WORK) this.scheduleHold(this.nextNote, this.stepIdx);
@@ -293,6 +380,41 @@ export class GameAudio {
         case 'gateEnd':
           this.noiseHit(0.3, 3200, 0.25);
           this.tone(140, 880, 0.35, 'sawtooth', 0.08);
+          break;
+        case 'power':
+          // A bright four-note run up: something good happened to your feed.
+          [0, 4, 7, 12].forEach((n, i) => this.tone(660 * Math.pow(2, n / 12), 660 * Math.pow(2, (n + 12) / 12), 0.12, 'square', 0.05, i * 0.06));
+          this.tone(1320, 2640, 0.4, 'triangle', 0.05, 0.24);
+          break;
+        case 'powerEnd':
+          this.tone(880, 330, 0.3, 'triangle', 0.06);
+          break;
+        case 'shield':
+          // Glass: a sharp crack and a spray of high tinkles.
+          this.noiseHit(0.25, 9000, 0.5);
+          for (let i = 0; i < 5; i++) this.tone(2400 + Math.random() * 2600, 1800 + Math.random() * 1200, 0.18, 'sine', 0.05, 0.02 + i * 0.035);
+          break;
+        case 'fly':
+          if (e.stage === 'up') {
+            this.sweep(this.ctx.currentTime, 0.9, 200, 3000, 0.35);
+            this.tone(110, 440, 0.8, 'sawtooth', 0.08);
+          } else if (e.stage === 'land') this.thud();
+          break;
+        case 'grind':
+          if (e.on) this.tone(1800, 1200, 0.08, 'square', 0.05);
+          break;
+        case 'land':
+          if (e.on === 'roof') this.tone(120, 60, 0.18, 'sine', 0.3);
+          break;
+        case 'fall':
+          this.tone(600, 240, 0.25, 'sine', 0.04);
+          break;
+        case 'mantle':
+          this.tone(200, 320, 0.12, 'triangle', 0.08);
+          this.noiseHit(0.1, 900, 0.2);
+          break;
+        case 'bonk':
+          this.tone(260, 90, 0.2, 'square', 0.12);
           break;
         default:
           break;
@@ -497,6 +619,40 @@ export class GameAudio {
       this.tone(f, f * 0.8, 0.1, 'square', vol * 0.6);
     } else {
       this.tone(f, f * 1.2, 0.08, 'sine', vol);
+    }
+  }
+
+  /** Little sounds on top of a biome's bed. */
+  private biomeDetails(biome: number, now: number, l: number): void {
+    const ctx = this.ctx!;
+    if (biome === 2 && now >= this.nextDrip) {
+      // Sewer: water dripping somewhere in the dark.
+      const f = 900 + Math.random() * 900;
+      this.tone(f, f * 0.55, 0.12, 'sine', 0.05 + 0.04 * l);
+      this.nextDrip = now + 0.5 + Math.random() * 1.6;
+    }
+    if (biome === 3 && now >= this.nextTick) {
+      // 3 AM: a clock you can't stop hearing.
+      this.tone(2600, 2400, 0.02, 'square', 0.02);
+      this.nextTick = now + 1;
+    }
+    if (biome === 4 && now >= this.nextMuzak) {
+      // Mall: a soft electric-piano chord, somewhere up on the mezzanine.
+      const chords = [[0, 4, 7, 11], [5, 9, 12, 16], [2, 5, 9, 12], [7, 11, 14, 17]];
+      for (const n of chords[this.muzakIdx % 4]) {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = 261.63 * Math.pow(2, n / 12);
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(0.012 * (0.3 + 0.7 * l), now + 0.05);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 1.9);
+        o.connect(g).connect(this.master);
+        o.start(now);
+        o.stop(now + 2);
+      }
+      this.muzakIdx++;
+      this.nextMuzak = now + 2;
     }
   }
 

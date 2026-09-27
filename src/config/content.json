@@ -295,7 +295,12 @@
       "thrill": { "label": "LOOPS & DROPS x{n}", "prices": ["INNER EAR", "{k} VERTEBRA{e}", "SENSE OF DIRECTION"] },
       "ads": { "label": "ADS WATCHED x{n}", "prices": ["YOUR DATA", "{k} COOKIE{s} ACCEPTED", "YOUR LOCATION"] },
       "dodged": { "label": "HABITS AVOIDED x{n}", "prices": ["{k} YEAR{s} OF LIFE", "YOUR KNEES", "{k} SUNSET{s}"] },
-      "mum": { "label": "MUM (IGNORED x{n})", "prices": ["PRICELESS", "HER BIRTHDAY", "SHE'S FINE (SHE'S NOT)"] }
+      "mum": { "label": "MUM (IGNORED x{n})", "prices": ["PRICELESS", "HER BIRTHDAY", "SHE'S FINE (SHE'S NOT)"] },
+      "powers": { "label": "POWER-UPS x{n}", "prices": ["{k} FREE TRIAL{s}", "YOUR IMPULSE CONTROL", "{k} SUBSCRIPTION{s}"] },
+      "protector": { "label": "SCREEN PROTECTORS CRACKED x{n}", "prices": ["{k} DISPLAY{s}", "YOUR WARRANTY", "{k} PHONE CASE{s}"] },
+      "mainchar": { "label": "SECONDS AS MAIN CHARACTER x{n}", "prices": ["EVERYONE ELSE", "{k} FRIEND{s} (NOW NPCs)", "YOUR HUMILITY"] },
+      "roof": { "label": "SECONDS ON TOP OF THE FEED x{n}", "prices": ["{k} CLOUD{s}", "YOUR FEAR OF HEIGHTS", "THE VIEW (UNSEEN)"] },
+      "grind": { "label": "METRES OF CHARGER CABLE x{n}", "prices": ["{k}% BATTERY", "YOUR SHINS", "{k} SPARE CABLE{s}"] }
     },
     "subtotal": "SUBTOTAL",
     "life": "{life} OF LIFE",
@@ -421,6 +426,13 @@
     }
   ],
   "select": { "craving": "Craves {type}: +50% hit, tolerance builds faster", "unlock": "Swipe up to scroll" },
+  "powers": {
+    "protector": { "title": "SCREEN PROTECTOR APPLIED", "lines": ["Tempered glass. Tempered you.", "9H hardness. Your attention span: 2H."], "break": "CRACKED. STILL SCROLLING.", "end": "protector peeled off" },
+    "magnet": { "title": "FOR YOU MAGNET", "lines": ["the algorithm knows", "Everything you want, before you want it."], "end": "the algorithm got bored" },
+    "viral": { "title": "GOING VIRAL", "lines": ["{views} views and counting", "Ratio'd the ground."], "views": "{views} views", "end": "back to 12 views" },
+    "mainchar": { "title": "MAIN CHARACTER ENERGY ×2", "lines": ["Everyone else is an NPC now.", "Your POV. Literally."], "end": "back to NPC" },
+    "kicks": { "title": "DELULU KICKS", "lines": ["jump like you believe it", "delulu is the solulu"], "end": "reality check" }
+  },
   "zones": [
     { "name": "FEED CITY", "tagline": "Curated. By us. For us.", "seam": [0.6, 0.25, 1.6], "sky": "#07040f", "light": "#a58cff" },
     { "name": "GROUP CHAT CANYON", "tagline": "Seen 3:12 am. No reply.", "seam": [1.8, 0.75, 0.2], "sky": "#1c0b06", "light": "#ffb070" },

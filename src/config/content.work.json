@@ -252,7 +252,12 @@
       "thrill": { "label": "PIVOTS & REORGS x{n}", "prices": ["JOB SECURITY", "{k} MANAGER{s}", "SENSE OF DIRECTION"] },
       "ads": { "label": "SPONSORED x{n}", "prices": ["YOUR DATA", "{k} FREE TRIAL{s}", "YOUR CALENDAR"] },
       "dodged": { "label": "BOUNDARIES AVOIDED x{n}", "prices": ["{k} YEAR{s} OF LIFE", "YOUR BACK", "{k} SUNSET{s}"] },
-      "mum": { "label": "HOME (DECLINED x{n})", "prices": ["PRICELESS", "THE SCHOOL PLAY", "THEY'RE FINE (THEY'RE NOT)"] }
+      "mum": { "label": "HOME (DECLINED x{n})", "prices": ["PRICELESS", "THE SCHOOL PLAY", "THEY'RE FINE (THEY'RE NOT)"] },
+      "powers": { "label": "PERKS x{n}", "prices": ["{k} PIZZA PART{e}Y", "YOUR RAISE", "{k} BRANDED MUG{s}"] },
+      "protector": { "label": "ESCALATIONS ABSORBED x{n}", "prices": ["{k} DND STATUS{e}", "YOUR BOUNDARIES", "{k} CALENDAR BLOCK{s}"] },
+      "mainchar": { "label": "SECONDS AS EMPLOYEE OF THE MONTH x{n}", "prices": ["YOUR TEAM", "{k} COLLEAGUE{s} (NOW JEALOUS)", "YOUR HUMILITY"] },
+      "roof": { "label": "SECONDS ABOVE YOUR PAY GRADE x{n}", "prices": ["{k} PROMOTION{s} (DENIED)", "YOUR FEAR OF HEIGHTS", "THE VIEW FROM THE TOP"] },
+      "grind": { "label": "METRES OF HUSTLE x{n}", "prices": ["{k}% BATTERY", "YOUR WEEKENDS", "{k} SIDE HUSTLE{s}"] }
     },
     "life": "{life} UNPAID",
     "top": "TOP {pct}% OF {craving} ADDICTS",
@@ -311,6 +316,13 @@
     "air": { "title": "PROMOTION (TITLE ONLY)", "lines": ["Up a level. Pay: grounded.", "Senior. Somehow.", "Weightless. Raiseless."] }
   },
   "select": { "craving": "Addicted to {type}: +50% hit, tolerance builds faster", "unlock": "Swipe up to clock in" },
+  "powers": {
+    "protector": { "title": "DO NOT DISTURB", "lines": ["Absorbs one escalation.", "Status: busy. Actually busy."], "break": "ESCALATED ANYWAY.", "end": "DND expired" },
+    "magnet": { "title": "SYNERGY MAGNET", "lines": ["Every ping, circled back to you.", "Aligning all stakeholders."], "end": "synergy offline" },
+    "viral": { "title": "THOUGHT LEADERSHIP", "lines": ["{views} impressions and counting", "Agree?"], "views": "{views} impressions", "end": "back to 12 impressions" },
+    "mainchar": { "title": "EMPLOYEE OF THE MONTH ×2", "lines": ["Your KPIs, doubled. Your salary: same.", "Visible to leadership."], "end": "back to headcount" },
+    "kicks": { "title": "STRETCH GOALS", "lines": ["jump like it's in scope", "Reach higher. Same pay."], "end": "descoped" }
+  },
   "zones": [
     {"name": "MONDAY 9AM", "tagline": "Circle back. Forever.", "seam": [0.3, 0.7, 1.7], "sky": "#050a14", "light": "#9fc4ff"},
     {"name": "FRIDAY 4:59 PM", "tagline": "One more quick thing.", "seam": [1.7, 0.9, 0.2], "sky": "#120a02", "light": "#ffc27a"},

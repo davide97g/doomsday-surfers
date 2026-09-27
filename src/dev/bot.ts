@@ -7,7 +7,25 @@ import type { World } from '../sim/world';
 export class Bot {
   private cooldown = 0;
 
+  /** `climb`: head for every set of stairs and ride the roofs (screenshots, perf runs). */
+  constructor(private readonly climb = false) {}
+
   think(w: World, dt: number): Action[] {
+    const actions = this.play(w, dt);
+    if (!this.climb || w.phase !== 'running') return actions;
+    const p = w.player;
+    const stairs = w.obstacles.find((o) => o.kind === 'post' && o.ramp > 0 && o.s - o.ramp - w.d > 3 && o.s - o.ramp - w.d < 30);
+    let out = actions;
+    if (stairs && p.grounded && p.on === 'ground') {
+      out = out.filter((a) => a !== 'left' && a !== 'right');
+      if (Math.abs(p.x - laneX(p.lane, w.t)) < 0.05 && p.lane !== stairs.lane) out.push(stairs.lane > p.lane ? 'right' : 'left');
+    }
+    const mine = w.obstacles.some((o) => o.kind === 'post' && o.ramp > 0 && o.lane === p.lane && o.s - o.ramp - w.d > -1 && o.s - o.ramp - w.d <= 3);
+    if (mine || p.on === 'roof' || p.on === 'stairs' || (!p.grounded && p.perch > 2)) out = out.filter((a) => a !== 'left' && a !== 'right' && a !== 'up');
+    return out;
+  }
+
+  private play(w: World, dt: number): Action[] {
     if (w.phase !== 'running') return w.phase === 'ready' ? ['tap'] : [];
     this.cooldown = Math.max(0, this.cooldown - dt);
     const t = w.t;

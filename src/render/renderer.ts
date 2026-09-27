@@ -20,6 +20,9 @@ import { Gate } from './gate';
 import { Hero } from './hero';
 import { Particles } from './particles';
 import { Post } from './post';
+import { POWER_COLOURS, PowerView } from './powers';
+import { Structures } from './structures';
+import { initAssets } from './assets';
 import { FEED_ATLAS, makeAd, makeAutoplay, makeBookCover, makeBouncerTop, makeContent, makeFeedAtlas, makeMumCall, makeNotification, makeRampFace, makeReality, makeReel, makeReelFront, makeSlopAtlas } from './textures';
 
 const VARIANTS = 8;
@@ -69,6 +72,9 @@ const ZONES: ZoneLook[] = content.zones.map((z) => ({
   sky: new THREE.Color(z.sky),
   light: new THREE.Color(z.light),
 }));
+
+/** Obstacle pools: one per kind, plus the wide overhang (three `high`s drawn as one). */
+type PoolKind = ObstacleKind | 'wide';
 
 export interface RenderSettings {
   pixelRatio: number;
@@ -145,9 +151,12 @@ export class GameRenderer {
   private readonly tmpP = new THREE.Vector3();
   private readonly tmpQ = new THREE.Quaternion();
 
-  private readonly pools = new Map<ObstacleKind, THREE.Object3D[]>();
-  private readonly active = new Map<number, { kind: ObstacleKind; obj: THREE.Object3D }>();
-  private readonly obstacleBuilders: Record<ObstacleKind, (variant: number) => THREE.Object3D>;
+  private readonly pools = new Map<PoolKind, THREE.Object3D[]>();
+  private readonly active = new Map<number, { kind: PoolKind; obj: THREE.Object3D }>();
+  private readonly obstacleBuilders: Record<PoolKind, (variant: number) => THREE.Object3D>;
+  private readonly structures: Structures;
+  private readonly powers: PowerView;
+  private sparkT = 0;
 
   private readonly mats: {
     feed: THREE.MeshBasicMaterial;
@@ -207,6 +216,7 @@ export class GameRenderer {
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
+    initAssets(this.renderer);
     this.settings = { pixelRatio: Math.min(window.devicePixelRatio || 1, 2) };
 
     this.camera = new THREE.PerspectiveCamera(66, 1, 0.1, 220);
@@ -360,6 +370,7 @@ export class GameRenderer {
       movingPost: (v) => this.buildPost(v, true),
       habit: (v) => this.buildHabit(v),
       thumb: () => this.buildThumb(),
+      wide: (v) => this.buildOverhang(v),
     };
     this.autoplayTex = makeAutoplay();
     const glow = (hex: string) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(2.2) });
@@ -420,6 +431,8 @@ export class GameRenderer {
     this.scene.add(this.shadow);
 
     this.particles = new Particles(this.scene);
+    this.structures = new Structures(this.scene, this.bend, visibleAhead, this.seamMat);
+    this.powers = new PowerView(this.scene, this.bend, this.player, this.particles, visibleAhead);
     // Bend everything but the runner, their shadow and the sky.
     for (const o of this.scene.children) if (o !== this.player && o !== this.shadow && o !== this.sky) this.bend.patchTree(o);
     this.post = new Post(this.renderer, this.scene, this.camera);
@@ -455,7 +468,7 @@ export class GameRenderer {
     }
     const look = CHARACTER_LOOKS[track.header.ch] ?? CHARACTER_LOOKS[0];
     this.ghostRoot.scale.setScalar(look.scale);
-    Hero.load(`${import.meta.env.BASE_URL}assets/characters/${look.model}.glb`)
+    Hero.load(`assets/characters/${look.model}.glb`)
       .then((hero) => {
         if (this.ghostTrack !== track) return;
         hero.dress(this.ghostMat);
@@ -469,7 +482,7 @@ export class GameRenderer {
   private loadModel(model: string): Promise<Hero | null> {
     let p = this.heroes.get(model);
     if (!p) {
-      p = Hero.load(`${import.meta.env.BASE_URL}assets/characters/${model}.glb`).catch((err) => {
+      p = Hero.load(`assets/characters/${model}.glb`).catch((err) => {
         console.warn(`${model}.glb failed to load, keeping grey box`, err);
         return null;
       });
@@ -524,7 +537,55 @@ export class GameRenderer {
       bar.name = 'warn';
       bar.position.set(0, 2.95, 0);
       g.add(bar);
+    } else {
+      g.add(this.buildStairs());
     }
+    return g;
+  }
+
+  /** Stairs up to a reel train's roof: a slab with steps, running toward +z from the train's front. */
+  private buildStairs(): THREE.Object3D {
+    const { stairs: L } = TUNING.roof;
+    const H = TUNING.post.height;
+    const g = new THREE.Group();
+    g.name = 'stairs';
+    const steps = 10;
+    const stepMat = this.mats.pole;
+    for (let i = 0; i < steps; i++) {
+      const h = (H * (i + 1)) / steps;
+      const depth = L / steps;
+      const step = new THREE.Mesh(new THREE.BoxGeometry(1.9, h, depth), i % 2 === 0 ? stepMat : this.mats.dark);
+      // Step i is i+1 steps up, counted from the far (bottom) end.
+      step.position.set(0, h / 2, L - (i + 0.5) * depth);
+      g.add(step);
+      const nose = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.04, 0.06), this.padMats.glow.ramp);
+      nose.position.set(0, h + 0.01, L - i * depth - 0.03);
+      g.add(nose);
+    }
+    return g;
+  }
+
+  /** Something fell across every lane: a giant phone lying on its side, an ad on both faces. Roll. */
+  private buildOverhang(v: number): THREE.Object3D {
+    const g = new THREE.Group();
+    const b = TUNING.barrier;
+    const w = 7.6;
+    const h = b.highTop - b.highBottom;
+    const ad = this.mats.ad[v];
+    const d = this.mats.dark;
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.36, 8, 1, 1), [d, d, d, d, ad, ad]);
+    slab.position.y = b.highBottom + h / 2;
+    const bezel = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, h + 0.2, 0.3, 8, 1, 1), this.mats.pole);
+    bezel.position.y = slab.position.y;
+    g.add(bezel, slab);
+    for (const sx of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.3, b.highTop + 0.3, 0.3), this.mats.pole);
+      leg.position.set(sx * (w / 2 + 0.1), (b.highTop + 0.3) / 2, 0);
+      g.add(leg);
+    }
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, 0.4, 8, 1, 1), this.mats.warn);
+    strip.position.y = b.highBottom - 0.02;
+    g.add(strip);
     return g;
   }
 
@@ -676,7 +737,7 @@ export class GameRenderer {
     return g;
   }
 
-  private acquire(kind: ObstacleKind, variant: number): THREE.Object3D {
+  private acquire(kind: PoolKind, variant: number): THREE.Object3D {
     const pool = this.pools.get(kind) ?? [];
     this.pools.set(kind, pool);
     const idx = pool.findIndex((o) => o.userData.variant === variant);
@@ -815,7 +876,7 @@ export class GameRenderer {
     if (this.spinner.instanceColor) this.spinner.instanceColor.needsUpdate = true;
   }
 
-  private release(kind: ObstacleKind, obj: THREE.Object3D): void {
+  private release(kind: PoolKind, obj: THREE.Object3D): void {
     obj.visible = false;
     this.pools.get(kind)!.push(obj);
   }
@@ -865,6 +926,17 @@ export class GameRenderer {
         fx.burst(laneX(e.lane), 0.3, -0.5, launch ? 30 : 18, PAD_COLOURS[e.kind], { speed: launch ? 5 : 3, size: 0.24, life: 0.7, gravity: 4, bright: 2.4, up: launch ? 3 : 1 });
       }
       if (e.type === 'lift') fx.burst(p.x, 0.1, 0, 14, '#ffffff', { speed: 2.5, size: 0.18, life: 0.5, gravity: 1, bright: 1.6, up: 0.4 });
+      if (e.type === 'power') {
+        this.shake = Math.max(this.shake, 0.35);
+        fx.burst(p.x, p.y + 1, -0.3, 50, POWER_COLOURS[e.kind], { speed: 6, size: 0.26, life: 0.9, gravity: 1, bright: 2.6, up: 2 });
+      }
+      if (e.type === 'shield') {
+        this.shake = Math.max(this.shake, 0.8);
+        this.powers.shatter(p.x, p.y);
+      }
+      if (e.type === 'land' && (e.on === 'roof' || e.on === 'rail')) fx.burst(p.x, p.y + 0.05, 0, 12, '#cfc8e8', { speed: 2.2, size: 0.2, life: 0.45, gravity: 2, bright: 1.1, up: 0.5 });
+      if (e.type === 'mantle' || e.type === 'bonk') this.shake = Math.max(this.shake, 0.3);
+      if (e.type === 'fly' && e.stage === 'up') fx.burst(p.x, 0.2, 0.4, 40, '#ffb300', { speed: 5, size: 0.4, life: 0.8, gravity: -1, bright: 2.4, up: 1 });
       if (e.type === 'thrill') {
         this.shake = Math.max(this.shake, 0.3);
         fx.burst(p.x, 1.2, 0, Math.round(14 + 30 * e.tolerance), '#ffcc00', { speed: 6, size: 0.22 + 0.12 * e.tolerance, life: 1, gravity: 0.5, bright: 1.2 + 1.8 * e.tolerance, up: 1 });
@@ -903,6 +975,8 @@ export class GameRenderer {
     this.syncPads(w, sdt);
     this.syncSpinner(w, behind, time);
     this.syncPickups(w, time);
+    this.structures.update(w, behind);
+    this.powers.update(w, sdt, time, (k) => this.hero?.shoeGlow(k) ?? false);
     this.syncPlayer(w, sdt);
     this.gate.update(w, time);
     this.syncZone(w);
@@ -974,8 +1048,8 @@ export class GameRenderer {
     let n = 0;
     let backs = 0;
     for (let i = first; i <= last; i++) {
-      // No towers where the track goes upside down.
-      if (!w.course.scenery(i * TOWER_STEP)) continue;
+      // No towers where the track goes upside down, or inside a tunnel.
+      if (!w.course.scenery(i * TOWER_STEP) || w.tunnelAt(i * TOWER_STEP)) continue;
       for (const side of [-1, 1]) {
         const r = hash(i, side + 7);
         if (r < 0.12) continue; // gaps in the skyline
@@ -1011,11 +1085,14 @@ export class GameRenderer {
   private syncObstacles(w: World): void {
     const seen = new Set<number>();
     for (const o of w.obstacles) {
-      if (o.s - w.d > this.visibleAhead) continue;
+      if (o.s - o.ramp - w.d > this.visibleAhead) continue;
+      // An overhang is three highs; its middle one carries the model.
+      if (o.wide && o.lane !== 1) continue;
       seen.add(o.id);
       let entry = this.active.get(o.id);
       if (!entry) {
-        entry = { kind: o.kind, obj: this.acquire(o.kind, o.variant) };
+        const kind: PoolKind = o.wide ? 'wide' : o.kind;
+        entry = { kind, obj: this.acquire(kind, o.variant) };
         this.active.set(o.id, entry);
       }
       const obj = entry.obj;
@@ -1031,6 +1108,11 @@ export class GameRenderer {
           warn.position.z = o.length / 2 - 0.1;
           warn.visible = !o.active || Math.floor(performance.now() / 120) % 2 === 0;
         }
+        const stairs = obj.getObjectByName('stairs');
+        if (stairs) {
+          stairs.visible = o.ramp > 0;
+          stairs.position.z = o.length / 2;
+        }
       } else if (o.kind === 'thumb') {
         const th = w.t.setPieces.thumb;
         const up = th.descend + th.drag;
@@ -1044,6 +1126,8 @@ export class GameRenderer {
         const warn = obj.getObjectByName('warn')!;
         warn.visible = o.age < th.descend;
         ((warn as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.35 + 0.45 * (Math.floor(performance.now() / 110) % 2);
+      } else if (o.wide) {
+        obj.position.set(0, 0, -(o.s - w.d));
       } else if (o.kind === 'habit') {
         obj.position.set(x, 0, -(o.s - w.d));
         const ring = obj.getObjectByName('ring');
@@ -1065,9 +1149,16 @@ export class GameRenderer {
 
   private syncPickups(w: World, time: number): void {
     const counts = [0, 0, 0, 0];
+    const pl = w.player;
+    const fly = w.t.power.magnet.fly;
     for (const p of w.pickups) {
       if (p.taken || p.s - w.d > this.visibleAhead || counts[p.type] >= 128) continue;
       this.dummy.position.set(laneX(p.lane), p.y + Math.sin(time * 4 + p.s) * 0.08, -(p.s - w.d));
+      if (p.pullAt >= 0) {
+        // The For You Magnet has it: it flies into you.
+        const k = Math.min(1, (w.time - p.pullAt) / fly);
+        this.dummy.position.lerp(this.tmpV.set(pl.x, pl.y + 1.1, 0), k * k);
+      }
       this.dummy.rotation.set(0, time * 2.5 + p.s * 0.3, 0);
       this.dummy.scale.set(1, 1, 1);
       this.dummy.updateMatrix();
@@ -1114,9 +1205,18 @@ export class GameRenderer {
     const p = w.player;
     const parts = this.playerParts;
     this.player.position.set(p.x, p.y, 0);
-    this.shadow.position.x = p.x;
-    const sh = Math.max(0.35, 1 - p.y * 0.25);
+    this.shadow.position.set(p.x, p.floor + 0.04, 0);
+    const sh = Math.max(0.35, 1 - (p.y - p.floor) * 0.25);
     this.shadow.scale.set(sh, 1, sh);
+    this.shadow.visible = !w.flying;
+    // Grinding: sparks off the cable.
+    if (p.grounded && p.on === 'rail' && w.phase === 'running') {
+      this.sparkT += dt;
+      while (this.sparkT > 0.02) {
+        this.sparkT -= 0.02;
+        this.particles.burst(p.x + (Math.random() - 0.5) * 0.2, p.y + 0.02, 0.2, 2, Math.random() < 0.6 ? '#ffd27a' : '#ffffff', { speed: 4, size: 0.08, life: 0.35, gravity: 14, bright: 2.8, up: 1.5 });
+      }
+    }
 
     const targetX = laneX(p.lane);
     this.player.rotation.z = THREE.MathUtils.lerp(this.player.rotation.z, (p.x - targetX) * 0.18, 0.3);
@@ -1257,13 +1357,15 @@ export class GameRenderer {
     const p = w.player;
     const k = 1 - Math.pow(0.0008, dt);
     this.camX = THREE.MathUtils.lerp(this.camX, p.x * 0.65, k);
-    this.camY = THREE.MathUtils.lerp(this.camY, p.y * 0.35, 1 - Math.pow(0.02, dt));
+    // Up on a roof or a rail the camera rides up with you; in flight it follows more loosely.
+    const high = w.flying ? p.y * 0.62 : p.grounded ? p.y * 0.85 : Math.max(p.y * 0.35, p.floor * 0.85 + (p.y - p.floor) * 0.35);
+    this.camY = THREE.MathUtils.lerp(this.camY, high, 1 - Math.pow(w.flying ? 0.2 : 0.02, dt));
     const shake = this.shake * this.shake;
     const jx = (Math.random() - 0.5) * shake * 0.5;
     const jy = (Math.random() - 0.5) * shake * 0.5;
     const cam = this.camera;
     cam.position.set(this.camX + jx, 3.5 + this.camY + jy, 6.4);
-    const look = this.lookV.set(this.camX * 1.1, 1.1 + this.camY * 0.5, -9);
+    const look = this.lookV.set(this.camX * 1.1, 1.1 + this.camY * 0.8, -9);
     let fov = this.baseFov;
     let roll = 0;
 

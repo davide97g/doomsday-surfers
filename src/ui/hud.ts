@@ -5,9 +5,18 @@
 // Away, Be right back, then Offline at zero (tuning work.status thresholds).
 
 import { content, mode, work } from '../content/content';
-import { TUNING, type Phase, type SimEvent } from '../sim/types';
+import { fill } from '../content/templates';
+import { POWER_KINDS, TUNING, type Phase, type PowerKind, type SimEvent } from '../sim/types';
 import type { World } from '../sim/world';
+import { ICON } from './icons';
 import { restartAnimation } from './nags';
+
+/** Compact view counts: 950, 12.4K, 1.2M. */
+export function views(n: number): string {
+  if (n < 1000) return `${Math.floor(n)}`;
+  if (n < 1e6) return `${(n / 1000).toFixed(n < 1e4 ? 1 : 0)}K`;
+  return `${(n / 1e6).toFixed(1)}M`;
+}
 
 export interface PerfToggles {
   bloom: boolean;
@@ -64,6 +73,10 @@ export class Hud {
   private shownPct = -1;
   private presence: Presence = 'available';
   private phase: Phase | null = null;
+  private readonly powersEl: HTMLElement;
+  private readonly chips = new Map<PowerKind, { el: HTMLElement; full: number; shown: string }>();
+  private readonly viewsEl: HTMLElement;
+  private viewCount = 0;
   onPerfChange: (p: PerfToggles) => void = () => {};
   perf: PerfToggles;
 
@@ -76,6 +89,8 @@ export class Hud {
         <div class="stat"><span class="label">${content.hud.distance}</span><span class="value" id="dist">0m</span></div>
         <div class="stat right"><span class="label">${content.hud.score}</span><span class="value" id="score">0</span></div>
       </div>${BATTERY}
+      <div class="powers" id="powers"></div>
+      <div class="views hidden" id="views"></div>
       <div class="toast hidden" id="toast"></div>
       <button class="fps" id="fps" data-ui>-- fps</button>
       <div class="perf hidden" id="perf" data-ui>
@@ -99,6 +114,16 @@ export class Hud {
     this.batPct = $('bat-pct');
     this.batLabel = $('bat-label');
     this.toast = $('toast');
+    this.powersEl = $('powers');
+    this.viewsEl = $('views');
+    for (const kind of POWER_KINDS) {
+      const el = document.createElement('div');
+      el.className = 'pw hidden';
+      el.dataset.kind = kind;
+      el.innerHTML = `<i>${ICON[kind]}</i>`;
+      this.powersEl.appendChild(el);
+      this.chips.set(kind, { el, full: 1, shown: '' });
+    }
 
     this.fpsEl.addEventListener('click', () => this.perfEl.classList.toggle('hidden'));
 
@@ -149,6 +174,25 @@ export class Hud {
       this.battery.classList.toggle('boost', boosting);
     }
 
+    // Power-ups: a chip each, its ring draining with what's left.
+    for (const [kind, chip] of this.chips) {
+      const left = kind === 'viral' ? (w.flying ? Math.max(0, w.flyTo - w.d) : 0) : w.power[kind];
+      const k = left > 0 ? Math.min(1, left / chip.full) : 0;
+      const shown = left > 0 ? k.toFixed(2) : '';
+      if (shown === chip.shown) continue;
+      chip.shown = shown;
+      chip.el.classList.toggle('hidden', left <= 0);
+      chip.el.classList.toggle('ending', left > 0 && (kind === 'viral' ? left < 40 : left < 2));
+      chip.el.style.setProperty('--left', shown || '0');
+    }
+    // Going Viral: the view counter runs away with itself.
+    if (w.flying) {
+      this.viewCount = this.viewCount * (1 + dt * 1.6) + dt * 9000;
+      this.viewsEl.textContent = fill(content.powers.viral.views, { views: views(this.viewCount) });
+    }
+    this.viewsEl.classList.toggle('hidden', !w.flying);
+    if (!w.flying) this.viewCount = 0;
+
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;
       if (this.toastTimer <= 0) this.toast.classList.add('hidden');
@@ -177,6 +221,17 @@ export class Hud {
         const line = th.lines[Math.floor(Math.random() * th.lines.length)];
         this.showToast(`${th.title} +${Math.round(e.gain)}%\n${line}`, true);
       }
+      if (e.type === 'power') {
+        const c = content.powers[e.kind];
+        const chip = this.chips.get(e.kind)!;
+        chip.full = Math.max(e.duration, 0.01);
+        chip.shown = '';
+        const line = fill(c.lines[Math.floor(Math.random() * c.lines.length)], { views: views(1000 + Math.random() * 9000) });
+        this.showToast(`${c.title}\n${line}`, true);
+      }
+      if (e.type === 'shield') this.showToast(content.powers.protector.break, true);
+      if (e.type === 'powerEnd' && e.kind !== 'protector') this.showToast(content.powers[e.kind].end, false);
+      if (e.type === 'fly' && e.stage === 'land') this.showToast(content.powers.viral.end, false);
       if (e.type === 'boost') {
         const b = content.notifications.boost;
         const line = b.lines[Math.floor(Math.random() * b.lines.length)];

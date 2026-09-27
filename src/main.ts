@@ -54,7 +54,7 @@ let dailyDay: number | null = null;
 const view = new GameRenderer(app, TUNING.spawn.ahead - 10);
 view.renderer.info.autoReset = false;
 const input = new Input(view.renderer.domElement);
-const bot = useBot ? new Bot() : null;
+const bot = useBot ? new Bot(params.get('bot') === 'climb') : null;
 
 const hud = new Hud(document.body, {
   bloom: true,
@@ -277,6 +277,8 @@ function frame(now: number): void {
       clip.stop();
       buildLink();
     } else if (e.type === 'gate') clip.mark('gate');
+    else if (e.type === 'fly' && e.stage === 'up') clip.mark('viral');
+    else if (e.type === 'shield') clip.mark('shield');
     else if (e.type === 'thrill') clip.mark(e.kind);
   }
   if (dailyDay !== null) {

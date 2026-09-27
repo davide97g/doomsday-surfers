@@ -159,7 +159,9 @@
       "corkscrew": { "priority": 2, "before": 2.4, "after": 0.4, "speed": 0.7 },
       "drop": { "priority": 2, "before": 2.0, "after": 0.4, "speed": 0.7 },
       "ghost": { "priority": 2, "before": 1.5, "after": 1.2, "speed": 1 },
-      "air": { "priority": 1, "before": 1.6, "after": 0.3, "speed": 0.6 }
+      "air": { "priority": 1, "before": 1.6, "after": 0.3, "speed": 0.6 },
+      "viral": { "priority": 3, "before": 0.4, "after": 2.6, "speed": 1 },
+      "shield": { "priority": 2, "before": 1.2, "after": 0.8, "speed": 0.5 }
     }
   },
   "ghost": { "sampleEvery": 0.125, "maxSeconds": 900, "passMargin": 3, "toastSeconds": 3.2, "tagAhead": 90 },
@@ -176,8 +178,8 @@
     "tierAt": [0, 250, 700, 1800, 2900, 5000],
     "topScale": 700,
     "brainAge": { "base": 19, "perPickup": 0.25, "numbness": 45, "max": 120 },
-    "aura": { "thrill": 1000, "gate": 500, "opened": 67, "smashed": 150, "habit": -800, "crash": -5000, "empty": -2000 },
-    "pricePer": { "scrolls": 12, "reel": 10, "like": 40, "outrage": 3, "notification": 8, "thrill": 2, "ads": 5, "dodged": 4 },
+    "aura": { "thrill": 1000, "gate": 500, "opened": 67, "smashed": 150, "habit": -800, "crash": -5000, "empty": -2000, "power": 300, "grind": 400, "roof": 250, "shield": 670 },
+    "pricePer": { "scrolls": 12, "reel": 10, "like": 40, "outrage": 3, "notification": 8, "thrill": 2, "ads": 5, "dodged": 4, "powers": 2, "protector": 1, "mainchar": 5, "roof": 10, "grind": 25 },
     "printEvery": 0.09
   },
   "work": {
