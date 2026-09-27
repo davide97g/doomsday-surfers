@@ -45,6 +45,7 @@ Other credits: reel clips in `public/assets/reels/CREDITS.md`, sounds in
 | `Plastic010` | plastic | ambientCG | 1K | https://ambientcg.com/a/Plastic010 | CC0 1.0 |
 | `Asphalt031` | asphalt | ambientCG | 1K | https://ambientcg.com/a/Asphalt031 | CC0 1.0 |
 | `Tiles107` | tiles | ambientCG | 1K | https://ambientcg.com/a/Tiles107 | CC0 1.0 |
+| `DiamondPlate008A` | diamond plate (train roofs, stair treads) | ambientCG | 1K | https://ambientcg.com/a/DiamondPlate008A | CC0 1.0 |
 
 - ambientCG (https://ambientcg.com), CC0 1.0: https://docs.ambientcg.com/license/
 - Poly Haven (https://polyhaven.com), CC0 1.0: https://polyhaven.com/license

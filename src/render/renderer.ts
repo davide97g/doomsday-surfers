@@ -1063,8 +1063,12 @@ export class GameRenderer {
         const k = pd.used ? Math.exp(-entry.t * 5) * Math.cos(entry.t * 30) : 0;
         const top = entry.obj.getObjectByName('top');
         const spring = entry.obj.getObjectByName('spring');
-        if (top) top.position.y = ((top.userData.restY as number | undefined) ?? 0.32) - 0.22 * k;
-        if (spring) spring.scale.y = 1 - 0.7 * k;
+        if (top) top.position.y = ((top.userData.restY as number | undefined) ?? 0.32) - (top.userData.restY === undefined ? 0.22 : 0.2) * k;
+        if (spring) {
+          spring.scale.y = 1 - 0.7 * k;
+          // The kit's coil sits on the base at 0.08: squash it about that, not the track.
+          if (spring.userData.restY !== undefined) spring.position.y = 0.08 * 0.7 * k;
+        }
       }
     }
     for (const [id, entry] of this.padActive) {
@@ -1360,8 +1364,8 @@ export class GameRenderer {
         obj.position.set(x, 0, -(o.s + o.length / 2 - w.d));
         const warn = obj.getObjectByName('warn');
         if (warn) {
-          warn.position.z = o.length / 2 - (obj.userData.kit ? 0.4 : 0.1);
-          if (obj.userData.kit) warn.position.y = 0;
+          // The kit's strobe is modelled in the front module's frame.
+          warn.position.z = o.length / 2 - (obj.userData.kit ? 0 : 0.1);
           warn.visible = !o.active || Math.floor(performance.now() / 120) % 2 === 0;
         }
         const stairs = obj.getObjectByName('stairs');
@@ -1416,7 +1420,8 @@ export class GameRenderer {
         this.dummy.position.lerp(this.tmpV.set(pl.x, pl.y + 1.1, 0), k * k);
       }
       this.dummy.rotation.set(0, time * 2.5 + p.s * 0.3, 0);
-      this.dummy.scale.set(1, 1, 1);
+      // 3D icons read bigger than the old flat cards: a touch smaller.
+      this.dummy.scale.setScalar(this.common ? 0.72 : 1);
       this.dummy.updateMatrix();
       this.pickupSets[p.type].add(this.dummy.matrix);
     }

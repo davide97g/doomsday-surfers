@@ -30,6 +30,7 @@
     { "id": "Cardboard004", "source": "ambientcg", "res": "1K", "category": "cardboard", "use": "boxes, packaging" },
     { "id": "Plastic010", "source": "ambientcg", "res": "1K", "category": "plastic", "use": "white smooth plastic: gadgets, cans" },
     { "id": "Asphalt031", "source": "ambientcg", "res": "1K", "category": "asphalt", "use": "streets, rooftops" },
-    { "id": "Tiles107", "source": "ambientcg", "res": "1K", "category": "tiles", "use": "white wall tiles (sewer, mall service areas)" }
+    { "id": "Tiles107", "source": "ambientcg", "res": "1K", "category": "tiles", "use": "white wall tiles (sewer, mall service areas)" },
+    { "id": "DiamondPlate008A", "source": "ambientcg", "res": "1K", "category": "diamond plate", "use": "train roof walkways, stair treads" }
   ]
 }
