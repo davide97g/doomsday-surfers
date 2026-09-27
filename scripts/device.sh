@@ -7,6 +7,7 @@
 #   bun run ios:device --build-only      just build (checks signing)
 #   bun run ios:device --perf            a perf build: the bot plays forever
 #                                        and logs frame stats; streams the log
+#   bun run ios:device --debug           errors and warnings shown on screen
 #   DEVICE=<udid> / SIM=<udid>           another device / simulator
 # Flags combine (e.g. --sim --perf). A phone must be unlocked and trust this Mac.
 set -e
@@ -24,6 +25,7 @@ for a in "$@"; do
     --sim) USE_SIM=1 ;;
     --perf) PERF=1 ;;
     --build-only) BUILD_ONLY=1 ;;
+    --debug) export VITE_DEBUG=1 ;;
     *) echo "unknown flag $a"; exit 1 ;;
   esac
 done

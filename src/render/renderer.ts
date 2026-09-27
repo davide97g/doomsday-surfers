@@ -240,6 +240,19 @@ export class GameRenderer {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
     initAssets(this.renderer);
+    // Out of GPU memory (or backgrounded too long): the context is gone for good; start over.
+    this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      console.warn('WebGL context lost');
+    });
+    this.renderer.domElement.addEventListener('webglcontextrestored', () => location.reload());
+    if (import.meta.env.VITE_DEBUG === '1') {
+      const x = this.renderer.extensions;
+      const gl = this.renderer.getContext();
+      console.warn(
+        `gpu astc=${x.has('WEBGL_compressed_texture_astc')} etc=${x.has('WEBGL_compressed_texture_etc')} etc1=${x.has('WEBGL_compressed_texture_etc1')} bc=${x.has('EXT_texture_compression_bptc')} s3tc=${x.has('WEBGL_compressed_texture_s3tc')} pvrtc=${x.has('WEBGL_compressed_texture_pvrtc')} maxTex=${gl.getParameter(gl.MAX_TEXTURE_SIZE)} dpr=${window.devicePixelRatio}`,
+      );
+    }
     this.settings = { pixelRatio: Math.min(window.devicePixelRatio || 1, 2), quality: 'high' };
 
     this.camera = new THREE.PerspectiveCamera(66, 1, 0.1, 220);
@@ -507,8 +520,14 @@ export class GameRenderer {
       (home ?? this.player).add(this.phoneLight);
       if (!home) this.phoneLight.position.set(0, 1.4, -0.45);
       else this.phoneLight.position.set(0, 0, 0);
-      // Warm the rest so flicking through the select screen is instant.
-      for (const l of CHARACTER_LOOKS) if (!!l.work === (mode === 'work')) void this.loadModel(l.model);
+      // Warm the neighbours so flicking through the select screen feels instant
+      // (not the whole cast: each realistic model is a few MB of textures).
+      const cast = CHARACTER_LOOKS.map((l, k) => ({ l, k })).filter(({ l }) => !!l.work === (mode === 'work'));
+      const at = cast.findIndex(({ k }) => k === i);
+      for (const d of [-1, 1]) {
+        const n = cast[(at + d + cast.length) % cast.length];
+        if (n) void this.loadModel(n.l.model);
+      }
     });
     this.player.scale.setScalar(look.scale);
   }

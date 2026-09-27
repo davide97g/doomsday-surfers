@@ -4,6 +4,7 @@ import { renderSound, schedulePing, scheduleWord } from './audio/voice';
 import { ClipRecorder } from './clip/clip';
 import { content, mode, realBrands, switchMode } from './content/content';
 import { Bot } from './dev/bot';
+import { installDebugOverlay } from './dev/overlay';
 import { GameHaptics } from './fx/haptics';
 import { Input } from './input/input';
 import { GameRenderer } from './render/renderer';
@@ -33,6 +34,7 @@ import { Title } from './ui/title';
 
 const STEP = 1 / 120;
 const params = new URLSearchParams(location.search);
+if (import.meta.env.VITE_DEBUG === '1' || params.has('debug')) installDebugOverlay();
 // A perf build (VITE_PERF=1) or ?perf: the climbing bot plays forever and frame stats go to the console
 // (on the phone, `xcrun devicectl device process launch --console` shows them).
 const perfRun = import.meta.env.VITE_PERF === '1' || params.has('perf');
