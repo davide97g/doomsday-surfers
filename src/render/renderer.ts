@@ -755,7 +755,16 @@ export class GameRenderer {
   /** Something fell across every lane: a giant phone lying on its side, an ad on both faces. Roll. */
   private buildOverhang(v: number, biome = 0): THREE.Object3D {
     const kit = this.biomes.kit(biome)?.clone('overhang');
-    if (kit) return kit;
+    if (kit) {
+      // Its screens show one of the game's ads.
+      kit.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const swap = (m: THREE.Material) => (m.name === 'AdFace' ? this.mats.ad[v] : m);
+        mesh.material = Array.isArray(mesh.material) ? mesh.material.map(swap) : swap(mesh.material);
+      });
+      return kit;
+    }
     const g = new THREE.Group();
     const b = TUNING.barrier;
     const w = 7.6;

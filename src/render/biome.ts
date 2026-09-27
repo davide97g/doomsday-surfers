@@ -18,7 +18,7 @@ import type { World } from '../sim/world';
 import { loadKit, loadTexture, type Kit, type KitPart } from './assets';
 import { atlasGlass, atlasMaterial, cellAttribute, hash } from './atlas';
 import type { Bend } from './bend';
-import { PartSet } from './instanced';
+import { PartSet, feedScreens } from './instanced';
 import { biomeAtS, type Structures } from './structures';
 import { FEED_ATLAS, makeFeedAtlas } from './textures';
 
@@ -147,7 +147,9 @@ export class BiomeView {
 
   private install(b: number, kit: Kit): void {
     const rows = Math.ceil(this.maxTiles / 3) + 2;
-    const deckParts = kit.parts('deck');
+    const atlas = this.atlases.get(b) ?? this.feedAtlas;
+    const live = (name: string) => feedScreens(kit.parts(name), atlas);
+    const deckParts = live('deck');
     const seamParts = kit.parts('deck_seam').map((p): KitPart => ({ ...p, material: this.seamMat }));
     const scenery: Scenery[] = [];
     kit.names('side_').forEach((name, index) => {
@@ -157,7 +159,7 @@ export class BiomeView {
       const slot = SLOTS[String(x.slot ?? 'wall')] ?? SLOTS.wall;
       const max = Math.ceil((this.maxTiles / 3) * 4.4 / every) * 2 + 6;
       scenery.push({
-        set: new PartSet(this.scene, this.bend, kit.parts(name), max),
+        set: new PartSet(this.scene, this.bend, live(name), max),
         index,
         slot,
         every,
@@ -172,7 +174,7 @@ export class BiomeView {
       seam: seamParts.length ? new PartSet(this.scene, this.bend, seamParts, rows) : null,
       scenery,
     });
-    const tunnel = kit.parts('tunnel');
+    const tunnel = live('tunnel');
     if (tunnel.length) this.structures.setTunnel(b, tunnel);
     const railName = kit.names('rail_')[0];
     if (railName) this.structures.setRail(b, kit.parts(railName), kit.parts('rail_end'));
@@ -283,7 +285,7 @@ export class BiomeView {
         const k = e.jitter ? 0.85 + 0.35 * hash(i, salt + 4) : 1;
         this.q.setFromAxisAngle(this.up, yaw);
         this.m.compose(this.v.set(x, 0, -(s - d)), this.q, this.sc.set(k, k, k));
-        if (!e.set.add(this.m)) break;
+        if (!e.set.add(this.m, i * 7 + side)) break;
       }
     }
   }

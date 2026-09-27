@@ -103,7 +103,7 @@ export class Structures {
         const s = tu.s + (i + 0.5) * step;
         if (s - d > this.visibleAhead + 3 || s < d - behind - 3) continue;
         this.m.compose(this.v.set(0, 0, -(s - d)), this.q.identity(), this.v2(1, 1, step / TUNNEL_ROW));
-        skin.add(this.m);
+        skin.add(this.m, tu.id * 31 + i);
       }
     }
     for (const s of all) {
