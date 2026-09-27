@@ -21,7 +21,8 @@ import { Hero } from './hero';
 import { Particles } from './particles';
 import { Post } from './post';
 import { POWER_COLOURS, PowerView } from './powers';
-import { Structures } from './structures';
+import { Structures, biomeAtS } from './structures';
+import { BiomeView, LOOKS } from './biome';
 import { initAssets } from './assets';
 import { FEED_ATLAS, makeAd, makeAutoplay, makeBookCover, makeBouncerTop, makeContent, makeFeedAtlas, makeMumCall, makeNotification, makeRampFace, makeReality, makeReel, makeReelFront, makeSlopAtlas } from './textures';
 
@@ -73,8 +74,8 @@ const ZONES: ZoneLook[] = content.zones.map((z) => ({
   light: new THREE.Color(z.light),
 }));
 
-/** Obstacle pools: one per kind, plus the wide overhang (three `high`s drawn as one). */
-type PoolKind = ObstacleKind | 'wide';
+/** Obstacle pools: one per kind, plus the wide overhang per biome (`wide<biome>`: three `high`s drawn as one). */
+type PoolKind = ObstacleKind | `wide${number}`;
 
 export interface RenderSettings {
   pixelRatio: number;
@@ -110,8 +111,6 @@ export class GameRenderer {
   settings: RenderSettings;
 
   private readonly dummy = new THREE.Object3D();
-  private readonly tileScreens: THREE.InstancedMesh;
-  private readonly tileCells: THREE.InstancedBufferAttribute;
   private readonly tileBezels: THREE.InstancedMesh;
   private readonly towerCells: THREE.InstancedMesh;
   private readonly towerCellIds: THREE.InstancedBufferAttribute;
@@ -120,7 +119,18 @@ export class GameRenderer {
   private readonly seams: THREE.InstancedMesh;
   private readonly spinner: THREE.InstancedMesh;
   private readonly sky: THREE.Mesh;
-  private readonly skyUniforms: { top: THREE.IUniform<THREE.Color>; horizon: THREE.IUniform<THREE.Color>; bottom: THREE.IUniform<THREE.Color>; glow: THREE.IUniform<THREE.Color> };
+  private readonly skyUniforms: {
+    top: THREE.IUniform<THREE.Color>;
+    horizon: THREE.IUniform<THREE.Color>;
+    bottom: THREE.IUniform<THREE.Color>;
+    glow: THREE.IUniform<THREE.Color>;
+    panoA: THREE.IUniform<THREE.Texture | null>;
+    panoB: THREE.IUniform<THREE.Texture | null>;
+    hasA: THREE.IUniform<number>;
+    hasB: THREE.IUniform<number>;
+    panoMix: THREE.IUniform<number>;
+  };
+  private readonly sun: THREE.DirectionalLight;
   readonly bend = new Bend();
   private readonly padPools = new Map<PadKind, THREE.Object3D[]>();
   private readonly padActive = new Map<number, { kind: PadKind; obj: THREE.Object3D; t: number }>();
@@ -153,7 +163,9 @@ export class GameRenderer {
 
   private readonly pools = new Map<PoolKind, THREE.Object3D[]>();
   private readonly active = new Map<number, { kind: PoolKind; obj: THREE.Object3D }>();
-  private readonly obstacleBuilders: Record<PoolKind, (variant: number) => THREE.Object3D>;
+  private readonly obstacleBuilders: Record<ObstacleKind, (variant: number) => THREE.Object3D>;
+  private readonly biomes: BiomeView;
+  private slopOn = false;
   private readonly structures: Structures;
   private readonly powers: PowerView;
   private sparkT = 0;
@@ -228,6 +240,7 @@ export class GameRenderer {
     const sun = new THREE.DirectionalLight('#ffffff', 1.6);
     sun.position.set(4, 10, 6);
     this.scene.add(sun);
+    this.sun = sun;
 
     // --- materials ---
     const feedAtlas = makeFeedAtlas();
@@ -263,11 +276,6 @@ export class GameRenderer {
     const lanes = 3;
     const tilesPerLane = Math.ceil((visibleAhead + BEHIND_ORBIT + 20) / TILE_LEN) + 2;
     const maxTiles = lanes * tilesPerLane;
-    const screenGeo = new THREE.PlaneGeometry(1.92, TILE_LEN - 0.34, 1, TILE_SEGS).rotateX(-Math.PI / 2);
-    this.tileCells = cellAttribute(screenGeo, maxTiles);
-    this.tileScreens = new THREE.InstancedMesh(screenGeo, this.mats.feed, maxTiles);
-    this.tileScreens.frustumCulled = false;
-    this.scene.add(this.tileScreens);
     this.tileBezels = new THREE.InstancedMesh(new THREE.BoxGeometry(2.1, 0.16, TILE_LEN - 0.14, 1, 1, TILE_SEGS), this.mats.dark, maxTiles);
     this.tileBezels.frustumCulled = false;
     this.scene.add(this.tileBezels);
@@ -290,7 +298,17 @@ export class GameRenderer {
     this.scene.add(this.spinner);
 
     // Sky dome in the world's true orientation: the horizon is what tells you you're upside down.
-    this.skyUniforms = { top: { value: new THREE.Color() }, horizon: { value: new THREE.Color() }, bottom: { value: new THREE.Color() }, glow: { value: new THREE.Color() } };
+    this.skyUniforms = {
+      top: { value: new THREE.Color() },
+      horizon: { value: new THREE.Color() },
+      bottom: { value: new THREE.Color() },
+      glow: { value: new THREE.Color() },
+      panoA: { value: null },
+      panoB: { value: null },
+      hasA: { value: 0 },
+      hasB: { value: 0 },
+      panoMix: { value: 1 },
+    };
     this.sky = new THREE.Mesh(
       new THREE.SphereGeometry(150, 32, 20),
       new THREE.ShaderMaterial({
@@ -310,13 +328,30 @@ export class GameRenderer {
           uniform vec3 horizon;
           uniform vec3 bottom;
           uniform vec3 glow;
+          uniform sampler2D panoA;
+          uniform sampler2D panoB;
+          uniform float hasA;
+          uniform float hasB;
+          uniform float panoMix;
           varying vec3 vDir;
           float h1(float n) { return fract(sin(n * 12.9898) * 43758.5453); }
+          // Blender equirect: forward (-z here) in the middle, up at the top.
+          vec2 equi(vec3 d) { return vec2(atan(d.x, -d.z) * 0.15915494 + 0.5, asin(clamp(d.y, -1.0, 1.0)) * 0.31830989 + 0.5); }
           void main() {
             vec3 d = normalize(vDir);
             float e = d.y;
             vec3 c = mix(horizon, top, smoothstep(0.0, 0.55, e));
             c = mix(c, bottom, smoothstep(0.0, -0.35, e));
+            float pano = mix(hasA, hasB, panoMix);
+            if (pano > 0.0) {
+              // A biome's own sky (a Cycles render of its distance): crossfaded at the gate,
+              // fading into the fog colour below the horizon.
+              vec2 uv = equi(d);
+              vec3 p = mix(texture2D(panoA, uv).rgb * hasA, texture2D(panoB, uv).rgb * hasB, panoMix) / max(0.001, pano);
+              p = mix(p, horizon, smoothstep(0.02, -0.25, e));
+              gl_FragColor = vec4(mix(c, p, pano), 1.0);
+              return;
+            }
             // A far skyline of phone towers: something to see the horizon turn by.
             float az = atan(d.z, d.x) * 57.2958;
             float col = floor(az / 3.0);
@@ -370,7 +405,6 @@ export class GameRenderer {
       movingPost: (v) => this.buildPost(v, true),
       habit: (v) => this.buildHabit(v),
       thumb: () => this.buildThumb(),
-      wide: (v) => this.buildOverhang(v),
     };
     this.autoplayTex = makeAutoplay();
     const glow = (hex: string) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(2.2) });
@@ -432,6 +466,12 @@ export class GameRenderer {
 
     this.particles = new Particles(this.scene);
     this.structures = new Structures(this.scene, this.bend, visibleAhead, this.seamMat);
+    this.biomes = new BiomeView(this.scene, this.bend, this.renderer, this.structures, this.seamMat, maxTiles, feedAtlas);
+    // A biome kit arrived: overhangs built from now on use its model.
+    this.biomes.onKit = (b) => {
+      for (const o of this.pools.get(`wide${b}`) ?? []) this.scene.remove(o);
+      this.pools.delete(`wide${b}`);
+    };
     this.powers = new PowerView(this.scene, this.bend, this.player, this.particles, visibleAhead);
     // Bend everything but the runner, their shadow and the sky.
     for (const o of this.scene.children) if (o !== this.player && o !== this.shadow && o !== this.sky) this.bend.patchTree(o);
@@ -566,7 +606,9 @@ export class GameRenderer {
   }
 
   /** Something fell across every lane: a giant phone lying on its side, an ad on both faces. Roll. */
-  private buildOverhang(v: number): THREE.Object3D {
+  private buildOverhang(v: number, biome = 0): THREE.Object3D {
+    const kit = this.biomes.kit(biome)?.clone('overhang');
+    if (kit) return kit;
     const g = new THREE.Group();
     const b = TUNING.barrier;
     const w = 7.6;
@@ -741,7 +783,8 @@ export class GameRenderer {
     const pool = this.pools.get(kind) ?? [];
     this.pools.set(kind, pool);
     const idx = pool.findIndex((o) => o.userData.variant === variant);
-    const obj = idx >= 0 ? pool.splice(idx, 1)[0] : this.obstacleBuilders[kind](variant);
+    const build = (): THREE.Object3D => (kind.startsWith('wide') ? this.buildOverhang(variant, Number(kind.slice(4))) : this.obstacleBuilders[kind as ObstacleKind](variant));
+    const obj = idx >= 0 ? pool.splice(idx, 1)[0] : build();
     obj.userData.variant = variant;
     obj.visible = true;
     if (!obj.parent) {
@@ -970,6 +1013,7 @@ export class GameRenderer {
     const behind = orbiting ? BEHIND_ORBIT : BEHIND;
     this.bend.update(w.course, d);
     this.syncTrack(d, behind);
+    this.biomes.update(w, behind, this.visibleAhead, TILE_LEN, this.slopOn);
     this.syncTowers(w, behind);
     this.syncObstacles(w);
     this.syncPads(w, sdt);
@@ -1000,11 +1044,14 @@ export class GameRenderer {
   }
 
   private syncTrack(d: number, behind: number): void {
+    // The lane screens are the biome view's; this is the stand-in deck, bezels and seams
+    // for rows whose biome has no kit deck (yet).
     const first = Math.floor((d - behind) / TILE_LEN);
     const last = Math.floor((d + this.visibleAhead) / TILE_LEN);
     let n = 0;
     let row = 0;
     for (let i = first; i <= last; i++) {
+      if (this.biomes.hasDeck(biomeAtS(i * TILE_LEN + TILE_LEN / 2))) continue;
       const z = -(i * TILE_LEN + TILE_LEN / 2 - d);
       this.dummy.rotation.set(0, 0, 0);
       this.dummy.scale.set(1, 1, 1);
@@ -1018,21 +1065,11 @@ export class GameRenderer {
       }
       row++;
       for (let lane = 0; lane < 3; lane++) {
-        const x = laneX(lane);
-        this.dummy.position.set(x, 0.011, z);
-        this.dummy.rotation.set(0, 0, 0);
-        this.dummy.scale.set(1, 1, 1);
-        this.dummy.updateMatrix();
-        this.tileScreens.setMatrixAt(n, this.dummy.matrix);
-        this.tileCells.setX(n, Math.floor(hash(i, lane) * FEED_CELLS));
-        this.dummy.position.y = -0.07;
+        this.dummy.position.set(laneX(lane), -0.07, z);
         this.dummy.updateMatrix();
         this.tileBezels.setMatrixAt(n++, this.dummy.matrix);
       }
     }
-    this.tileScreens.count = n;
-    this.tileScreens.instanceMatrix.needsUpdate = true;
-    this.tileCells.needsUpdate = true;
     this.tileBezels.count = n;
     this.tileBezels.instanceMatrix.needsUpdate = true;
     this.deck.count = row;
@@ -1048,8 +1085,9 @@ export class GameRenderer {
     let n = 0;
     let backs = 0;
     for (let i = first; i <= last; i++) {
-      // No towers where the track goes upside down, or inside a tunnel.
-      if (!w.course.scenery(i * TOWER_STEP) || w.tunnelAt(i * TOWER_STEP)) continue;
+      // No towers where the track goes upside down, inside a tunnel, or where a biome kit has scenery.
+      const at = i * TOWER_STEP;
+      if (!w.course.scenery(at) || w.tunnelAt(at) || this.biomes.hasScenery(biomeAtS(at))) continue;
       for (const side of [-1, 1]) {
         const r = hash(i, side + 7);
         if (r < 0.12) continue; // gaps in the skyline
@@ -1091,7 +1129,7 @@ export class GameRenderer {
       seen.add(o.id);
       let entry = this.active.get(o.id);
       if (!entry) {
-        const kind: PoolKind = o.wide ? 'wide' : o.kind;
+        const kind: PoolKind = o.wide ? `wide${biomeAtS(o.s)}` : o.kind;
         entry = { kind, obj: this.acquire(kind, o.variant) };
         this.active.set(o.id, entry);
       }
@@ -1289,8 +1327,34 @@ export class GameRenderer {
     if (slop && !this.slopAtlas) this.slopAtlas = makeSlopAtlas();
     const map = slop ? this.slopAtlas! : this.feedAtlas;
     if (this.mats.feed.map !== map) this.mats.feed.map = this.mats.tower.map = map;
+    this.slopOn = slop;
+    this.biomes.setSlop(slop ? this.slopAtlas : null);
     this.seamMat.color.copy(from.seam).lerp(to.seam, k);
     this.hemi.color.copy(from.light).lerp(to.light, k);
+    // The biome's light: fog, sun, exposure, and its panorama sky and reflections.
+    const bFrom = zoneLook(Math.max(0, w.zone - 1)) % LOOKS.length;
+    const bTo = zoneLook(w.zone) % LOOKS.length;
+    const la = LOOKS[bFrom];
+    const lb = LOOKS[bTo];
+    const lerp = THREE.MathUtils.lerp;
+    this.hemi.intensity = lerp(la.hemi, lb.hemi, k);
+    this.sun.color.copy(la.sun).lerp(lb.sun, k);
+    this.sun.intensity = lerp(la.sunI, lb.sunI, k);
+    this.renderer.toneMappingExposure = lerp(la.exposure, lb.exposure, k);
+    const fog = this.scene.fog as THREE.Fog;
+    fog.near = lerp(la.fogNear, lb.fogNear, k);
+    fog.far = Math.min(this.visibleAhead, lerp(la.fogFar, lb.fogFar, k));
+    const su = this.skyUniforms;
+    const skyA = this.biomes.sky(bFrom);
+    const skyB = this.biomes.sky(bTo);
+    su.panoA.value = skyA;
+    su.panoB.value = skyB;
+    su.hasA.value = skyA ? 1 : 0;
+    su.hasB.value = skyB ? 1 : 0;
+    su.panoMix.value = w.zone === 0 ? 1 : k;
+    const env = this.biomes.env(k < 0.5 ? bFrom : bTo);
+    if (this.scene.environment !== env) this.scene.environment = env;
+    this.scene.environmentIntensity = lerp(la.env, lb.env, k);
     this.skyColour.copy(from.sky).lerp(to.sky, k);
     (this.scene.background as THREE.Color).copy(this.skyColour);
     this.scene.fog!.color.copy(this.skyColour);
