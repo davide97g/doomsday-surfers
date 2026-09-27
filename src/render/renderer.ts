@@ -23,7 +23,9 @@ import { Post } from './post';
 import { POWER_COLOURS, PowerView } from './powers';
 import { Structures, biomeAtS } from './structures';
 import { BiomeView, LOOKS } from './biome';
-import { initAssets } from './assets';
+import { initAssets, loadKit, type Kit } from './assets';
+import { SPEC, type Quality } from './quality';
+import { PartSet, part } from './instanced';
 import { FEED_ATLAS, makeAd, makeAutoplay, makeBookCover, makeBouncerTop, makeContent, makeFeedAtlas, makeMumCall, makeNotification, makeRampFace, makeReality, makeReel, makeReelFront, makeSlopAtlas } from './textures';
 
 const VARIANTS = 8;
@@ -79,6 +81,7 @@ type PoolKind = ObstacleKind | `wide${number}`;
 
 export interface RenderSettings {
   pixelRatio: number;
+  quality: Quality;
 }
 
 export class GameRenderer {
@@ -131,6 +134,8 @@ export class GameRenderer {
     panoMix: THREE.IUniform<number>;
   };
   private readonly sun: THREE.DirectionalLight;
+  /** The phone is the runner's key light (their face is a void; the screen lights them). */
+  private readonly phoneLight = new THREE.PointLight('#bcd2ff', 2.2, 5, 2);
   readonly bend = new Bend();
   private readonly padPools = new Map<PadKind, THREE.Object3D[]>();
   private readonly padActive = new Map<number, { kind: PadKind; obj: THREE.Object3D; t: number }>();
@@ -138,7 +143,11 @@ export class GameRenderer {
   private readonly camUp = new THREE.Vector3(0, 1, 0);
   private readonly upV = new THREE.Vector3();
   private readonly colour = new THREE.Color();
-  private readonly pickupMeshes: THREE.InstancedMesh[] = [];
+  /** One instanced set per content type (a kit's 3D icons once common.glb loads). */
+  private pickupSets: PartSet[] = [];
+  private pickupMats: THREE.Material[] = [];
+  /** kits/common.glb: trains, barriers, habits, the thumb, pads, pickups, power-ups, rails. */
+  private common: Kit | null = null;
   private readonly phoneMat: THREE.MeshBasicMaterial;
   private readonly player = new THREE.Group();
   private readonly playerParts: {
@@ -229,7 +238,7 @@ export class GameRenderer {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
     initAssets(this.renderer);
-    this.settings = { pixelRatio: Math.min(window.devicePixelRatio || 1, 2) };
+    this.settings = { pixelRatio: Math.min(window.devicePixelRatio || 1, 2), quality: 'high' };
 
     this.camera = new THREE.PerspectiveCamera(66, 1, 0.1, 220);
     this.scene.background = new THREE.Color('#07040f');
@@ -391,10 +400,8 @@ export class GameRenderer {
     const pickupGeo = new THREE.PlaneGeometry(0.85, 0.85);
     for (let type = 0; type < 4; type++) {
       const mat = new THREE.MeshBasicMaterial({ map: makeContent(type), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide });
-      const m = new THREE.InstancedMesh(pickupGeo, mat, 128);
-      m.frustumCulled = false;
-      this.pickupMeshes.push(m);
-      this.scene.add(m);
+      this.pickupMats.push(mat);
+      this.pickupSets.push(new PartSet(this.scene, null, [part(pickupGeo, mat)], 128));
     }
 
     // --- obstacles ---
@@ -446,6 +453,8 @@ export class GameRenderer {
     armR.rotation.set(-1.25, 0, 0.35);
     rig.add(body, head, phone, legL, legR, armL, armR);
     this.player.add(rig);
+    this.phoneLight.position.set(0, 1.4, -0.45);
+    this.player.add(this.phoneLight);
     this.scene.add(this.player);
     this.playerParts = { body, head, legL, legR, armL, armR, phone, rig };
 
@@ -466,6 +475,9 @@ export class GameRenderer {
 
     this.particles = new Particles(this.scene);
     this.structures = new Structures(this.scene, this.bend, visibleAhead, this.seamMat);
+    void loadKit('common').then((kit) => {
+      if (kit) this.useCommon(kit);
+    });
     this.biomes = new BiomeView(this.scene, this.bend, this.renderer, this.structures, this.seamMat, maxTiles, feedAtlas);
     // A biome kit arrived: overhangs built from now on use its model.
     this.biomes.onKit = (b) => {
@@ -489,6 +501,10 @@ export class GameRenderer {
       this.player.remove(this.hero ? this.hero.root : this.playerParts.rig);
       this.hero = hero;
       this.player.add(hero.root);
+      const home = hero.nodes.get('PhoneLight') ?? null;
+      (home ?? this.player).add(this.phoneLight);
+      if (!home) this.phoneLight.position.set(0, 1.4, -0.45);
+      else this.phoneLight.position.set(0, 0, 0);
       // Warm the rest so flicking through the select screen is instant.
       for (const l of CHARACTER_LOOKS) if (!!l.work === (mode === 'work')) void this.loadModel(l.model);
     });
@@ -531,9 +547,114 @@ export class GameRenderer {
     return p;
   }
 
+  // ---------- the common kit ----------
+
+  /** kits/common.glb arrived: build obstacles, pads, pickups, power-ups and rails from it. */
+  private useCommon(kit: Kit): void {
+    this.common = kit;
+    // Pooled stand-ins go; anything on screen now keeps its look until it scrolls away.
+    for (const pool of [...this.pools.values(), ...this.padPools.values()]) for (const o of pool) this.scene.remove(o);
+    this.pools.clear();
+    this.padPools.clear();
+    this.powers.useKit(kit);
+    if (kit.has('rail_cable')) this.structures.setRail(-1, kit.parts('rail_cable'), kit.parts('rail_end'));
+    const ids = ['like', 'notif', 'reel', 'outrage'];
+    if (!ids.every((id) => kit.has(`pickup_${id}`))) return;
+    const sets: PartSet[] = [];
+    const mats: THREE.Material[] = [];
+    for (let type = 0; type < 4; type++) {
+      const parts = kit.parts(`pickup_${ids[type]}`);
+      // Each type gets its own material copies so tolerance can dim it alone.
+      const own = new Map<THREE.Material, THREE.Material>();
+      const mine = parts.map((pt) => {
+        let m = own.get(pt.material);
+        if (!m) {
+          m = pt.material.clone();
+          m.userData.baseEmissive = (m as THREE.MeshStandardMaterial).emissiveIntensity ?? 1;
+          own.set(pt.material, m);
+          mats.push(m);
+        }
+        return { ...pt, material: m };
+      });
+      sets.push(new PartSet(this.scene, this.bend, mine, 128));
+    }
+    for (const s of this.pickupSets) s.remove();
+    this.pickupSets = sets;
+    this.pickupMats = mats;
+    this.pickupTypeMats = sets.map((s) => s.meshes.map((m) => m.material as THREE.Material));
+  }
+
+  private pickupTypeMats: THREE.Material[][] = [];
+
+  /** A clone of a common-kit node with its runtime faces swapped for the game's canvases. */
+  private fromKit(name: string, faces: Record<string, THREE.Material> = {}): THREE.Object3D | null {
+    const obj = this.common?.clone(name);
+    if (!obj) return null;
+    obj.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      if (Array.isArray(mesh.material)) mesh.material = mesh.material.map((m) => faces[m.name] ?? m);
+      else mesh.material = faces[mesh.material.name] ?? mesh.material;
+    });
+    return obj;
+  }
+
+  /** A reel train from kit modules: front, up to 11 two-metre middles, back, optional stairs. */
+  private kitTrain(v: number, moving: boolean): THREE.Object3D | null {
+    const faces = { ReelScreen: this.mats.reel[v], ReelFront: this.mats.reelFront[v], Warn: this.mats.warn };
+    const front = this.fromKit('train_front', faces);
+    if (!front) return null;
+    const g = new THREE.Group();
+    g.userData.kit = true;
+    front.name = 'front';
+    g.add(front);
+    for (let i = 0; i < 11; i++) {
+      const mid = this.fromKit('train_mid', faces);
+      if (!mid) break;
+      mid.name = `mid${i}`;
+      g.add(mid);
+    }
+    const back = this.fromKit('train_back', faces);
+    if (back) {
+      back.name = 'back';
+      g.add(back);
+    }
+    if (moving) {
+      const warn = this.fromKit('train_warn', faces);
+      if (warn) {
+        warn.name = 'warn';
+        g.add(warn);
+      }
+    } else {
+      const stairs = this.fromKit('train_stairs', faces);
+      if (stairs) {
+        stairs.name = 'stairs';
+        g.add(stairs);
+      }
+    }
+    return g;
+  }
+
+  /** Lay a kit train's modules out for its length (the group sits at the train's centre). */
+  private layoutTrain(obj: THREE.Object3D, length: number): void {
+    const half = length / 2;
+    const mids = Math.max(0, Math.round((length - 2) / 2));
+    obj.getObjectByName('front')!.position.z = half;
+    for (let i = 0; i < 11; i++) {
+      const mid = obj.getObjectByName(`mid${i}`);
+      if (!mid) break;
+      mid.visible = i < mids;
+      mid.position.z = half - 1 - 2 * i;
+    }
+    const back = obj.getObjectByName('back');
+    if (back) back.position.z = half - 1 - 2 * mids;
+  }
+
   // ---------- obstacle builders ----------
 
   private buildLow(v: number): THREE.Object3D {
+    const kit = this.fromKit('barrier_low', { NotifFace: this.mats.notif[v] });
+    if (kit) return kit;
     const g = new THREE.Group();
     const side = this.mats.white;
     const face = this.mats.notif[v];
@@ -546,6 +667,8 @@ export class GameRenderer {
   }
 
   private buildHigh(v: number): THREE.Object3D {
+    const kit = this.fromKit('barrier_high', { AdFace: this.mats.ad[v] });
+    if (kit) return kit;
     const g = new THREE.Group();
     const poleGeo = new THREE.CylinderGeometry(0.06, 0.06, 3.3, 6);
     const p1 = new THREE.Mesh(poleGeo, this.mats.pole);
@@ -563,6 +686,8 @@ export class GameRenderer {
   }
 
   private buildPost(v: number, moving: boolean): THREE.Object3D {
+    const kit = this.kitTrain(v, moving);
+    if (kit) return kit;
     const g = new THREE.Group();
     const side = this.mats.reel[v];
     const front = this.mats.reelFront[v];
@@ -637,6 +762,16 @@ export class GameRenderer {
   private buildThumb(): THREE.Object3D {
     const th = TUNING.setPieces.thumb;
     const g = new THREE.Group();
+    const kit = this.fromKit('thumb');
+    if (kit) {
+      // The kit's thumb lies along the lane from its near end: centre it on the footprint.
+      kit.position.z = th.length / 2;
+      const body = new THREE.Group();
+      body.name = 'body';
+      body.add(kit);
+      g.add(body, this.thumbWarn());
+      return g;
+    }
     const skin = new THREE.MeshStandardMaterial({ color: '#e3ad8c', roughness: 0.7, emissive: new THREE.Color('#e3ad8c'), emissiveIntensity: 0.3 });
     const nailMat = new THREE.MeshStandardMaterial({ color: '#f6d6ca', roughness: 0.25, emissive: new THREE.Color('#f6d6ca'), emissiveIntensity: 0.35 });
     const r = th.halfWidth * 1.3;
@@ -660,7 +795,13 @@ export class GameRenderer {
     const body = new THREE.Group();
     body.name = 'body';
     body.add(tilt);
-    // Warning strip: the footprint plus the stretch it drags toward you.
+    g.add(body, this.thumbWarn());
+    return g;
+  }
+
+  /** Warning strip: the thumb's footprint plus the stretch it drags toward you. */
+  private thumbWarn(): THREE.Object3D {
+    const th = TUNING.setPieces.thumb;
     const drag = th.speed * th.drag;
     const warn = new THREE.Mesh(
       new THREE.PlaneGeometry(th.halfWidth * 2, th.length + drag, 1, 16),
@@ -670,8 +811,7 @@ export class GameRenderer {
     warn.rotation.x = -Math.PI / 2;
     warn.position.set(0, 0.14, drag / 2);
     warn.renderOrder = 2;
-    g.add(body, warn);
-    return g;
+    return warn;
   }
 
   /** The Algorithm: a giant eye of stacked screens in the sky. */
@@ -715,8 +855,18 @@ export class GameRenderer {
   }
 
   private buildHabit(v: number): THREE.Object3D {
-    const g = new THREE.Group();
     const m = this.habitMats;
+    // Work mode's first habit is a lunch box, not a glass of water: that one stays procedural.
+    if (!(mode === 'work' && v % 4 === 0)) {
+      const kit = this.fromKit(['habit_water', 'habit_books', 'habit_shoe', 'habit_phone'][v % 4], { MumFace: m.call });
+      if (kit) {
+        if (v % 4 === 3) kit.name = 'ring';
+        const g = new THREE.Group();
+        g.add(kit);
+        return g;
+      }
+    }
+    const g = new THREE.Group();
     switch (v % 4) {
       case 0: {
         if (mode === 'work') {
@@ -797,10 +947,24 @@ export class GameRenderer {
   // ---------- pads (built with their near edge at the origin, running toward -z) ----------
 
   private buildPad(kind: PadKind): THREE.Object3D {
-    const g = new THREE.Group();
     const t = TUNING.pads;
     const m = this.padMats;
     const d = this.mats.dark;
+    if (kind === 'bouncer' && this.common?.has('pad_bouncer')) {
+      const g = new THREE.Group();
+      g.add(this.fromKit('pad_bouncer')!);
+      for (const name of ['pad_bouncer_top', 'pad_bouncer_spring']) {
+        const o = this.fromKit(name);
+        if (!o) continue;
+        o.name = name === 'pad_bouncer_top' ? 'top' : 'spring';
+        o.userData.restY = 0;
+        g.add(o);
+      }
+      return g;
+    }
+    const padKit = kind === 'bouncer' ? null : this.fromKit(`pad_${kind}`, { RampFace: m.ramp, AutoplayBelt: m.autoplay });
+    if (padKit) return padKit;
+    const g = new THREE.Group();
     if (kind === 'ramp') {
       const { length: L, height: H } = t.ramp;
       const slope = Math.hypot(L, H);
@@ -870,8 +1034,10 @@ export class GameRenderer {
         // Squash on launch, then wobble back.
         if (pd.used) entry.t += dt;
         const k = pd.used ? Math.exp(-entry.t * 5) * Math.cos(entry.t * 30) : 0;
-        entry.obj.getObjectByName('top')!.position.y = 0.32 - 0.22 * k;
-        entry.obj.getObjectByName('spring')!.scale.y = 1 - 0.7 * k;
+        const top = entry.obj.getObjectByName('top');
+        const spring = entry.obj.getObjectByName('spring');
+        if (top) top.position.y = ((top.userData.restY as number | undefined) ?? 0.32) - 0.22 * k;
+        if (spring) spring.scale.y = 1 - 0.7 * k;
       }
     }
     for (const [id, entry] of this.padActive) {
@@ -925,6 +1091,17 @@ export class GameRenderer {
   }
 
   // ---------- frame ----------
+
+  /** Apply a quality tier (pixel ratio, glass screens, scenery density, bloom). */
+  setQuality(q: Quality): void {
+    const spec = SPEC[q];
+    this.settings.quality = q;
+    this.settings.pixelRatio = Math.min(window.devicePixelRatio || 1, spec.pixelRatio);
+    this.biomes.glass = spec.glass;
+    this.biomes.density = spec.scenery;
+    this.post.settings.bloom = spec.bloom;
+    this.resize();
+  }
 
   resize(): void {
     const w = window.innerWidth;
@@ -1138,12 +1315,13 @@ export class GameRenderer {
       obj.visible = !o.hit;
       const x = laneX(o.lane);
       if (o.kind === 'post' || o.kind === 'movingPost') {
-        const body = obj.getObjectByName('body')!;
-        body.scale.z = o.length;
+        if (obj.userData.kit) this.layoutTrain(obj, o.length);
+        else obj.getObjectByName('body')!.scale.z = o.length;
         obj.position.set(x, 0, -(o.s + o.length / 2 - w.d));
         const warn = obj.getObjectByName('warn');
         if (warn) {
-          warn.position.z = o.length / 2 - 0.1;
+          warn.position.z = o.length / 2 - (obj.userData.kit ? 0.4 : 0.1);
+          if (obj.userData.kit) warn.position.y = 0;
           warn.visible = !o.active || Math.floor(performance.now() / 120) % 2 === 0;
         }
         const stairs = obj.getObjectByName('stairs');
@@ -1186,11 +1364,11 @@ export class GameRenderer {
   }
 
   private syncPickups(w: World, time: number): void {
-    const counts = [0, 0, 0, 0];
+    for (const set of this.pickupSets) set.begin();
     const pl = w.player;
     const fly = w.t.power.magnet.fly;
     for (const p of w.pickups) {
-      if (p.taken || p.s - w.d > this.visibleAhead || counts[p.type] >= 128) continue;
+      if (p.taken || p.s - w.d > this.visibleAhead) continue;
       this.dummy.position.set(laneX(p.lane), p.y + Math.sin(time * 4 + p.s) * 0.08, -(p.s - w.d));
       if (p.pullAt >= 0) {
         // The For You Magnet has it: it flies into you.
@@ -1200,13 +1378,17 @@ export class GameRenderer {
       this.dummy.rotation.set(0, time * 2.5 + p.s * 0.3, 0);
       this.dummy.scale.set(1, 1, 1);
       this.dummy.updateMatrix();
-      this.pickupMeshes[p.type].setMatrixAt(counts[p.type]++, this.dummy.matrix);
+      this.pickupSets[p.type].add(this.dummy.matrix);
     }
-    this.pickupMeshes.forEach((m, type) => {
-      m.count = counts[type];
-      m.instanceMatrix.needsUpdate = true;
+    this.pickupSets.forEach((set, type) => {
+      set.end();
       // Tolerance made visible: content you've had too much of stops glowing.
-      (m.material as THREE.MeshBasicMaterial).color.setScalar(0.45 + 1.35 * w.tolerance[type]);
+      const tol = w.tolerance[type];
+      for (const m of this.pickupTypeMats[type] ?? [this.pickupMats[type]]) {
+        const std = m as THREE.MeshStandardMaterial;
+        if (std.isMeshStandardMaterial) std.emissiveIntensity = ((m.userData.baseEmissive as number) ?? 1) * (0.25 + 1.35 * tol);
+        else (m as THREE.MeshBasicMaterial).color.setScalar(0.45 + 1.35 * tol);
+      }
     });
   }
 
@@ -1243,6 +1425,8 @@ export class GameRenderer {
     const p = w.player;
     const parts = this.playerParts;
     this.player.position.set(p.x, p.y, 0);
+    const present = w.cause === 'empty' ? Math.min(1, w.fadeT / w.t.reality.fadeTime) : 0;
+    this.phoneLight.intensity = 2.2 * (1 - 0.97 * present) * (w.flying ? 0.6 : 1);
     this.shadow.position.set(p.x, p.floor + 0.04, 0);
     const sh = Math.max(0.35, 1 - (p.y - p.floor) * 0.25);
     this.shadow.scale.set(sh, 1, sh);
@@ -1275,7 +1459,6 @@ export class GameRenderer {
     }
 
     // Dopamine ran out: the arms drop, the phone goes dark.
-    const present = w.cause === 'empty' ? Math.min(1, w.fadeT / w.t.reality.fadeTime) : 0;
     this.phoneMat.color.setRGB(2.4, 2.8, 3.2).multiplyScalar(1 - 0.97 * present);
     parts.armL.rotation.x = parts.armR.rotation.x = THREE.MathUtils.lerp(-1.25, -0.12, present);
     parts.phone.position.set(0, THREE.MathUtils.lerp(1.32, 0.78, present), THREE.MathUtils.lerp(-0.38, -0.3, present));

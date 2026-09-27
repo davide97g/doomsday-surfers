@@ -22,6 +22,7 @@ export interface PerfToggles {
   bloom: boolean;
   grade: boolean;
   pixelRatio: number;
+  quality: 'auto' | 'high' | 'medium' | 'low';
 }
 
 const LOW = 25;
@@ -78,6 +79,8 @@ export class Hud {
   private readonly viewsEl: HTMLElement;
   private viewCount = 0;
   onPerfChange: (p: PerfToggles) => void = () => {};
+  /** Reflect a change made elsewhere (Auto quality stepping down) in the panel. */
+  syncPerf: (p: PerfToggles) => void = () => {};
   perf: PerfToggles;
 
   constructor(parent: HTMLElement, initial: PerfToggles) {
@@ -97,8 +100,11 @@ export class Hud {
         <div class="perf-title">device test</div>
         <label><input type="checkbox" id="pf-bloom"> bloom</label>
         <label><input type="checkbox" id="pf-grade"> colour grade</label>
+        <label>quality
+          <select id="pf-q"><option>auto</option><option>high</option><option>medium</option><option>low</option></select>
+        </label>
         <label>pixel ratio
-          <select id="pf-pr"><option>1</option><option>1.5</option><option>2</option><option>3</option></select>
+          <select id="pf-pr"><option>1</option><option>1.25</option><option>1.5</option><option>1.6</option><option>2</option><option>3</option></select>
         </label>
         <div class="perf-stats" id="pf-stats"></div>
       </div>
@@ -130,15 +136,23 @@ export class Hud {
     const bloom = $<HTMLInputElement>('pf-bloom');
     const grade = $<HTMLInputElement>('pf-grade');
     const pr = $<HTMLSelectElement>('pf-pr');
+    const q = $<HTMLSelectElement>('pf-q');
     bloom.checked = this.perf.bloom;
     grade.checked = this.perf.grade;
     pr.value = String(this.perf.pixelRatio);
     if (!pr.value) pr.value = '2';
+    q.value = this.perf.quality;
     const emit = () => {
-      this.perf = { bloom: bloom.checked, grade: grade.checked, pixelRatio: Number(pr.value) };
+      this.perf = { bloom: bloom.checked, grade: grade.checked, pixelRatio: Number(pr.value), quality: q.value as PerfToggles['quality'] };
       this.onPerfChange(this.perf);
     };
-    [bloom, grade, pr].forEach((el) => el.addEventListener('input', emit));
+    [bloom, grade, pr, q].forEach((el) => el.addEventListener('input', emit));
+    this.syncPerf = (p) => {
+      this.perf = { ...p };
+      bloom.checked = p.bloom;
+      pr.value = String(p.pixelRatio);
+      q.value = p.quality;
+    };
   }
 
   update(w: World, dt: number): void {

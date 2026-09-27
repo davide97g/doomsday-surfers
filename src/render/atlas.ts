@@ -19,6 +19,23 @@ export function atlasMaterial(map: THREE.Texture, color: THREE.Color): THREE.Mes
   return m;
 }
 
+/** Glass screen: a dark reflective pane over the glowing atlas cell (emissive), for the High tier.
+ *  It picks up the sky's reflection and the phone light like a real screen does. */
+export function atlasGlass(map: THREE.Texture, glow: THREE.Color): THREE.MeshStandardMaterial {
+  const { cols, rows } = FEED_ATLAS;
+  const m = new THREE.MeshStandardMaterial({ color: '#030305', roughness: 0.26, metalness: 0.0, emissiveMap: map, emissive: glow });
+  m.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float cell;')
+      .replace(
+        '#include <uv_vertex>',
+        `#include <uv_vertex>
+        vEmissiveMapUv = (vEmissiveMapUv + vec2(mod(cell, ${cols}.0), ${rows - 1}.0 - floor(cell / ${cols}.0))) / vec2(${cols}.0, ${rows}.0);`,
+      );
+  };
+  return m;
+}
+
 export function cellAttribute(geo: THREE.BufferGeometry, count: number): THREE.InstancedBufferAttribute {
   const attr = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
   attr.setUsage(THREE.DynamicDrawUsage);

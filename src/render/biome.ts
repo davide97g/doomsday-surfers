@@ -16,7 +16,7 @@ import { content, mode } from '../content/content';
 import { TUNING, zoneLook } from '../sim/types';
 import type { World } from '../sim/world';
 import { loadKit, loadTexture, type Kit, type KitPart } from './assets';
-import { atlasMaterial, cellAttribute, hash } from './atlas';
+import { atlasGlass, atlasMaterial, cellAttribute, hash } from './atlas';
 import type { Bend } from './bend';
 import { PartSet } from './instanced';
 import { biomeAtS, type Structures } from './structures';
@@ -75,7 +75,10 @@ export class BiomeView {
   private readonly requested = new Set<number>();
   private readonly loaded = new Map<number, Loaded>();
   private readonly atlases = new Map<number, THREE.Texture>();
-  private readonly tiles = new Map<number, { mesh: THREE.InstancedMesh; cells: THREE.InstancedBufferAttribute; mat: THREE.MeshBasicMaterial }>();
+  private readonly tiles = new Map<number, { mesh: THREE.InstancedMesh; cells: THREE.InstancedBufferAttribute; flat: THREE.MeshBasicMaterial; glass: THREE.MeshStandardMaterial }>();
+  /** Quality: glass screens, and how much of the scenery is placed. */
+  glass = true;
+  density = 1;
   private readonly skies = new Map<number, THREE.Texture>();
   private readonly envs = new Map<number, THREE.Texture>();
   private readonly pmrem: THREE.PMREMGenerator;
@@ -237,19 +240,29 @@ export class BiomeView {
     if (!t) {
       const geo = new THREE.PlaneGeometry(1.92, 4.4 - 0.34, 1, 4).rotateX(-Math.PI / 2);
       const cells = cellAttribute(geo, this.maxTiles);
-      const mat = atlasMaterial(this.atlases.get(b) ?? this.feedAtlas, new THREE.Color(0.55, 0.55, 0.6));
-      const mesh = new THREE.InstancedMesh(geo, mat, this.maxTiles);
+      const atlas = this.atlases.get(b) ?? this.feedAtlas;
+      const flat = atlasMaterial(atlas, new THREE.Color(0.55, 0.55, 0.6));
+      const glass = atlasGlass(atlas, new THREE.Color(0.62, 0.62, 0.68));
+      this.bend.patch(flat);
+      this.bend.patch(glass);
+      const mesh = new THREE.InstancedMesh(geo, this.glass ? glass : flat, this.maxTiles);
       mesh.frustumCulled = false;
       mesh.count = 0;
       this.bend.patchTree(mesh);
       this.scene.add(mesh);
-      t = { mesh, cells, mat };
+      t = { mesh, cells, flat, glass };
       this.tiles.set(b, t);
     }
+    const mat = this.glass ? t.glass : t.flat;
+    if (t.mesh.material !== mat) t.mesh.material = mat;
     const map = slop && this.slop ? this.slop : (this.atlases.get(b) ?? this.feedAtlas);
-    if (t.mat.map !== map) {
-      t.mat.map = map;
-      t.mat.needsUpdate = true;
+    if (t.flat.map !== map) {
+      t.flat.map = map;
+      t.flat.needsUpdate = true;
+    }
+    if (t.glass.emissiveMap !== map) {
+      t.glass.emissiveMap = map;
+      t.glass.needsUpdate = true;
     }
     return t;
   }
@@ -263,7 +276,7 @@ export class BiomeView {
       if (biomeAtS(s0) !== b || !w.course.scenery(s0) || w.tunnelAt(s0)) continue;
       for (const side of e.sides) {
         const salt = e.index * 37 + side + 5;
-        if (hash(i, salt) >= e.chance) continue;
+        if (hash(i, salt) >= e.chance * this.density) continue;
         const s = s0 + (hash(i, salt + 1) - 0.5) * e.every * 0.6;
         const x = side * THREE.MathUtils.lerp(e.slot[0], e.slot[1], hash(i, salt + 2));
         const yaw = (side > 0 ? 0 : Math.PI) + (e.jitter ? (hash(i, salt + 3) - 0.5) * 0.5 : 0);
