@@ -14,6 +14,7 @@
     "ios:open": "bunx cap open ios",
     "ios:run": "bun run build && bunx cap run ios",
     "ios:testflight": "sh scripts/testflight.sh",
+    "ios:device": "sh scripts/device.sh",
     "assets": "sh scripts/assets.sh",
     "assets:setup": "sh scripts/setup-assets.sh",
     "postinstall": "bun scripts/copy-decoders.ts"
