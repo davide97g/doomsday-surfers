@@ -14,7 +14,9 @@
     "ios:open": "bunx cap open ios",
     "ios:run": "bun run build && bunx cap run ios",
     "ios:testflight": "sh scripts/testflight.sh",
-    "assets": "sh scripts/assets.sh"
+    "assets": "sh scripts/assets.sh",
+    "assets:setup": "sh scripts/setup-assets.sh",
+    "postinstall": "bun scripts/copy-decoders.ts"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.2",
@@ -27,8 +29,14 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.2",
+    "@gltf-transform/cli": "^4.5.0",
+    "@gltf-transform/core": "^4.5.0",
+    "@gltf-transform/extensions": "^4.5.0",
+    "@gltf-transform/functions": "^4.5.0",
     "@types/node": "^22.20.4",
     "@types/three": "^0.186.0",
+    "meshoptimizer": "^1.3.0",
+    "sharp": "^0.35.5",
     "typescript": "~5.9.0",
     "vite": "^8.3.0"
   }
