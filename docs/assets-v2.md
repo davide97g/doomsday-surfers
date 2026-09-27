@@ -161,3 +161,44 @@ Section Sewer), `bedroom` (3 AM Bedroom), `mall` (Infinite Mall).
   Cycles render of the biome's distant surroundings from the track; horizon
   at the middle row, below the horizon fades to the biome's fog colour. Used
   for the sky dome and, via PMREM, for reflections.
+
+## Art direction (all kits)
+
+- **Realistic materials, surreal world.** Real-world PBR (CC0 textures from
+  `assets/textures/`, bevelled edges, worn edges, baked AO, believable
+  scale detail: screws, seams, vents, stitching, grime) applied to the feed
+  world's giant objects: phones as skyscrapers, chat bubbles as rock, cables
+  as rails. Black Mirror cold, not cartoon. Look at real references online
+  (product shots, architecture, Poly Haven models) before modelling.
+- **Faceless**: no human faces anywhere (mannequins are smooth, blank).
+- **Invented brands only** (see `src/config/content.json` `brands`); never
+  real logos or app UI. Screens that should show the in-game feed use the
+  runtime materials listed above, so don't paint UI into textures.
+- **Readability first**: obstacles must read instantly at 60 m in a dark,
+  foggy, bloomy scene. Scenery stays darker and less saturated than the
+  track and obstacles; neon/emissive accents are fine but sparse.
+- Everything goes grey when dopamine drops (a screen-space grade does it):
+  no need to author grey variants.
+
+## Performance budget (iPhone 14, WebGL, 60 fps)
+
+The renderer draws everything within ~210 m, instanced, no culling. Aim:
+
+- Whole visible scene <= 600k triangles and <= 180 draw calls. A biome's
+  scenery as placed (sum over pieces of `200 m / every x sides x chance x
+  triangles`) <= 220k triangles. Report this number.
+- Deck row <= 1.5k tris; tunnel module <= 2k; rail module <= 150.
+- Common kit: train front/back <= 3k each, train mid module <= 800,
+  stairs <= 2.5k, barriers <= 2k, habits <= 2.5k, thumb <= 6k, pads <= 2k,
+  pickups <= 300 each (many on screen), power-ups <= 2k, jetpack <= 3k.
+- One atlas material per kit (2048: albedo + normal + ORM, optional
+  emissive), plus the runtime-overridden materials, plus at most two extra
+  (glass, emissive signage). Textures KTX2 (the lib's `compress`).
+- Every glb <= 4 MB compressed; sky jpg <= 600 KB.
+
+## Review loop
+
+Every kit script renders previews (`lib/preview.py`) of each piece and a
+"game" view (camera 3.5 m up, 6.4 m behind the runner position, looking
+down the track, dark fog) into the session scratchpad. Look at them and
+iterate until they are genuinely convincing before exporting.
