@@ -148,6 +148,8 @@ export class GameRenderer {
   private pickupMats: THREE.Material[] = [];
   /** kits/common.glb: trains, barriers, habits, the thumb, pads, pickups, power-ups, rails. */
   private common: Kit | null = null;
+  /** Bumped when a kit arrives: pooled pieces from before are retired, not reused. */
+  private kitGen = 0;
   private readonly phoneMat: THREE.MeshBasicMaterial;
   private readonly player = new THREE.Group();
   private readonly playerParts: {
@@ -552,6 +554,7 @@ export class GameRenderer {
   /** kits/common.glb arrived: build obstacles, pads, pickups, power-ups and rails from it. */
   private useCommon(kit: Kit): void {
     this.common = kit;
+    this.kitGen++;
     // Pooled stand-ins go; anything on screen now keeps its look until it scrolls away.
     for (const pool of [...this.pools.values(), ...this.padPools.values()]) for (const o of pool) this.scene.remove(o);
     this.pools.clear();
@@ -936,6 +939,7 @@ export class GameRenderer {
     const build = (): THREE.Object3D => (kind.startsWith('wide') ? this.buildOverhang(variant, Number(kind.slice(4))) : this.obstacleBuilders[kind as ObstacleKind](variant));
     const obj = idx >= 0 ? pool.splice(idx, 1)[0] : build();
     obj.userData.variant = variant;
+    if (idx < 0) obj.userData.gen = this.kitGen;
     obj.visible = true;
     if (!obj.parent) {
       this.bend.patchTree(obj);
@@ -1020,7 +1024,11 @@ export class GameRenderer {
       if (!entry) {
         const pool = this.padPools.get(pd.kind) ?? [];
         this.padPools.set(pd.kind, pool);
-        const obj = pool.pop() ?? this.buildPad(pd.kind);
+        let obj = pool.pop();
+        if (!obj) {
+          obj = this.buildPad(pd.kind);
+          obj.userData.gen = this.kitGen;
+        }
         if (!obj.parent) {
           this.bend.patchTree(obj);
           this.scene.add(obj);
@@ -1043,7 +1051,13 @@ export class GameRenderer {
     for (const [id, entry] of this.padActive) {
       if (!seen.has(id)) {
         entry.obj.visible = false;
-        this.padPools.get(entry.kind)!.push(entry.obj);
+        // Built before a kit arrived: retire it rather than pool a stand-in.
+        if (entry.obj.userData.gen !== this.kitGen) this.scene.remove(entry.obj);
+        else {
+          const pool = this.padPools.get(entry.kind) ?? [];
+          pool.push(entry.obj);
+          this.padPools.set(entry.kind, pool);
+        }
         this.padActive.delete(id);
       }
     }
@@ -1087,7 +1101,14 @@ export class GameRenderer {
 
   private release(kind: PoolKind, obj: THREE.Object3D): void {
     obj.visible = false;
-    this.pools.get(kind)!.push(obj);
+    // Built before a kit arrived: retire it rather than pool a stand-in.
+    if (obj.userData.gen !== this.kitGen) {
+      this.scene.remove(obj);
+      return;
+    }
+    const pool = this.pools.get(kind) ?? [];
+    pool.push(obj);
+    this.pools.set(kind, pool);
   }
 
   // ---------- frame ----------
