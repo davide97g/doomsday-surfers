@@ -54,13 +54,15 @@ The build shows in TestFlight after Apple's processing. Uploads are internal-onl
 
 ## Assets
 
-The runner is built by a Blender script, and the exported `.glb` is committed so the game builds without Blender:
+Every 3D asset is built by a Blender script and the exported `.glb` (KTX2 + meshopt) is committed, so the game builds without Blender. `docs/assets-v2.md` is the contract (coordinates, node names, runtime materials, budgets); `docs/v2-leftovers.md` is the current state.
 
 ```bash
-bun run assets       # needs Blender (brew install --cask blender --appdir=~/Applications)
+bun run assets:setup   # once: MPFB2 + CC0 MakeHuman assets, CC0 textures, KTX tools
+bun run assets         # the realistic cast: assets/blender/human.py -> public/assets/characters/<id>.glb
+blender -b -P assets/blender/kits/<kit>.py -- --preview <dir>   # common, feed, canyon, sewer, bedroom, mall
 ```
 
-`assets/blender/runner.py` builds each playable doomscroller into `public/assets/characters/<id>.glb` (`bun run assets`, or `bun run assets bro` for one). All seven share the rig, the clips and the base body; a `CHARACTERS` table picks the outfit, head, props, colours and how the screen is held. The base is one continuous skin-modifier body with fabric folds, a hood with real thickness around the face void, ribbed cuffs and hem, pocket, drawstrings, jointed fingers gripping a detailed phone, and layered sneakers, all auto-weighted to a 19-bone rig with `run`, `idle`, `jump`, `roll` and `present` clips. Budget: about 45k triangles and no textures (it prints a per-part triangle count). Pass a folder as a second argument to also render Eevee preview PNGs (front, side, back, hands). The app icon source is `assets/icon/icon.svg`.
+Characters are MPFB2 (MakeHuman, CC0) humans with a black-mirror void for a face, real clothes over CC0 fabric sets, the `game_engine` rig and 11 clips. Kits share `assets/blender/lib/` (PBR from CC0 textures, bend edge loops, Cycles atlas bakes, export + compression, previews). Credits: `assets/CREDITS.md`. The app icon source is `assets/icon/icon.svg`.
 
 Reel clips (the videos that play when you open a "friend sent you a reel" notification) live in `public/assets/reels/`: free-licence Mixkit stock, cropped to 9:16, 5 s, no audio, about 30–170 KB each, plus a `.jpg` thumbnail for the notification. Sources and licence are in `public/assets/reels/CREDITS.md`. To add one, pick a clip marked **Free** (not Restricted) on mixkit.co, then:
 

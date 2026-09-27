@@ -31,10 +31,9 @@ for a in "$@"; do
 done
 
 if [ "$PERF" = 1 ]; then
-  VITE_PERF=1 bun run build
-else
-  bun run build
+  export VITE_PERF=1
 fi
+bun run build
 bunx cap sync ios
 
 if [ "$USE_SIM" = 1 ]; then
