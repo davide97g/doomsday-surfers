@@ -422,10 +422,11 @@
   ],
   "select": { "craving": "Craves {type}: +50% hit, tolerance builds faster", "unlock": "Swipe up to scroll" },
   "zones": [
-    { "name": "FOR YOU", "tagline": "Curated. By us. For us.", "seam": [0.6, 0.25, 1.6], "sky": "#07040f", "light": "#a58cff" },
-    { "name": "RABBIT HOLE", "tagline": "Reels only now. You chose this.", "seam": [0.2, 1.3, 1.5], "sky": "#02090c", "light": "#7fd6ff" },
-    { "name": "OUTRAGE", "tagline": "Stay mad. Stay here.", "seam": [1.7, 0.25, 0.2], "sky": "#0f0305", "light": "#ff8a7a" },
-    { "name": "3 AM", "tagline": "Tomorrow is a rumour.", "seam": [0.3, 0.45, 1.8], "sky": "#010209", "light": "#6f7dff" }
+    { "name": "FEED CITY", "tagline": "Curated. By us. For us.", "seam": [0.6, 0.25, 1.6], "sky": "#07040f", "light": "#a58cff" },
+    { "name": "GROUP CHAT CANYON", "tagline": "Seen 3:12 am. No reply.", "seam": [1.8, 0.75, 0.2], "sky": "#1c0b06", "light": "#ffb070" },
+    { "name": "COMMENT SECTION SEWER", "tagline": "Stay mad. Stay here.", "seam": [0.35, 1.7, 0.35], "sky": "#030805", "light": "#8dffa4" },
+    { "name": "3 AM BEDROOM", "tagline": "Tomorrow is a rumour.", "seam": [0.3, 0.45, 1.8], "sky": "#010209", "light": "#6f7dff" },
+    { "name": "INFINITE MALL", "tagline": "Link in bio. Forever.", "seam": [1.7, 0.35, 1.1], "sky": "#140d18", "light": "#ffd2ee" }
   ],
   "death": { "line1": "You are present.", "line2": "… Disgusting.", "cta": "SCROLL AGAIN", "voice": ["d", "ih", "s", "g", "uh:", "s", "t", "ih", "ng"] }
 }

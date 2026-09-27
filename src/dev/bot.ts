@@ -15,14 +15,21 @@ export class Bot {
     const v = w.speed;
     const lanes = t.lanes.count;
 
+    const flying = w.flying;
+    // Up on a roof: the trains in this lane are the path (and the mantle catches a short gap).
+    const onRoof = p.y >= t.post.height - 0.5;
     // How far until each lane is blocked by a post (0 = blocked right now).
+    // Stairs count as the post's front: the bot never climbs on purpose.
     const clearance = (lane: number): number => {
+      if (flying) return Infinity;
       let best = Infinity;
       for (const o of w.obstacles) {
-        if (o.lane !== lane || (o.kind !== 'post' && o.kind !== 'movingPost' && o.kind !== 'thumb')) continue;
+        if (o.lane !== lane || (o.kind !== 'post' && o.kind !== 'movingPost' && o.kind !== 'thumb') || o.hit) continue;
+        if (onRoof && lane === p.lane && o.kind !== 'thumb') continue;
         if (o.s + o.length < w.d - 0.5) continue;
-        if (o.s <= w.d + 0.6) return 0;
-        let dist = o.s - w.d;
+        const front = o.s - o.ramp;
+        if (front <= w.d + 0.6) return 0;
+        let dist = front - w.d;
         if (o.kind === 'movingPost' || o.kind === 'thumb') dist *= v / (v + o.speed);
         best = Math.min(best, dist);
       }
@@ -42,7 +49,12 @@ export class Bot {
           let sum = 0;
           for (const pk of w.pickups) {
             const ahead = pk.s - w.d;
+            if (!flying && pk.y > p.y + 2.5) continue;
             if (pk.lane === lane && !pk.taken && ahead > 2 && ahead < 30) sum += w.tolerance[pk.type];
+          }
+          for (const pu of w.powerUps) {
+            const ahead = pu.s - w.d;
+            if (pu.lane === lane && !pu.taken && ahead > 2 && ahead < 30 && pu.y <= p.y + 2.5) sum += 4;
           }
           return sum;
         };
@@ -84,9 +96,11 @@ export class Bot {
       }
     }
 
-    // Barriers and habits in the current lane.
+    // Barriers and habits in the current lane (nothing to dodge up in the sky, or below a rail/roof).
     for (const o of w.obstacles) {
+      if (flying) break;
       if (o.lane !== p.lane || (o.kind !== 'low' && o.kind !== 'high' && o.kind !== 'habit') || o.hit) continue;
+      if ((o.kind === 'low' || o.kind === 'habit') && p.y > 0.95) continue;
       const dist = o.s - w.d;
       if (dist < 0) continue;
       const tti = dist / v;

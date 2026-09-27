@@ -312,22 +312,11 @@
   },
   "select": { "craving": "Addicted to {type}: +50% hit, tolerance builds faster", "unlock": "Swipe up to clock in" },
   "zones": [
-    { "name": "MONDAY 9AM", "tagline": "Circle back. Forever.", "seam": [0.3, 0.7, 1.7], "sky": "#050a14", "light": "#9fc4ff" },
-    {
-      "name": "ALL-HANDS",
-      "tagline": "Mandatory fun. Cameras on.",
-      "seam": [1.6, 0.3, 0.35],
-      "sky": "#12040a",
-      "light": "#ff9aa8"
-    },
-    {
-      "name": "Q4 PLANNING",
-      "tagline": "Stretch goals. Stretch you.",
-      "seam": [0.3, 1.4, 0.6],
-      "sky": "#03100a",
-      "light": "#8affc0"
-    },
-    { "name": "FRIDAY 4:59 PM", "tagline": "One more quick thing.", "seam": [1.7, 0.9, 0.2], "sky": "#120a02", "light": "#ffc27a" }
+    {"name": "MONDAY 9AM", "tagline": "Circle back. Forever.", "seam": [0.3, 0.7, 1.7], "sky": "#050a14", "light": "#9fc4ff"},
+    {"name": "FRIDAY 4:59 PM", "tagline": "One more quick thing.", "seam": [1.7, 0.9, 0.2], "sky": "#120a02", "light": "#ffc27a"},
+    {"name": "Q4 PLANNING", "tagline": "Stretch goals. Stretch you.", "seam": [0.3, 1.4, 0.6], "sky": "#03100a", "light": "#8affc0"},
+    {"name": "ALL-HANDS", "tagline": "Mandatory fun. Cameras on.", "seam": [1.6, 0.3, 0.35], "sky": "#12040a", "light": "#ff9aa8"},
+    {"name": "PERFORMANCE REVIEW", "tagline": "Exceeds expectations. Barely.", "seam": [1.6, 1.2, 0.3], "sky": "#0d0b04", "light": "#ffe39a"}
   ],
   "death": { "line1": "You logged off.", "line2": "… Unprofessional.", "cta": "CLOCK IN AGAIN", "voice": ["uh", "n", "p", "r", "ax", "f", "eh:", "sh", "ax", "n", "ax", "l"] },
   "work": {

@@ -8,8 +8,8 @@ import { GameHaptics } from './fx/haptics';
 import { Input } from './input/input';
 import { GameRenderer } from './render/renderer';
 import { fill } from './content/templates';
-import { GhostRecorder, type GhostTrack } from './sim/ghost';
-import { TUNING } from './sim/types';
+import { GHOST_VERSION, GhostRecorder, type GhostTrack } from './sim/ghost';
+import { POWER_KINDS, TUNING } from './sim/types';
 import { World } from './sim/world';
 import { distanceText, killerEmoji, loadToday, saveDaily, seedFor, shareLine, today } from './ui/daily';
 import { Death } from './ui/death';
@@ -34,6 +34,9 @@ const STEP = 1 / 120;
 const params = new URLSearchParams(location.search);
 const useBot = params.has('bot');
 const seedParam = params.get('seed');
+// Dev: ?zone=N starts just past gate N (a later biome), ?power=kind hands out a power-up at the start.
+const startZone = Math.max(0, Math.floor(Number(params.get('zone') ?? 0)) || 0);
+const powerParam = POWER_KINDS.find((k) => k === params.get('power')) ?? null;
 
 document.documentElement.dataset.mode = mode;
 if (realBrands) {
@@ -45,7 +48,7 @@ if (realBrands) {
 }
 const app = document.getElementById('app')!;
 const endlessSeed = () => (seedParam ? Number(seedParam) : Date.now());
-const world = new World(endlessSeed());
+const world = new World(endlessSeed(), TUNING, { startZone });
 /** Today's feed number while the Daily is being played, else null (an endless run). */
 let dailyDay: number | null = null;
 const view = new GameRenderer(app, TUNING.spawn.ahead - 10);
@@ -141,7 +144,7 @@ function newRun(seed: number, ghost: GhostTrack | null = null): void {
 function buildLink(): void {
   death.handle = loadHandle(world.character);
   const day = dailyDay;
-  const header = { v: 1 as const, seed: world.seed, ch: world.character, name: death.handle, mode, day: day ?? 0, dist: Math.round(world.d), killer: killerText(world).toLowerCase() };
+  const header = { v: GHOST_VERSION, seed: world.seed, ch: world.character, name: death.handle, mode, day: day ?? 0, dist: Math.round(world.d), killer: killerText(world).toLowerCase() };
   const result = day !== null ? { distance: distanceText(world.d), emoji: killerEmoji(world), line: shareLine(world, day) } : null;
   void ghostUrl(recorder, header).then((url) => {
     if (header.seed !== world.seed) return; // a new run already started
@@ -262,6 +265,7 @@ function frame(now: number): void {
   }
   for (const e of events) {
     if (e.type === 'start') {
+      if (powerParam) world.givePower(powerParam);
       clip.startRun(loadHandle(world.character));
       try {
         localStorage.setItem('ds.launched', '1');

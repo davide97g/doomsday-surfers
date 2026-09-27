@@ -35,6 +35,10 @@ export interface Obstacle {
   hit: boolean;
   /** Thumbs: seconds since it started dropping (only counts once `active`). */
   age: number;
+  /** Static posts: length of the stairs up to the roof, in front of `s` (0 = none). */
+  ramp: number;
+  /** Overhangs: one of three `high`s spanning every lane (drawn as one piece). */
+  wide: boolean;
 }
 
 /** Rideable track toys: a "Swipe up" ramp and a pull-to-refresh bouncer launch
@@ -61,7 +65,48 @@ export interface Pickup {
   taken: boolean;
   /** Content type (like, notification, reel, outrage); each has its own tolerance. */
   type: number;
+  /** Sim time the For You Magnet grabbed it (it flies to you), -1 if not pulled. */
+  pullAt: number;
 }
+
+/** Power-ups on the track: Screen Protector (absorbs a crash), For You Magnet
+ *  (pulls in content from every lane), Going Viral (a jetpack flight over a sky
+ *  line of content), Main Character (score x2) and Delulu Kicks (higher jumps,
+ *  high enough for the reel roofs). Each kind lasts a little less every time
+ *  you take it (tolerance, like everything else). */
+export type PowerKind = 'protector' | 'magnet' | 'viral' | 'mainchar' | 'kicks';
+export const POWER_KINDS: readonly PowerKind[] = ['protector', 'magnet', 'viral', 'mainchar', 'kicks'];
+
+export interface PowerUp {
+  id: number;
+  kind: PowerKind;
+  lane: number;
+  s: number;
+  y: number;
+  taken: boolean;
+  /** Pre-rolled seed for anything taking it spawns (the viral sky line), so
+   *  taking it or not never shifts the rest of the generation. */
+  seed: number;
+}
+
+/** A grind rail (a giant charger cable) along one lane. Its sloped start runs
+ *  up from the track over [s - rail.ramp, s]; full height from s to s + length. */
+export interface Rail {
+  id: number;
+  lane: number;
+  s: number;
+  length: number;
+}
+
+/** A covered stretch of track: a ceiling you can bump your head on. */
+export interface Tunnel {
+  id: number;
+  s: number;
+  length: number;
+}
+
+/** What the runner is standing on. */
+export type Surface = 'ground' | 'stairs' | 'roof' | 'rail';
 
 export interface PlayerState {
   lane: number;
@@ -73,17 +118,26 @@ export interface PlayerState {
   rollT: number;
   rollQueued: boolean;
   stumbleT: number;
+  /** Surface under the runner while grounded. */
+  on: Surface;
+  /** Height of the highest surface under the runner (for the shadow). */
+  floor: number;
+  /** Height the runner last left a surface from: a runner who came off a roof
+   *  can still catch the next roof's edge (mantle). */
+  perch: number;
+  /** Seconds left of standing on air after the surface ended. */
+  coyoteT: number;
 }
 
 export type SimEvent =
   | { type: 'start' }
   | { type: 'jump' }
-  | { type: 'land' }
+  | { type: 'land'; on: Surface }
   | { type: 'roll' }
   | { type: 'lane'; dir: -1 | 1 }
   | { type: 'edge'; dir: -1 | 1 }
   | { type: 'stumble' }
-  | { type: 'pickup'; id: number; content: number; gain: number; tolerance: number }
+  | { type: 'pickup'; id: number; content: number; gain: number; tolerance: number; pulled?: boolean }
   | { type: 'habit'; id: number; habit: number; cost: number }
   | { type: 'crash'; kind: ObstacleKind }
   /** A push notification landed: a small dopamine bump just for looking. */
@@ -108,7 +162,21 @@ export type SimEvent =
   /** The Algorithm zone's eye turned to you (watching: content +bonus) or away (you hit a habit). */
   | { type: 'algorithm'; watching: boolean }
   /** A doomscroll flick (a quick second swipe up): combo level and the dopamine it gave. */
-  | { type: 'scroll'; combo: number; gain: number };
+  | { type: 'scroll'; combo: number; gain: number }
+  /** Took a power-up. `duration` is seconds (Going Viral: metres of flight). */
+  | { type: 'power'; kind: PowerKind; duration: number; tolerance: number }
+  | { type: 'powerEnd'; kind: PowerKind }
+  /** The Screen Protector took a crash for you (and broke). */
+  | { type: 'shield'; id: number; kind: ObstacleKind; lane: number }
+  /** Going Viral: lift-off, the descent starts, touchdown. */
+  | { type: 'fly'; stage: 'up' | 'down' | 'land' }
+  | { type: 'grind'; on: boolean; lane: number }
+  /** Walked off a roof or rail (or it went away under you). */
+  | { type: 'fall' }
+  /** Came off a roof, fell short and caught the next roof's edge. */
+  | { type: 'mantle' }
+  /** Hit a tunnel's ceiling. */
+  | { type: 'bonk' };
 
 export function laneX(lane: number, t: Tuning = TUNING): number {
   return (lane - (t.lanes.count - 1) / 2) * t.lanes.width;
