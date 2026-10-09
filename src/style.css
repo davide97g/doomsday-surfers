@@ -768,6 +768,10 @@ html, body {
   flex-basis: 100%; border: 0; background: none; color: #8e8e96; padding: 2px;
   font: 600 12px ui-monospace, 'SF Mono', Menlo, monospace; text-decoration: underline;
 }
+.escape-iab {
+  flex-basis: 100%; text-align: center; color: #c9c9d1; padding: 2px;
+  font: 600 12px ui-monospace, 'SF Mono', Menlo, monospace; text-decoration: underline;
+}
 
 /* ---------- hidden ending: black glass, reflection, daylight ---------- */
 .ending {

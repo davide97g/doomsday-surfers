@@ -186,7 +186,9 @@ export class BiomeView {
     const d = w.d;
     const here = zoneLook(w.zone);
     this.request(here);
-    this.request(zoneLook(w.zone + 1));
+    // The next biome waits until this one is in and the run is under way, so
+    // the title screen (a first visit on mobile data) only downloads what it shows.
+    if ((WORK || this.loaded.has(here)) && (w.zone > 0 || d > 60)) this.request(zoneLook(w.zone + 1));
 
     for (const t of this.tiles.values()) t.mesh.count = 0;
     for (const l of this.loaded.values()) {

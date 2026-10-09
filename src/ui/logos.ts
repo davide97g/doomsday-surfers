@@ -1,5 +1,5 @@
-// App logos for the Work mode toasts. With real brands on (dev builds, or
-// ?brands=real) they're the real apps' marks; otherwise our parody tiles
+// App logos for the Work mode toasts. With real brands on (dev builds only)
+// they're the real apps' marks; otherwise our parody tiles
 // (a generic glyph on the Synergy 365 app colour). Meet and Jira paths are
 // from simple-icons (CC0); the others are redrawn from the public marks.
 

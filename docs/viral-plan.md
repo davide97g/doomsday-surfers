@@ -83,7 +83,7 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 - Items are priced in life costs, drawn at random from a bank per item ("REELS x41 · 3 FRIENDSHIPS", "MUM (IGNORED x3) · PRICELESS").
 - Totals: life consumed (1 s = 1 min), aura, attention span, brain age (riffs on Wrapped "Listening Age").
 - Then: "TOP x% OF {CRAVING} ADDICTS" (fake percentile, the fake-top-listener meme), diagnosis on the slang ladder NPC → CASUAL SCROLLER → CHRONICALLY ONLINE → COOKED → TERMINALLY ONLINE → POST-HUMAN with one cold line each, and "KILLED BY: A GLASS OF WATER / YOUR MUM / AN AD / A REEL (IT WAS MOVING)".
-- Footer: barcode, "THANK YOU FOR YOUR ATTENTION", "NO REFUNDS. NO RETURNS.", "DOOMSDAY SURFERS · #PROOFOFDOOM".
+- Footer: barcode, "THANK YOU FOR YOUR ATTENTION", "NO REFUNDS. NO RETURNS.", "SCROLLCOASTER · #PROOFOFDOOM".
 - Share image: 1080×1920. Grey background, the death lines on top, the receipt tilted −1.6°. Share text: "I scrolled {distance} m and was killed by {killer}. #ProofOfDoom".
 
 **Where.**
@@ -161,7 +161,7 @@ Verified 2026-09-24. Re-verify before use. The *fit* column is where each could 
 - **Highlight montage, ~15 s:**
   1. Up to 2 highlights, chosen by priority. The gate's 360° orbit comes first, then loops, corkscrews and drops in slow motion (0.7×, with the audio pitched down along with them), ghost overtakes or grave passes, and big air.
   2. The last 5 s into grey.
-  3. A 3.2 s end slate: "You are present." "… Disgusting.", the receipt sliding up, then "Beat my scroll · @handle" and "DOOMSDAY SURFERS · #PROOFOFDOOM".
+  3. A 3.2 s end slate: "You are present." "… Disgusting.", the receipt sliding up, then "Beat my scroll · @handle" and "SCROLLCOASTER · #PROOFOFDOOM".
 - **Burned in:**
   - A reel-style caption, TikTok's classic white label, picked per run ("WAIT FOR IT", "POV: you said 'one more video' 2 hours ago"; Work: "this meeting could have been an email").
   - Redraws of the notifications and the reel panel's video, plus a redrawn distance and battery.

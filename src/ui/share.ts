@@ -68,3 +68,25 @@ export async function shareText(title: string, text: string): Promise<void> {
     // Nothing else to try.
   }
 }
+
+/** Social apps' in-app browsers, where Web Share and downloads are unreliable. */
+const IN_APP: [RegExp, string][] = [
+  [/Instagram/, 'Instagram'],
+  [/FBAN|FBAV|FB_IAB/, 'Facebook'],
+  [/BytedanceWebview|musical_ly|TikTok/i, 'TikTok'],
+];
+
+/** The app whose in-app browser we're in, and a link that reopens this page in the real browser. Null elsewhere. */
+export function inAppBrowser(): { app: string; browser: string; href: string } | null {
+  if (Capacitor.isNativePlatform()) return null;
+  const ua = navigator.userAgent;
+  const hit = IN_APP.find(([re]) => re.test(ua));
+  if (!hit) return null;
+  const { host, pathname, search } = location;
+  // iOS 17+ hands x-safari-https links to Safari; Android takes an intent for Chrome.
+  if (/iPhone|iPad|iPod/.test(ua)) return { app: hit[1], browser: 'Safari', href: `x-safari-https://${host}${pathname}${search}` };
+  if (/Android/.test(ua)) {
+    return { app: hit[1], browser: 'Chrome', href: `intent://${host}${pathname}${search}#Intent;scheme=https;package=com.android.chrome;end` };
+  }
+  return null;
+}

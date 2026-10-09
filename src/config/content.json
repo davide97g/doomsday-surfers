@@ -162,10 +162,11 @@
     }
   },
   "share": {
-    "webUrl": "",
+    "webUrl": "https://scrollcoaster.com/",
     "link": "Beat my scroll: {url}",
     "handleAs": "sharing as {handle} · rename",
-    "renamePrompt": "What do your friends call you?"
+    "renamePrompt": "What do your friends call you?",
+    "inApp": "{app} won't let you keep your Proof of Doom. Open in {browser} ↗"
   },
   "race": {
     "app": "Challenges",
@@ -282,7 +283,8 @@
     "skipDenied": "Skipping is a Premium feature."
   },
   "report": {
-    "game": "DOOMSDAY SURFERS",
+    "game": "SCROLLCOASTER",
+    "credits": "CREDITS: SCROLLCOASTER.COM/CREDITS",
     "store": "*** FEED MART ***",
     "storeLine": "STORE #{store} · AISLE: {zone}",
     "customer": "CUSTOMER: {character}",

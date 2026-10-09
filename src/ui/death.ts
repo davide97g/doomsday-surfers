@@ -18,7 +18,7 @@ import { Ending } from './ending';
 import { renameHandle } from './handle';
 import { raceShareLine, type Race } from './race';
 import type { ClipRecorder } from '../clip/clip';
-import { shareFiles } from './share';
+import { inAppBrowser, shareFiles } from './share';
 
 type State = 'hidden' | 'offer' | 'ad' | 'final';
 
@@ -119,7 +119,15 @@ export class Death {
         <button class="cta receipt-cta" id="proof" data-ui>${content.report.cta}</button>
         <button class="cta" id="again" data-ui>${d.cta}</button>
         <button class="handle-as" data-ui></button>
+        <a class="escape-iab hidden" data-ui></a>
       </div>`;
+    const iab = inAppBrowser();
+    if (iab) {
+      const esc = this.final.querySelector<HTMLAnchorElement>('.escape-iab')!;
+      esc.href = iab.href;
+      esc.textContent = fill(content.share.inApp, { app: iab.app, browser: iab.browser });
+      esc.classList.remove('hidden');
+    }
     this.printer = this.final.querySelector('.printer')!;
     this.strip = this.final.querySelector('.strip')!;
     this.final.querySelector('#again')!.addEventListener('click', () => {
