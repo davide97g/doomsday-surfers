@@ -1,6 +1,6 @@
 # Scrollcoaster (repo: doomsday-surfers) — project notes for Claude
 
-Public name: **Scrollcoaster**, subtitle "Don't Stop Scrolling" (decided 2026-10-09; "Doomsday Surfers" was the working title, dropped for the Subway Surfers copycat risk; keep "Doom" out of the title, #PROOFOFDOOM stays). Web: Cloudflare Pages at scrollcoaster.com; launch checklist and Instagram plan in `docs/web-launch.md`.
+Public name: **Scrollcoaster**, subtitle "Don't Stop Scrolling" (decided 2026-10-09; "Doomsday Surfers" was the working title, dropped for the Subway Surfers copycat risk; keep "Doom" out of the title, #PROOFOFDOOM stays). Web: Cloudflare Pages at scrollcoaster.davideghiotto.it; launch checklist and Instagram plan in `docs/web-launch.md`.
 
 Pitch: "An endless runner where you die if you stop doomscrolling."
 Davide owns the product decisions; Claude builds. Discuss design changes before implementing them.

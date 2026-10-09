@@ -162,7 +162,7 @@
     }
   },
   "share": {
-    "webUrl": "https://scrollcoaster.com/",
+    "webUrl": "https://scrollcoaster.davideghiotto.it/",
     "link": "Beat my scroll: {url}",
     "handleAs": "sharing as {handle} · rename",
     "renamePrompt": "What do your friends call you?",
@@ -284,7 +284,7 @@
   },
   "report": {
     "game": "SCROLLCOASTER",
-    "credits": "CREDITS: SCROLLCOASTER.COM/CREDITS",
+    "credits": "CREDITS: SCROLLCOASTER.DAVIDEGHIOTTO.IT/CREDITS",
     "store": "*** FEED MART ***",
     "storeLine": "STORE #{store} · AISLE: {zone}",
     "customer": "CUSTOMER: {character}",
