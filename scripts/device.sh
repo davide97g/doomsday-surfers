@@ -15,7 +15,7 @@ cd "$(dirname "$0")/.."
 
 DEVICE=${DEVICE:-00008110-000479A11E83401E}
 SIM=${SIM:-DF6BBFEF-6BF6-4EA1-897D-1211CECBAF1C}
-BUNDLE=com.davideghiotto.doomsdaysurfers
+BUNDLE=com.davideghiotto.scrollcoaster
 DERIVED=ios/build/dd
 USE_SIM=0
 PERF=0

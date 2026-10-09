@@ -1,4 +1,6 @@
-# Doomsday Surfers
+# Scrollcoaster
+
+Don't stop scrolling. (Repo name is the old working title, Doomsday Surfers.)
 
 An endless runner where you die if you stop doomscrolling.
 
@@ -43,14 +45,14 @@ Haptics only fire in the native app (not in Safari). Web Audio may follow the si
 
 ### TestFlight (internal testing)
 
-One-time: create the app in App Store Connect (bundle id `com.davideghiotto.doomsdaysurfers`) and sign in to your Apple ID under Xcode > Settings > Accounts. Then:
+One-time: create the app in App Store Connect (bundle id `com.davideghiotto.scrollcoaster`) and sign in to your Apple ID under Xcode > Settings > Accounts. Then:
 
 ```bash
 bun run ios:testflight --dry      # Release archive only, nothing uploaded
 bun run ios:testflight            # archive + upload (build number = timestamp)
 ```
 
-The build shows in TestFlight after Apple's processing. Uploads are internal-only (`ios/App/ExportOptions.plist`), so there is no App Review; the public name is still undecided.
+The build shows in TestFlight after Apple's processing. Uploads are internal-only (`ios/App/ExportOptions.plist`), so there is no App Review.
 
 ## Assets
 

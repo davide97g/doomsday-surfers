@@ -1,6 +1,6 @@
 #!/bin/sh
 # Archive the iOS app and upload it to TestFlight (internal testing only).
-# Needs: the app record in App Store Connect for com.davideghiotto.doomsdaysurfers,
+# Needs: the app record in App Store Connect for com.davideghiotto.scrollcoaster,
 # and your Apple ID signed in under Xcode > Settings > Accounts.
 #   bun run ios:testflight            archive + upload
 #   bun run ios:testflight --dry      archive only (no upload)
@@ -8,7 +8,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 BUILD=$(date +%Y%m%d%H%M)   # every upload needs a higher build number
-ARCHIVE="ios/build/DoomsdaySurfers-$BUILD.xcarchive"
+ARCHIVE="ios/build/Scrollcoaster-$BUILD.xcarchive"
 
 bun run build
 bunx cap sync ios

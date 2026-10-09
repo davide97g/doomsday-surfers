@@ -82,7 +82,7 @@ export class Title {
         </button>
         <div class="lock-date"></div>
         <div class="lock-time"></div>
-        <h1 class="lock-brand">Doomsday Surfers</h1>
+        <h1 class="lock-brand">Scrollcoaster</h1>
       </header>
       <div class="lock-note" data-ui>
         <div class="note-icon"><span class="flame"></span></div>

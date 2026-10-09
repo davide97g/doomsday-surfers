@@ -171,6 +171,7 @@ export function buildReceipt(w: World, nags: Nags, daily: number | null = null, 
     { k: 'text', t: R.noRefunds, size: 'small' },
     { k: 'gap' },
     { k: 'text', t: `${R.game} · ${R.hashtag}`, size: 'small' },
+    { k: 'text', t: R.credits, size: 'small' },
   ];
   return { lines, seed: w.seed, killer: kill, distance: Math.round(w.d) };
 }
@@ -204,6 +205,7 @@ export function buildSecretReceipt(w: World, now = new Date()): Receipt {
     { k: 'text', t: e.footer, size: 'small' },
     { k: 'gap' },
     { k: 'text', t: `${R.game} · ${R.hashtag}`, size: 'small' },
+    { k: 'text', t: R.credits, size: 'small' },
   ];
   return { lines, seed: w.seed ^ 0x60, killer: 'NOTHING', distance: Math.round(w.d) };
 }
