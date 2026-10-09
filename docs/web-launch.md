@@ -4,7 +4,7 @@
 
 - **Name: Scrollcoaster**, subtitle "Don't Stop Scrolling". Research on 2026-10-09 found .com, .gg, .app, .game and .lol unregistered, and no game with the name on the App Store, Steam or itch. "Doom" stays out of the title because ZeniMax forced DoomRL to rename. #PROOFOFDOOM as a hashtag is fine.
 - **Hosting:** Cloudflare Pages (free, unlimited bandwidth) at `https://scrollcoaster.com/`.
-- **Instagram:** a series on Davide's existing YouTube-channel account, not a new game account. The link in the bio points at the game.
+- **Instagram:** a series on Davide's existing YouTube-channel account, [@ai_quack](https://www.instagram.com/ai_quack/), not a new game account. The link in the bio points at the game.
 - **Today's Feed #1 = launch day.** Reset `tuning.daily.epoch` when the launch date is set.
 - **In-app browsers:** the death screen nudges people out of Instagram, Facebook and TikTok's in-app browsers. Credits are fine print on the receipt.
 
