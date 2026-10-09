@@ -205,6 +205,17 @@ export class Course {
     return null;
   }
 
+  /** Whether a segment of one of these kinds overlaps [s0, s1]. */
+  touches(s0: number, s1: number, kinds: readonly SegmentKind[]): boolean {
+    this.segmentAt(s1);
+    for (const seg of this.segs) {
+      if (seg.s1 <= s0) continue;
+      if (seg.s0 >= s1) break;
+      if (kinds.includes(seg.kind)) return true;
+    }
+    return false;
+  }
+
   /** Thrill segments that finish between s0 (exclusive) and s1 (inclusive). */
   finished(s0: number, s1: number): Segment | null {
     const seg = this.segmentAt(s0);

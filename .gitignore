@@ -6,3 +6,6 @@ ios/App/Pods
 ios/DerivedData
 *.log
 ios/build
+tools/
+assets/textures/
+__pycache__/

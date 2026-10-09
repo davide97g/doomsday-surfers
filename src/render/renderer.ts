@@ -20,6 +20,12 @@ import { Gate } from './gate';
 import { Hero } from './hero';
 import { Particles } from './particles';
 import { Post } from './post';
+import { POWER_COLOURS, PowerView } from './powers';
+import { Structures, biomeAtS } from './structures';
+import { BiomeView, LOOKS } from './biome';
+import { initAssets, loadKit, type Kit } from './assets';
+import { SPEC, type Quality } from './quality';
+import { PartSet, part } from './instanced';
 import { FEED_ATLAS, makeAd, makeAutoplay, makeBookCover, makeBouncerTop, makeContent, makeFeedAtlas, makeMumCall, makeNotification, makeRampFace, makeReality, makeReel, makeReelFront, makeSlopAtlas } from './textures';
 
 const VARIANTS = 8;
@@ -70,8 +76,12 @@ const ZONES: ZoneLook[] = content.zones.map((z) => ({
   light: new THREE.Color(z.light),
 }));
 
+/** Obstacle pools: one per kind, plus the wide overhang per biome (`wide<biome>`: three `high`s drawn as one). */
+type PoolKind = ObstacleKind | `wide${number}`;
+
 export interface RenderSettings {
   pixelRatio: number;
+  quality: Quality;
 }
 
 export class GameRenderer {
@@ -104,8 +114,6 @@ export class GameRenderer {
   settings: RenderSettings;
 
   private readonly dummy = new THREE.Object3D();
-  private readonly tileScreens: THREE.InstancedMesh;
-  private readonly tileCells: THREE.InstancedBufferAttribute;
   private readonly tileBezels: THREE.InstancedMesh;
   private readonly towerCells: THREE.InstancedMesh;
   private readonly towerCellIds: THREE.InstancedBufferAttribute;
@@ -114,7 +122,20 @@ export class GameRenderer {
   private readonly seams: THREE.InstancedMesh;
   private readonly spinner: THREE.InstancedMesh;
   private readonly sky: THREE.Mesh;
-  private readonly skyUniforms: { top: THREE.IUniform<THREE.Color>; horizon: THREE.IUniform<THREE.Color>; bottom: THREE.IUniform<THREE.Color>; glow: THREE.IUniform<THREE.Color> };
+  private readonly skyUniforms: {
+    top: THREE.IUniform<THREE.Color>;
+    horizon: THREE.IUniform<THREE.Color>;
+    bottom: THREE.IUniform<THREE.Color>;
+    glow: THREE.IUniform<THREE.Color>;
+    panoA: THREE.IUniform<THREE.Texture | null>;
+    panoB: THREE.IUniform<THREE.Texture | null>;
+    hasA: THREE.IUniform<number>;
+    hasB: THREE.IUniform<number>;
+    panoMix: THREE.IUniform<number>;
+  };
+  private readonly sun: THREE.DirectionalLight;
+  /** The phone is the runner's key light (their face is a void; the screen lights them). */
+  private readonly phoneLight = new THREE.PointLight('#bcd2ff', 2.2, 5, 2);
   readonly bend = new Bend();
   private readonly padPools = new Map<PadKind, THREE.Object3D[]>();
   private readonly padActive = new Map<number, { kind: PadKind; obj: THREE.Object3D; t: number }>();
@@ -122,7 +143,13 @@ export class GameRenderer {
   private readonly camUp = new THREE.Vector3(0, 1, 0);
   private readonly upV = new THREE.Vector3();
   private readonly colour = new THREE.Color();
-  private readonly pickupMeshes: THREE.InstancedMesh[] = [];
+  /** One instanced set per content type (a kit's 3D icons once common.glb loads). */
+  private pickupSets: PartSet[] = [];
+  private pickupMats: THREE.Material[] = [];
+  /** kits/common.glb: trains, barriers, habits, the thumb, pads, pickups, power-ups, rails. */
+  private common: Kit | null = null;
+  /** Bumped when a kit arrives: pooled pieces from before are retired, not reused. */
+  private kitGen = 0;
   private readonly phoneMat: THREE.MeshBasicMaterial;
   private readonly player = new THREE.Group();
   private readonly playerParts: {
@@ -145,9 +172,14 @@ export class GameRenderer {
   private readonly tmpP = new THREE.Vector3();
   private readonly tmpQ = new THREE.Quaternion();
 
-  private readonly pools = new Map<ObstacleKind, THREE.Object3D[]>();
-  private readonly active = new Map<number, { kind: ObstacleKind; obj: THREE.Object3D }>();
+  private readonly pools = new Map<PoolKind, THREE.Object3D[]>();
+  private readonly active = new Map<number, { kind: PoolKind; obj: THREE.Object3D }>();
   private readonly obstacleBuilders: Record<ObstacleKind, (variant: number) => THREE.Object3D>;
+  private readonly biomes: BiomeView;
+  private slopOn = false;
+  private readonly structures: Structures;
+  private readonly powers: PowerView;
+  private sparkT = 0;
 
   private readonly mats: {
     feed: THREE.MeshBasicMaterial;
@@ -207,7 +239,21 @@ export class GameRenderer {
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
-    this.settings = { pixelRatio: Math.min(window.devicePixelRatio || 1, 2) };
+    initAssets(this.renderer);
+    // Out of GPU memory (or backgrounded too long): the context is gone for good; start over.
+    this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      console.warn('WebGL context lost');
+    });
+    this.renderer.domElement.addEventListener('webglcontextrestored', () => location.reload());
+    if (import.meta.env.VITE_DEBUG === '1') {
+      const x = this.renderer.extensions;
+      const gl = this.renderer.getContext();
+      console.warn(
+        `gpu astc=${x.has('WEBGL_compressed_texture_astc')} etc=${x.has('WEBGL_compressed_texture_etc')} etc1=${x.has('WEBGL_compressed_texture_etc1')} bc=${x.has('EXT_texture_compression_bptc')} s3tc=${x.has('WEBGL_compressed_texture_s3tc')} pvrtc=${x.has('WEBGL_compressed_texture_pvrtc')} maxTex=${gl.getParameter(gl.MAX_TEXTURE_SIZE)} dpr=${window.devicePixelRatio}`,
+      );
+    }
+    this.settings = { pixelRatio: Math.min(window.devicePixelRatio || 1, 2), quality: 'high' };
 
     this.camera = new THREE.PerspectiveCamera(66, 1, 0.1, 220);
     this.scene.background = new THREE.Color('#07040f');
@@ -218,6 +264,7 @@ export class GameRenderer {
     const sun = new THREE.DirectionalLight('#ffffff', 1.6);
     sun.position.set(4, 10, 6);
     this.scene.add(sun);
+    this.sun = sun;
 
     // --- materials ---
     const feedAtlas = makeFeedAtlas();
@@ -253,11 +300,6 @@ export class GameRenderer {
     const lanes = 3;
     const tilesPerLane = Math.ceil((visibleAhead + BEHIND_ORBIT + 20) / TILE_LEN) + 2;
     const maxTiles = lanes * tilesPerLane;
-    const screenGeo = new THREE.PlaneGeometry(1.92, TILE_LEN - 0.34, 1, TILE_SEGS).rotateX(-Math.PI / 2);
-    this.tileCells = cellAttribute(screenGeo, maxTiles);
-    this.tileScreens = new THREE.InstancedMesh(screenGeo, this.mats.feed, maxTiles);
-    this.tileScreens.frustumCulled = false;
-    this.scene.add(this.tileScreens);
     this.tileBezels = new THREE.InstancedMesh(new THREE.BoxGeometry(2.1, 0.16, TILE_LEN - 0.14, 1, 1, TILE_SEGS), this.mats.dark, maxTiles);
     this.tileBezels.frustumCulled = false;
     this.scene.add(this.tileBezels);
@@ -280,7 +322,17 @@ export class GameRenderer {
     this.scene.add(this.spinner);
 
     // Sky dome in the world's true orientation: the horizon is what tells you you're upside down.
-    this.skyUniforms = { top: { value: new THREE.Color() }, horizon: { value: new THREE.Color() }, bottom: { value: new THREE.Color() }, glow: { value: new THREE.Color() } };
+    this.skyUniforms = {
+      top: { value: new THREE.Color() },
+      horizon: { value: new THREE.Color() },
+      bottom: { value: new THREE.Color() },
+      glow: { value: new THREE.Color() },
+      panoA: { value: null },
+      panoB: { value: null },
+      hasA: { value: 0 },
+      hasB: { value: 0 },
+      panoMix: { value: 1 },
+    };
     this.sky = new THREE.Mesh(
       new THREE.SphereGeometry(150, 32, 20),
       new THREE.ShaderMaterial({
@@ -300,13 +352,30 @@ export class GameRenderer {
           uniform vec3 horizon;
           uniform vec3 bottom;
           uniform vec3 glow;
+          uniform sampler2D panoA;
+          uniform sampler2D panoB;
+          uniform float hasA;
+          uniform float hasB;
+          uniform float panoMix;
           varying vec3 vDir;
           float h1(float n) { return fract(sin(n * 12.9898) * 43758.5453); }
+          // Blender equirect: forward (-z here) in the middle, up at the top.
+          vec2 equi(vec3 d) { return vec2(atan(d.x, -d.z) * 0.15915494 + 0.5, asin(clamp(d.y, -1.0, 1.0)) * 0.31830989 + 0.5); }
           void main() {
             vec3 d = normalize(vDir);
             float e = d.y;
             vec3 c = mix(horizon, top, smoothstep(0.0, 0.55, e));
             c = mix(c, bottom, smoothstep(0.0, -0.35, e));
+            float pano = mix(hasA, hasB, panoMix);
+            if (pano > 0.0) {
+              // A biome's own sky (a Cycles render of its distance): crossfaded at the gate,
+              // fading into the fog colour below the horizon.
+              vec2 uv = equi(d);
+              vec3 p = mix(texture2D(panoA, uv).rgb * hasA, texture2D(panoB, uv).rgb * hasB, panoMix) / max(0.001, pano);
+              p = mix(p, horizon, smoothstep(0.02, -0.25, e));
+              gl_FragColor = vec4(mix(c, p, pano), 1.0);
+              return;
+            }
             // A far skyline of phone towers: something to see the horizon turn by.
             float az = atan(d.z, d.x) * 57.2958;
             float col = floor(az / 3.0);
@@ -346,10 +415,8 @@ export class GameRenderer {
     const pickupGeo = new THREE.PlaneGeometry(0.85, 0.85);
     for (let type = 0; type < 4; type++) {
       const mat = new THREE.MeshBasicMaterial({ map: makeContent(type), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide });
-      const m = new THREE.InstancedMesh(pickupGeo, mat, 128);
-      m.frustumCulled = false;
-      this.pickupMeshes.push(m);
-      this.scene.add(m);
+      this.pickupMats.push(mat);
+      this.pickupSets.push(new PartSet(this.scene, null, [part(pickupGeo, mat)], 128));
     }
 
     // --- obstacles ---
@@ -401,6 +468,8 @@ export class GameRenderer {
     armR.rotation.set(-1.25, 0, 0.35);
     rig.add(body, head, phone, legL, legR, armL, armR);
     this.player.add(rig);
+    this.phoneLight.position.set(0, 1.4, -0.45);
+    this.player.add(this.phoneLight);
     this.scene.add(this.player);
     this.playerParts = { body, head, legL, legR, armL, armR, phone, rig };
 
@@ -420,6 +489,17 @@ export class GameRenderer {
     this.scene.add(this.shadow);
 
     this.particles = new Particles(this.scene);
+    this.structures = new Structures(this.scene, this.bend, visibleAhead, this.seamMat);
+    void loadKit('common').then((kit) => {
+      if (kit) this.useCommon(kit);
+    });
+    this.biomes = new BiomeView(this.scene, this.bend, this.renderer, this.structures, this.seamMat, maxTiles, feedAtlas);
+    // A biome kit arrived: overhangs built from now on use its model.
+    this.biomes.onKit = (b) => {
+      for (const o of this.pools.get(`wide${b}`) ?? []) this.scene.remove(o);
+      this.pools.delete(`wide${b}`);
+    };
+    this.powers = new PowerView(this.scene, this.bend, this.player, this.particles, visibleAhead);
     // Bend everything but the runner, their shadow and the sky.
     for (const o of this.scene.children) if (o !== this.player && o !== this.shadow && o !== this.sky) this.bend.patchTree(o);
     this.post = new Post(this.renderer, this.scene, this.camera);
@@ -436,8 +516,18 @@ export class GameRenderer {
       this.player.remove(this.hero ? this.hero.root : this.playerParts.rig);
       this.hero = hero;
       this.player.add(hero.root);
-      // Warm the rest so flicking through the select screen is instant.
-      for (const l of CHARACTER_LOOKS) if (!!l.work === (mode === 'work')) void this.loadModel(l.model);
+      const home = hero.nodes.get('PhoneLight') ?? null;
+      (home ?? this.player).add(this.phoneLight);
+      if (!home) this.phoneLight.position.set(0, 1.4, -0.45);
+      else this.phoneLight.position.set(0, 0, 0);
+      // Warm the neighbours so flicking through the select screen feels instant
+      // (not the whole cast: each realistic model is a few MB of textures).
+      const cast = CHARACTER_LOOKS.map((l, k) => ({ l, k })).filter(({ l }) => !!l.work === (mode === 'work'));
+      const at = cast.findIndex(({ k }) => k === i);
+      for (const d of [-1, 1]) {
+        const n = cast[(at + d + cast.length) % cast.length];
+        if (n) void this.loadModel(n.l.model);
+      }
     });
     this.player.scale.setScalar(look.scale);
   }
@@ -455,7 +545,7 @@ export class GameRenderer {
     }
     const look = CHARACTER_LOOKS[track.header.ch] ?? CHARACTER_LOOKS[0];
     this.ghostRoot.scale.setScalar(look.scale);
-    Hero.load(`${import.meta.env.BASE_URL}assets/characters/${look.model}.glb`)
+    Hero.load(`assets/characters/${look.model}.glb`)
       .then((hero) => {
         if (this.ghostTrack !== track) return;
         hero.dress(this.ghostMat);
@@ -469,7 +559,7 @@ export class GameRenderer {
   private loadModel(model: string): Promise<Hero | null> {
     let p = this.heroes.get(model);
     if (!p) {
-      p = Hero.load(`${import.meta.env.BASE_URL}assets/characters/${model}.glb`).catch((err) => {
+      p = Hero.load(`assets/characters/${model}.glb`).catch((err) => {
         console.warn(`${model}.glb failed to load, keeping grey box`, err);
         return null;
       });
@@ -478,9 +568,115 @@ export class GameRenderer {
     return p;
   }
 
+  // ---------- the common kit ----------
+
+  /** kits/common.glb arrived: build obstacles, pads, pickups, power-ups and rails from it. */
+  private useCommon(kit: Kit): void {
+    this.common = kit;
+    this.kitGen++;
+    // Pooled stand-ins go; anything on screen now keeps its look until it scrolls away.
+    for (const pool of [...this.pools.values(), ...this.padPools.values()]) for (const o of pool) this.scene.remove(o);
+    this.pools.clear();
+    this.padPools.clear();
+    this.powers.useKit(kit);
+    if (kit.has('rail_cable')) this.structures.setRail(-1, kit.parts('rail_cable'), kit.parts('rail_end'));
+    const ids = ['like', 'notif', 'reel', 'outrage'];
+    if (!ids.every((id) => kit.has(`pickup_${id}`))) return;
+    const sets: PartSet[] = [];
+    const mats: THREE.Material[] = [];
+    for (let type = 0; type < 4; type++) {
+      const parts = kit.parts(`pickup_${ids[type]}`);
+      // Each type gets its own material copies so tolerance can dim it alone.
+      const own = new Map<THREE.Material, THREE.Material>();
+      const mine = parts.map((pt) => {
+        let m = own.get(pt.material);
+        if (!m) {
+          m = pt.material.clone();
+          m.userData.baseEmissive = (m as THREE.MeshStandardMaterial).emissiveIntensity ?? 1;
+          own.set(pt.material, m);
+          mats.push(m);
+        }
+        return { ...pt, material: m };
+      });
+      sets.push(new PartSet(this.scene, this.bend, mine, 128));
+    }
+    for (const s of this.pickupSets) s.remove();
+    this.pickupSets = sets;
+    this.pickupMats = mats;
+    this.pickupTypeMats = sets.map((s) => s.meshes.map((m) => m.material as THREE.Material));
+  }
+
+  private pickupTypeMats: THREE.Material[][] = [];
+
+  /** A clone of a common-kit node with its runtime faces swapped for the game's canvases. */
+  private fromKit(name: string, faces: Record<string, THREE.Material> = {}): THREE.Object3D | null {
+    const obj = this.common?.clone(name);
+    if (!obj) return null;
+    obj.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      if (Array.isArray(mesh.material)) mesh.material = mesh.material.map((m) => faces[m.name] ?? m);
+      else mesh.material = faces[mesh.material.name] ?? mesh.material;
+    });
+    return obj;
+  }
+
+  /** A reel train from kit modules: front, up to 11 two-metre middles, back, optional stairs. */
+  private kitTrain(v: number, moving: boolean): THREE.Object3D | null {
+    const faces = { ReelScreen: this.mats.reel[v], ReelFront: this.mats.reelFront[v], Warn: this.mats.warn };
+    const front = this.fromKit('train_front', faces);
+    if (!front) return null;
+    const g = new THREE.Group();
+    g.userData.kit = true;
+    front.name = 'front';
+    g.add(front);
+    for (let i = 0; i < 11; i++) {
+      const mid = this.fromKit('train_mid', faces);
+      if (!mid) break;
+      mid.name = `mid${i}`;
+      g.add(mid);
+    }
+    const back = this.fromKit('train_back', faces);
+    if (back) {
+      back.name = 'back';
+      g.add(back);
+    }
+    if (moving) {
+      const warn = this.fromKit('train_warn', faces);
+      if (warn) {
+        warn.name = 'warn';
+        g.add(warn);
+      }
+    } else {
+      const stairs = this.fromKit('train_stairs', faces);
+      if (stairs) {
+        stairs.name = 'stairs';
+        g.add(stairs);
+      }
+    }
+    return g;
+  }
+
+  /** Lay a kit train's modules out for its length (the group sits at the train's centre). */
+  private layoutTrain(obj: THREE.Object3D, length: number): void {
+    const half = length / 2;
+    const mids = Math.max(0, Math.round((length - 2) / 2));
+    obj.getObjectByName('front')!.position.z = half;
+    for (let i = 0; i < 11; i++) {
+      const mid = obj.getObjectByName(`mid${i}`);
+      if (!mid) break;
+      mid.visible = i < mids;
+      mid.position.z = half - 1 - 2 * i;
+    }
+    const back = obj.getObjectByName('back');
+    if (back) back.position.z = half - 1 - 2 * mids;
+  }
+
   // ---------- obstacle builders ----------
 
   private buildLow(v: number): THREE.Object3D {
+    const kit = this.fromKit('barrier_low', { NotifFace: this.mats.notif[v] });
+    if (kit) return kit;
     const g = new THREE.Group();
     const side = this.mats.white;
     const face = this.mats.notif[v];
@@ -493,6 +689,8 @@ export class GameRenderer {
   }
 
   private buildHigh(v: number): THREE.Object3D {
+    const kit = this.fromKit('barrier_high', { AdFace: this.mats.ad[v] });
+    if (kit) return kit;
     const g = new THREE.Group();
     const poleGeo = new THREE.CylinderGeometry(0.06, 0.06, 3.3, 6);
     const p1 = new THREE.Mesh(poleGeo, this.mats.pole);
@@ -510,6 +708,8 @@ export class GameRenderer {
   }
 
   private buildPost(v: number, moving: boolean): THREE.Object3D {
+    const kit = this.kitTrain(v, moving);
+    if (kit) return kit;
     const g = new THREE.Group();
     const side = this.mats.reel[v];
     const front = this.mats.reelFront[v];
@@ -524,7 +724,66 @@ export class GameRenderer {
       bar.name = 'warn';
       bar.position.set(0, 2.95, 0);
       g.add(bar);
+    } else {
+      g.add(this.buildStairs());
     }
+    return g;
+  }
+
+  /** Stairs up to a reel train's roof: a slab with steps, running toward +z from the train's front. */
+  private buildStairs(): THREE.Object3D {
+    const { stairs: L } = TUNING.roof;
+    const H = TUNING.post.height;
+    const g = new THREE.Group();
+    g.name = 'stairs';
+    const steps = 10;
+    const stepMat = this.mats.pole;
+    for (let i = 0; i < steps; i++) {
+      const h = (H * (i + 1)) / steps;
+      const depth = L / steps;
+      const step = new THREE.Mesh(new THREE.BoxGeometry(1.9, h, depth), i % 2 === 0 ? stepMat : this.mats.dark);
+      // Step i is i+1 steps up, counted from the far (bottom) end.
+      step.position.set(0, h / 2, L - (i + 0.5) * depth);
+      g.add(step);
+      const nose = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.04, 0.06), this.padMats.glow.ramp);
+      nose.position.set(0, h + 0.01, L - i * depth - 0.03);
+      g.add(nose);
+    }
+    return g;
+  }
+
+  /** Something fell across every lane: a giant phone lying on its side, an ad on both faces. Roll. */
+  private buildOverhang(v: number, biome = 0): THREE.Object3D {
+    const kit = this.biomes.kit(biome)?.clone('overhang');
+    if (kit) {
+      // Its screens show one of the game's ads.
+      kit.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const swap = (m: THREE.Material) => (m.name === 'AdFace' ? this.mats.ad[v] : m);
+        mesh.material = Array.isArray(mesh.material) ? mesh.material.map(swap) : swap(mesh.material);
+      });
+      return kit;
+    }
+    const g = new THREE.Group();
+    const b = TUNING.barrier;
+    const w = 7.6;
+    const h = b.highTop - b.highBottom;
+    const ad = this.mats.ad[v];
+    const d = this.mats.dark;
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.36, 8, 1, 1), [d, d, d, d, ad, ad]);
+    slab.position.y = b.highBottom + h / 2;
+    const bezel = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, h + 0.2, 0.3, 8, 1, 1), this.mats.pole);
+    bezel.position.y = slab.position.y;
+    g.add(bezel, slab);
+    for (const sx of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.3, b.highTop + 0.3, 0.3), this.mats.pole);
+      leg.position.set(sx * (w / 2 + 0.1), (b.highTop + 0.3) / 2, 0);
+      g.add(leg);
+    }
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, 0.4, 8, 1, 1), this.mats.warn);
+    strip.position.y = b.highBottom - 0.02;
+    g.add(strip);
     return g;
   }
 
@@ -534,6 +793,16 @@ export class GameRenderer {
   private buildThumb(): THREE.Object3D {
     const th = TUNING.setPieces.thumb;
     const g = new THREE.Group();
+    const kit = this.fromKit('thumb');
+    if (kit) {
+      // The kit's thumb lies along the lane from its near end: centre it on the footprint.
+      kit.position.z = th.length / 2;
+      const body = new THREE.Group();
+      body.name = 'body';
+      body.add(kit);
+      g.add(body, this.thumbWarn());
+      return g;
+    }
     const skin = new THREE.MeshStandardMaterial({ color: '#e3ad8c', roughness: 0.7, emissive: new THREE.Color('#e3ad8c'), emissiveIntensity: 0.3 });
     const nailMat = new THREE.MeshStandardMaterial({ color: '#f6d6ca', roughness: 0.25, emissive: new THREE.Color('#f6d6ca'), emissiveIntensity: 0.35 });
     const r = th.halfWidth * 1.3;
@@ -557,7 +826,13 @@ export class GameRenderer {
     const body = new THREE.Group();
     body.name = 'body';
     body.add(tilt);
-    // Warning strip: the footprint plus the stretch it drags toward you.
+    g.add(body, this.thumbWarn());
+    return g;
+  }
+
+  /** Warning strip: the thumb's footprint plus the stretch it drags toward you. */
+  private thumbWarn(): THREE.Object3D {
+    const th = TUNING.setPieces.thumb;
     const drag = th.speed * th.drag;
     const warn = new THREE.Mesh(
       new THREE.PlaneGeometry(th.halfWidth * 2, th.length + drag, 1, 16),
@@ -567,8 +842,7 @@ export class GameRenderer {
     warn.rotation.x = -Math.PI / 2;
     warn.position.set(0, 0.14, drag / 2);
     warn.renderOrder = 2;
-    g.add(body, warn);
-    return g;
+    return warn;
   }
 
   /** The Algorithm: a giant eye of stacked screens in the sky. */
@@ -612,8 +886,18 @@ export class GameRenderer {
   }
 
   private buildHabit(v: number): THREE.Object3D {
-    const g = new THREE.Group();
     const m = this.habitMats;
+    // Work mode's first habit is a lunch box, not a glass of water: that one stays procedural.
+    if (!(mode === 'work' && v % 4 === 0)) {
+      const kit = this.fromKit(['habit_water', 'habit_books', 'habit_shoe', 'habit_phone'][v % 4], { MumFace: m.call });
+      if (kit) {
+        if (v % 4 === 3) kit.name = 'ring';
+        const g = new THREE.Group();
+        g.add(kit);
+        return g;
+      }
+    }
+    const g = new THREE.Group();
     switch (v % 4) {
       case 0: {
         if (mode === 'work') {
@@ -676,12 +960,14 @@ export class GameRenderer {
     return g;
   }
 
-  private acquire(kind: ObstacleKind, variant: number): THREE.Object3D {
+  private acquire(kind: PoolKind, variant: number): THREE.Object3D {
     const pool = this.pools.get(kind) ?? [];
     this.pools.set(kind, pool);
     const idx = pool.findIndex((o) => o.userData.variant === variant);
-    const obj = idx >= 0 ? pool.splice(idx, 1)[0] : this.obstacleBuilders[kind](variant);
+    const build = (): THREE.Object3D => (kind.startsWith('wide') ? this.buildOverhang(variant, Number(kind.slice(4))) : this.obstacleBuilders[kind as ObstacleKind](variant));
+    const obj = idx >= 0 ? pool.splice(idx, 1)[0] : build();
     obj.userData.variant = variant;
+    if (idx < 0) obj.userData.gen = this.kitGen;
     obj.visible = true;
     if (!obj.parent) {
       this.bend.patchTree(obj);
@@ -693,10 +979,24 @@ export class GameRenderer {
   // ---------- pads (built with their near edge at the origin, running toward -z) ----------
 
   private buildPad(kind: PadKind): THREE.Object3D {
-    const g = new THREE.Group();
     const t = TUNING.pads;
     const m = this.padMats;
     const d = this.mats.dark;
+    if (kind === 'bouncer' && this.common?.has('pad_bouncer')) {
+      const g = new THREE.Group();
+      g.add(this.fromKit('pad_bouncer')!);
+      for (const name of ['pad_bouncer_top', 'pad_bouncer_spring']) {
+        const o = this.fromKit(name);
+        if (!o) continue;
+        o.name = name === 'pad_bouncer_top' ? 'top' : 'spring';
+        o.userData.restY = 0;
+        g.add(o);
+      }
+      return g;
+    }
+    const padKit = kind === 'bouncer' ? null : this.fromKit(`pad_${kind}`, { RampFace: m.ramp, AutoplayBelt: m.autoplay });
+    if (padKit) return padKit;
+    const g = new THREE.Group();
     if (kind === 'ramp') {
       const { length: L, height: H } = t.ramp;
       const slope = Math.hypot(L, H);
@@ -752,7 +1052,11 @@ export class GameRenderer {
       if (!entry) {
         const pool = this.padPools.get(pd.kind) ?? [];
         this.padPools.set(pd.kind, pool);
-        const obj = pool.pop() ?? this.buildPad(pd.kind);
+        let obj = pool.pop();
+        if (!obj) {
+          obj = this.buildPad(pd.kind);
+          obj.userData.gen = this.kitGen;
+        }
         if (!obj.parent) {
           this.bend.patchTree(obj);
           this.scene.add(obj);
@@ -766,14 +1070,26 @@ export class GameRenderer {
         // Squash on launch, then wobble back.
         if (pd.used) entry.t += dt;
         const k = pd.used ? Math.exp(-entry.t * 5) * Math.cos(entry.t * 30) : 0;
-        entry.obj.getObjectByName('top')!.position.y = 0.32 - 0.22 * k;
-        entry.obj.getObjectByName('spring')!.scale.y = 1 - 0.7 * k;
+        const top = entry.obj.getObjectByName('top');
+        const spring = entry.obj.getObjectByName('spring');
+        if (top) top.position.y = ((top.userData.restY as number | undefined) ?? 0.32) - (top.userData.restY === undefined ? 0.22 : 0.2) * k;
+        if (spring) {
+          spring.scale.y = 1 - 0.7 * k;
+          // The kit's coil sits on the base at 0.08: squash it about that, not the track.
+          if (spring.userData.restY !== undefined) spring.position.y = 0.08 * 0.7 * k;
+        }
       }
     }
     for (const [id, entry] of this.padActive) {
       if (!seen.has(id)) {
         entry.obj.visible = false;
-        this.padPools.get(entry.kind)!.push(entry.obj);
+        // Built before a kit arrived: retire it rather than pool a stand-in.
+        if (entry.obj.userData.gen !== this.kitGen) this.scene.remove(entry.obj);
+        else {
+          const pool = this.padPools.get(entry.kind) ?? [];
+          pool.push(entry.obj);
+          this.padPools.set(entry.kind, pool);
+        }
         this.padActive.delete(id);
       }
     }
@@ -815,12 +1131,30 @@ export class GameRenderer {
     if (this.spinner.instanceColor) this.spinner.instanceColor.needsUpdate = true;
   }
 
-  private release(kind: ObstacleKind, obj: THREE.Object3D): void {
+  private release(kind: PoolKind, obj: THREE.Object3D): void {
     obj.visible = false;
-    this.pools.get(kind)!.push(obj);
+    // Built before a kit arrived: retire it rather than pool a stand-in.
+    if (obj.userData.gen !== this.kitGen) {
+      this.scene.remove(obj);
+      return;
+    }
+    const pool = this.pools.get(kind) ?? [];
+    pool.push(obj);
+    this.pools.set(kind, pool);
   }
 
   // ---------- frame ----------
+
+  /** Apply a quality tier (pixel ratio, glass screens, scenery density, bloom). */
+  setQuality(q: Quality): void {
+    const spec = SPEC[q];
+    this.settings.quality = q;
+    this.settings.pixelRatio = Math.min(window.devicePixelRatio || 1, spec.pixelRatio);
+    this.biomes.glass = spec.glass;
+    this.biomes.density = spec.scenery;
+    this.post.settings.bloom = spec.bloom;
+    this.resize();
+  }
 
   resize(): void {
     const w = window.innerWidth;
@@ -865,6 +1199,17 @@ export class GameRenderer {
         fx.burst(laneX(e.lane), 0.3, -0.5, launch ? 30 : 18, PAD_COLOURS[e.kind], { speed: launch ? 5 : 3, size: 0.24, life: 0.7, gravity: 4, bright: 2.4, up: launch ? 3 : 1 });
       }
       if (e.type === 'lift') fx.burst(p.x, 0.1, 0, 14, '#ffffff', { speed: 2.5, size: 0.18, life: 0.5, gravity: 1, bright: 1.6, up: 0.4 });
+      if (e.type === 'power') {
+        this.shake = Math.max(this.shake, 0.35);
+        fx.burst(p.x, p.y + 1, -0.3, 50, POWER_COLOURS[e.kind], { speed: 6, size: 0.26, life: 0.9, gravity: 1, bright: 2.6, up: 2 });
+      }
+      if (e.type === 'shield') {
+        this.shake = Math.max(this.shake, 0.8);
+        this.powers.shatter(p.x, p.y);
+      }
+      if (e.type === 'land' && (e.on === 'roof' || e.on === 'rail')) fx.burst(p.x, p.y + 0.05, 0, 12, '#cfc8e8', { speed: 2.2, size: 0.2, life: 0.45, gravity: 2, bright: 1.1, up: 0.5 });
+      if (e.type === 'mantle' || e.type === 'bonk') this.shake = Math.max(this.shake, 0.3);
+      if (e.type === 'fly' && e.stage === 'up') fx.burst(p.x, 0.2, 0.4, 40, '#ffb300', { speed: 5, size: 0.4, life: 0.8, gravity: -1, bright: 2.4, up: 1 });
       if (e.type === 'thrill') {
         this.shake = Math.max(this.shake, 0.3);
         fx.burst(p.x, 1.2, 0, Math.round(14 + 30 * e.tolerance), '#ffcc00', { speed: 6, size: 0.22 + 0.12 * e.tolerance, life: 1, gravity: 0.5, bright: 1.2 + 1.8 * e.tolerance, up: 1 });
@@ -898,11 +1243,14 @@ export class GameRenderer {
     const behind = orbiting ? BEHIND_ORBIT : BEHIND;
     this.bend.update(w.course, d);
     this.syncTrack(d, behind);
+    this.biomes.update(w, behind, this.visibleAhead, TILE_LEN, this.slopOn);
     this.syncTowers(w, behind);
     this.syncObstacles(w);
     this.syncPads(w, sdt);
     this.syncSpinner(w, behind, time);
     this.syncPickups(w, time);
+    this.structures.update(w, behind);
+    this.powers.update(w, sdt, time, (k) => this.hero?.shoeGlow(k) ?? false);
     this.syncPlayer(w, sdt);
     this.gate.update(w, time);
     this.syncZone(w);
@@ -926,11 +1274,14 @@ export class GameRenderer {
   }
 
   private syncTrack(d: number, behind: number): void {
+    // The lane screens are the biome view's; this is the stand-in deck, bezels and seams
+    // for rows whose biome has no kit deck (yet).
     const first = Math.floor((d - behind) / TILE_LEN);
     const last = Math.floor((d + this.visibleAhead) / TILE_LEN);
     let n = 0;
     let row = 0;
     for (let i = first; i <= last; i++) {
+      if (this.biomes.hasDeck(biomeAtS(i * TILE_LEN + TILE_LEN / 2))) continue;
       const z = -(i * TILE_LEN + TILE_LEN / 2 - d);
       this.dummy.rotation.set(0, 0, 0);
       this.dummy.scale.set(1, 1, 1);
@@ -944,21 +1295,11 @@ export class GameRenderer {
       }
       row++;
       for (let lane = 0; lane < 3; lane++) {
-        const x = laneX(lane);
-        this.dummy.position.set(x, 0.011, z);
-        this.dummy.rotation.set(0, 0, 0);
-        this.dummy.scale.set(1, 1, 1);
-        this.dummy.updateMatrix();
-        this.tileScreens.setMatrixAt(n, this.dummy.matrix);
-        this.tileCells.setX(n, Math.floor(hash(i, lane) * FEED_CELLS));
-        this.dummy.position.y = -0.07;
+        this.dummy.position.set(laneX(lane), -0.07, z);
         this.dummy.updateMatrix();
         this.tileBezels.setMatrixAt(n++, this.dummy.matrix);
       }
     }
-    this.tileScreens.count = n;
-    this.tileScreens.instanceMatrix.needsUpdate = true;
-    this.tileCells.needsUpdate = true;
     this.tileBezels.count = n;
     this.tileBezels.instanceMatrix.needsUpdate = true;
     this.deck.count = row;
@@ -974,8 +1315,9 @@ export class GameRenderer {
     let n = 0;
     let backs = 0;
     for (let i = first; i <= last; i++) {
-      // No towers where the track goes upside down.
-      if (!w.course.scenery(i * TOWER_STEP)) continue;
+      // No towers where the track goes upside down, inside a tunnel, or where a biome kit has scenery.
+      const at = i * TOWER_STEP;
+      if (!w.course.scenery(at) || w.tunnelAt(at) || this.biomes.hasScenery(biomeAtS(at))) continue;
       for (const side of [-1, 1]) {
         const r = hash(i, side + 7);
         if (r < 0.12) continue; // gaps in the skyline
@@ -1011,11 +1353,14 @@ export class GameRenderer {
   private syncObstacles(w: World): void {
     const seen = new Set<number>();
     for (const o of w.obstacles) {
-      if (o.s - w.d > this.visibleAhead) continue;
+      if (o.s - o.ramp - w.d > this.visibleAhead) continue;
+      // An overhang is three highs; its middle one carries the model.
+      if (o.wide && o.lane !== 1) continue;
       seen.add(o.id);
       let entry = this.active.get(o.id);
       if (!entry) {
-        entry = { kind: o.kind, obj: this.acquire(o.kind, o.variant) };
+        const kind: PoolKind = o.wide ? `wide${biomeAtS(o.s)}` : o.kind;
+        entry = { kind, obj: this.acquire(kind, o.variant) };
         this.active.set(o.id, entry);
       }
       const obj = entry.obj;
@@ -1023,13 +1368,19 @@ export class GameRenderer {
       obj.visible = !o.hit;
       const x = laneX(o.lane);
       if (o.kind === 'post' || o.kind === 'movingPost') {
-        const body = obj.getObjectByName('body')!;
-        body.scale.z = o.length;
+        if (obj.userData.kit) this.layoutTrain(obj, o.length);
+        else obj.getObjectByName('body')!.scale.z = o.length;
         obj.position.set(x, 0, -(o.s + o.length / 2 - w.d));
         const warn = obj.getObjectByName('warn');
         if (warn) {
-          warn.position.z = o.length / 2 - 0.1;
+          // The kit's strobe is modelled in the front module's frame.
+          warn.position.z = o.length / 2 - (obj.userData.kit ? 0 : 0.1);
           warn.visible = !o.active || Math.floor(performance.now() / 120) % 2 === 0;
+        }
+        const stairs = obj.getObjectByName('stairs');
+        if (stairs) {
+          stairs.visible = o.ramp > 0;
+          stairs.position.z = o.length / 2;
         }
       } else if (o.kind === 'thumb') {
         const th = w.t.setPieces.thumb;
@@ -1044,6 +1395,8 @@ export class GameRenderer {
         const warn = obj.getObjectByName('warn')!;
         warn.visible = o.age < th.descend;
         ((warn as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.35 + 0.45 * (Math.floor(performance.now() / 110) % 2);
+      } else if (o.wide) {
+        obj.position.set(0, 0, -(o.s - w.d));
       } else if (o.kind === 'habit') {
         obj.position.set(x, 0, -(o.s - w.d));
         const ring = obj.getObjectByName('ring');
@@ -1064,20 +1417,32 @@ export class GameRenderer {
   }
 
   private syncPickups(w: World, time: number): void {
-    const counts = [0, 0, 0, 0];
+    for (const set of this.pickupSets) set.begin();
+    const pl = w.player;
+    const fly = w.t.power.magnet.fly;
     for (const p of w.pickups) {
-      if (p.taken || p.s - w.d > this.visibleAhead || counts[p.type] >= 128) continue;
+      if (p.taken || p.s - w.d > this.visibleAhead) continue;
       this.dummy.position.set(laneX(p.lane), p.y + Math.sin(time * 4 + p.s) * 0.08, -(p.s - w.d));
+      if (p.pullAt >= 0) {
+        // The For You Magnet has it: it flies into you.
+        const k = Math.min(1, (w.time - p.pullAt) / fly);
+        this.dummy.position.lerp(this.tmpV.set(pl.x, pl.y + 1.1, 0), k * k);
+      }
       this.dummy.rotation.set(0, time * 2.5 + p.s * 0.3, 0);
-      this.dummy.scale.set(1, 1, 1);
+      // 3D icons read bigger than the old flat cards: a touch smaller.
+      this.dummy.scale.setScalar(this.common ? 0.72 : 1);
       this.dummy.updateMatrix();
-      this.pickupMeshes[p.type].setMatrixAt(counts[p.type]++, this.dummy.matrix);
+      this.pickupSets[p.type].add(this.dummy.matrix);
     }
-    this.pickupMeshes.forEach((m, type) => {
-      m.count = counts[type];
-      m.instanceMatrix.needsUpdate = true;
+    this.pickupSets.forEach((set, type) => {
+      set.end();
       // Tolerance made visible: content you've had too much of stops glowing.
-      (m.material as THREE.MeshBasicMaterial).color.setScalar(0.45 + 1.35 * w.tolerance[type]);
+      const tol = w.tolerance[type];
+      for (const m of this.pickupTypeMats[type] ?? [this.pickupMats[type]]) {
+        const std = m as THREE.MeshStandardMaterial;
+        if (std.isMeshStandardMaterial) std.emissiveIntensity = ((m.userData.baseEmissive as number) ?? 1) * (0.25 + 1.35 * tol);
+        else (m as THREE.MeshBasicMaterial).color.setScalar(0.45 + 1.35 * tol);
+      }
     });
   }
 
@@ -1114,9 +1479,20 @@ export class GameRenderer {
     const p = w.player;
     const parts = this.playerParts;
     this.player.position.set(p.x, p.y, 0);
-    this.shadow.position.x = p.x;
-    const sh = Math.max(0.35, 1 - p.y * 0.25);
+    const present = w.cause === 'empty' ? Math.min(1, w.fadeT / w.t.reality.fadeTime) : 0;
+    this.phoneLight.intensity = 2.2 * (1 - 0.97 * present) * (w.flying ? 0.6 : 1);
+    this.shadow.position.set(p.x, p.floor + 0.04, 0);
+    const sh = Math.max(0.35, 1 - (p.y - p.floor) * 0.25);
     this.shadow.scale.set(sh, 1, sh);
+    this.shadow.visible = !w.flying;
+    // Grinding: sparks off the cable.
+    if (p.grounded && p.on === 'rail' && w.phase === 'running') {
+      this.sparkT += dt;
+      while (this.sparkT > 0.02) {
+        this.sparkT -= 0.02;
+        this.particles.burst(p.x + (Math.random() - 0.5) * 0.2, p.y + 0.02, 0.2, 2, Math.random() < 0.6 ? '#ffd27a' : '#ffffff', { speed: 4, size: 0.08, life: 0.35, gravity: 14, bright: 2.8, up: 1.5 });
+      }
+    }
 
     const targetX = laneX(p.lane);
     this.player.rotation.z = THREE.MathUtils.lerp(this.player.rotation.z, (p.x - targetX) * 0.18, 0.3);
@@ -1137,7 +1513,6 @@ export class GameRenderer {
     }
 
     // Dopamine ran out: the arms drop, the phone goes dark.
-    const present = w.cause === 'empty' ? Math.min(1, w.fadeT / w.t.reality.fadeTime) : 0;
     this.phoneMat.color.setRGB(2.4, 2.8, 3.2).multiplyScalar(1 - 0.97 * present);
     parts.armL.rotation.x = parts.armR.rotation.x = THREE.MathUtils.lerp(-1.25, -0.12, present);
     parts.phone.position.set(0, THREE.MathUtils.lerp(1.32, 0.78, present), THREE.MathUtils.lerp(-0.38, -0.3, present));
@@ -1189,8 +1564,34 @@ export class GameRenderer {
     if (slop && !this.slopAtlas) this.slopAtlas = makeSlopAtlas();
     const map = slop ? this.slopAtlas! : this.feedAtlas;
     if (this.mats.feed.map !== map) this.mats.feed.map = this.mats.tower.map = map;
+    this.slopOn = slop;
+    this.biomes.setSlop(slop ? this.slopAtlas : null);
     this.seamMat.color.copy(from.seam).lerp(to.seam, k);
     this.hemi.color.copy(from.light).lerp(to.light, k);
+    // The biome's light: fog, sun, exposure, and its panorama sky and reflections.
+    const bFrom = zoneLook(Math.max(0, w.zone - 1)) % LOOKS.length;
+    const bTo = zoneLook(w.zone) % LOOKS.length;
+    const la = LOOKS[bFrom];
+    const lb = LOOKS[bTo];
+    const lerp = THREE.MathUtils.lerp;
+    this.hemi.intensity = lerp(la.hemi, lb.hemi, k);
+    this.sun.color.copy(la.sun).lerp(lb.sun, k);
+    this.sun.intensity = lerp(la.sunI, lb.sunI, k);
+    this.renderer.toneMappingExposure = lerp(la.exposure, lb.exposure, k);
+    const fog = this.scene.fog as THREE.Fog;
+    fog.near = lerp(la.fogNear, lb.fogNear, k);
+    fog.far = Math.min(this.visibleAhead, lerp(la.fogFar, lb.fogFar, k));
+    const su = this.skyUniforms;
+    const skyA = this.biomes.sky(bFrom);
+    const skyB = this.biomes.sky(bTo);
+    su.panoA.value = skyA;
+    su.panoB.value = skyB;
+    su.hasA.value = skyA ? 1 : 0;
+    su.hasB.value = skyB ? 1 : 0;
+    su.panoMix.value = w.zone === 0 ? 1 : k;
+    const env = this.biomes.env(k < 0.5 ? bFrom : bTo);
+    if (this.scene.environment !== env) this.scene.environment = env;
+    this.scene.environmentIntensity = lerp(la.env, lb.env, k);
     this.skyColour.copy(from.sky).lerp(to.sky, k);
     (this.scene.background as THREE.Color).copy(this.skyColour);
     this.scene.fog!.color.copy(this.skyColour);
@@ -1257,13 +1658,15 @@ export class GameRenderer {
     const p = w.player;
     const k = 1 - Math.pow(0.0008, dt);
     this.camX = THREE.MathUtils.lerp(this.camX, p.x * 0.65, k);
-    this.camY = THREE.MathUtils.lerp(this.camY, p.y * 0.35, 1 - Math.pow(0.02, dt));
+    // Up on a roof or a rail the camera rides up with you; in flight it follows more loosely.
+    const high = w.flying ? p.y * 0.62 : p.grounded ? p.y * 0.85 : Math.max(p.y * 0.35, p.floor * 0.85 + (p.y - p.floor) * 0.35);
+    this.camY = THREE.MathUtils.lerp(this.camY, high, 1 - Math.pow(w.flying ? 0.2 : 0.02, dt));
     const shake = this.shake * this.shake;
     const jx = (Math.random() - 0.5) * shake * 0.5;
     const jy = (Math.random() - 0.5) * shake * 0.5;
     const cam = this.camera;
     cam.position.set(this.camX + jx, 3.5 + this.camY + jy, 6.4);
-    const look = this.lookV.set(this.camX * 1.1, 1.1 + this.camY * 0.5, -9);
+    const look = this.lookV.set(this.camX * 1.1, 1.1 + this.camY * 0.8, -9);
     let fov = this.baseFov;
     let roll = 0;
 

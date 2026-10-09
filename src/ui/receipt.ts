@@ -71,6 +71,8 @@ function aura(w: World): string {
     w.notificationsOpened * a.opened +
     w.smashed * a.smashed +
     w.habitsHit * a.habit +
+    w.powersTaken * a.power +
+    w.shieldsUsed * a.shield +
     (w.cause === 'crash' ? a.crash : a.empty);
   // A crash is infinite aura loss (the popup said so).
   if (w.cause === 'crash') return '-∞';
@@ -110,6 +112,11 @@ export function buildReceipt(w: World, nags: Nags, daily: number | null = null, 
     [it.ads, w.adsPassed + nags.bannersShown, per.ads],
     [it.dodged, w.habitsDodged, per.dodged],
     [it.mum, w.mumIgnored, 1],
+    [it.powers, w.powersTaken, per.powers],
+    [it.protector, w.shieldsUsed, per.protector],
+    [it.mainchar, Math.round(w.mainCharTime), per.mainchar],
+    [it.roof, Math.round(w.roofTime), per.roof],
+    [it.grind, Math.round(w.grindDistance), per.grind],
   ];
 
   let top = -1;

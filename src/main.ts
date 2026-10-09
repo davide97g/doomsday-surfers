@@ -4,12 +4,14 @@ import { renderSound, schedulePing, scheduleWord } from './audio/voice';
 import { ClipRecorder } from './clip/clip';
 import { content, mode, realBrands, switchMode } from './content/content';
 import { Bot } from './dev/bot';
+import { installDebugOverlay } from './dev/overlay';
 import { GameHaptics } from './fx/haptics';
 import { Input } from './input/input';
 import { GameRenderer } from './render/renderer';
+import { AutoQuality, SPEC, loadAutoStart, loadQuality, saveAutoStart, saveQuality } from './render/quality';
 import { fill } from './content/templates';
-import { GhostRecorder, type GhostTrack } from './sim/ghost';
-import { TUNING } from './sim/types';
+import { GHOST_VERSION, GhostRecorder, type GhostTrack } from './sim/ghost';
+import { POWER_KINDS, TUNING } from './sim/types';
 import { World } from './sim/world';
 import { distanceText, killerEmoji, loadToday, saveDaily, seedFor, shareLine, today } from './ui/daily';
 import { Death } from './ui/death';
@@ -32,8 +34,15 @@ import { Title } from './ui/title';
 
 const STEP = 1 / 120;
 const params = new URLSearchParams(location.search);
-const useBot = params.has('bot');
+if (import.meta.env.VITE_DEBUG === '1' || params.has('debug')) installDebugOverlay();
+// A perf build (VITE_PERF=1) or ?perf: the climbing bot plays forever and frame stats go to the console
+// (on the phone, `xcrun devicectl device process launch --console` shows them).
+const perfRun = import.meta.env.VITE_PERF === '1' || params.has('perf');
+const useBot = params.has('bot') || perfRun;
 const seedParam = params.get('seed');
+// Dev: ?zone=N starts just past gate N (a later biome), ?power=kind hands out a power-up at the start.
+const startZone = Math.max(0, Math.floor(Number(params.get('zone') ?? 0)) || 0);
+const powerParam = POWER_KINDS.find((k) => k === params.get('power')) ?? null;
 
 document.documentElement.dataset.mode = mode;
 if (realBrands) {
@@ -45,18 +54,23 @@ if (realBrands) {
 }
 const app = document.getElementById('app')!;
 const endlessSeed = () => (seedParam ? Number(seedParam) : Date.now());
-const world = new World(endlessSeed());
+const world = new World(endlessSeed(), TUNING, { startZone });
 /** Today's feed number while the Daily is being played, else null (an endless run). */
 let dailyDay: number | null = null;
 const view = new GameRenderer(app, TUNING.spawn.ahead - 10);
 view.renderer.info.autoReset = false;
 const input = new Input(view.renderer.domElement);
-const bot = useBot ? new Bot() : null;
+const bot = useBot ? new Bot(params.get('bot') === 'climb' || perfRun) : null;
+// Quality: a fixed tier from the device-test panel, or Auto (steps down if the frame rate sags).
+let qualityPick = loadQuality();
+const autoQuality = new AutoQuality(qualityPick === 'auto' ? loadAutoStart() : qualityPick);
+view.setQuality(qualityPick === 'auto' ? autoQuality.current : qualityPick);
 
 const hud = new Hud(document.body, {
-  bloom: true,
+  bloom: view.post.settings.bloom,
   grade: true,
   pixelRatio: view.settings.pixelRatio,
+  quality: qualityPick,
 });
 const audio = new GameAudio();
 const haptics = new GameHaptics();
@@ -141,7 +155,7 @@ function newRun(seed: number, ghost: GhostTrack | null = null): void {
 function buildLink(): void {
   death.handle = loadHandle(world.character);
   const day = dailyDay;
-  const header = { v: 1 as const, seed: world.seed, ch: world.character, name: death.handle, mode, day: day ?? 0, dist: Math.round(world.d), killer: killerText(world).toLowerCase() };
+  const header = { v: GHOST_VERSION, seed: world.seed, ch: world.character, name: death.handle, mode, day: day ?? 0, dist: Math.round(world.d), killer: killerText(world).toLowerCase() };
   const result = day !== null ? { distance: distanceText(world.d), emoji: killerEmoji(world), line: shareLine(world, day) } : null;
   void ghostUrl(recorder, header).then((url) => {
     if (header.seed !== world.seed) return; // a new run already started
@@ -212,6 +226,13 @@ void ghostFromUrl().then((track) => {
 });
 title.onShare = (text) => void shareText(content.report.shareTitle, text);
 hud.onPerfChange = (p) => {
+  if (p.quality !== qualityPick) {
+    qualityPick = p.quality;
+    saveQuality(p.quality);
+    view.setQuality(p.quality === 'auto' ? autoQuality.current : p.quality);
+    hud.syncPerf({ ...p, bloom: view.post.settings.bloom, pixelRatio: view.settings.pixelRatio });
+    return;
+  }
   view.post.settings.bloom = p.bloom;
   view.post.settings.grade = p.grade;
   if (p.pixelRatio !== view.settings.pixelRatio) {
@@ -228,11 +249,14 @@ let acc = 0;
 let fpsFrames = 0;
 let fpsTime = 0;
 let cpuAcc = 0;
+const frameMs: number[] = [];
+let perfT = 0;
 
 function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
+  if (perfRun) frameMs.push(dt * 1000);
   const cpuStart = performance.now();
 
   // Restart is button-only, so a panicked swipe on the death screen can't skip it.
@@ -262,6 +286,7 @@ function frame(now: number): void {
   }
   for (const e of events) {
     if (e.type === 'start') {
+      if (powerParam) world.givePower(powerParam);
       clip.startRun(loadHandle(world.character));
       try {
         localStorage.setItem('ds.launched', '1');
@@ -272,7 +297,11 @@ function frame(now: number): void {
     else if (e.type === 'dead') {
       clip.stop();
       buildLink();
+      // Perf runs never stop: next seed.
+      if (perfRun) setTimeout(() => newRun(Date.now()), 1500);
     } else if (e.type === 'gate') clip.mark('gate');
+    else if (e.type === 'fly' && e.stage === 'up') clip.mark('viral');
+    else if (e.type === 'shield') clip.mark('shield');
     else if (e.type === 'thrill') clip.mark(e.kind);
   }
   if (dailyDay !== null) {
@@ -314,7 +343,24 @@ function frame(now: number): void {
     // Recording must never cost the run its frame rate.
     if (world.phase === 'running' && fpsFrames / fpsTime < TUNING.clip.minFps) clip.lowPower = true;
     const s = view.stats();
-    hud.setFps(fpsFrames / fpsTime, cpuAcc / fpsFrames, s.calls, s.tris);
+    const fps = fpsFrames / fpsTime;
+    hud.setFps(fps, cpuAcc / fpsFrames, s.calls, s.tris);
+    if (qualityPick === 'auto') {
+      const next = autoQuality.sample(fps, world.phase === 'running' && world.gateT < 0);
+      if (next) {
+        view.setQuality(next);
+        saveAutoStart(next);
+        hud.syncPerf({ ...hud.perf, bloom: SPEC[next].bloom, pixelRatio: view.settings.pixelRatio, quality: 'auto' });
+      }
+    }
+    perfT += fpsTime;
+    if (perfRun && perfT >= 5) {
+      frameMs.sort((a, b) => a - b);
+      const p95 = frameMs[Math.floor(frameMs.length * 0.95)] ?? 0;
+      console.log(`perf fps=${(frameMs.length / perfT).toFixed(1)} p95=${p95.toFixed(1)}ms calls=${s.calls} tris=${Math.round(s.tris / 1000)}k zone=${world.zone} q=${view.settings.quality} pr=${view.settings.pixelRatio} d=${Math.round(world.d)}`);
+      frameMs.length = 0;
+      perfT = 0;
+    }
     fpsFrames = 0;
     fpsTime = 0;
     cpuAcc = 0;

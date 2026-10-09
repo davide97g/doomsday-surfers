@@ -70,6 +70,25 @@ export class GameHaptics {
         case 'revive':
           void H.notification({ type: NotificationType.Success });
           break;
+        case 'power':
+          void H.notification({ type: NotificationType.Success });
+          break;
+        case 'shield':
+          void H.impact({ style: ImpactStyle.Heavy });
+          break;
+        case 'fly':
+          if (e.stage !== 'down') void H.impact({ style: ImpactStyle.Heavy });
+          break;
+        case 'grind':
+          if (e.on) void H.impact({ style: ImpactStyle.Medium });
+          break;
+        case 'mantle':
+        case 'bonk':
+          void H.impact({ style: ImpactStyle.Medium });
+          break;
+        case 'land':
+          if (e.on === 'roof') void H.impact({ style: ImpactStyle.Light });
+          break;
         default:
           break;
       }

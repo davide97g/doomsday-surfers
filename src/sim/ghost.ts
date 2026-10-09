@@ -21,8 +21,11 @@ const YQ = 0.1; // m per y step (u8: up to 25 m)
 const ROLL = 1;
 const AIR = 2;
 
+/** Bumped whenever the generator changes what a seed lays out (v2: roofs, rails, power-ups, biomes). */
+export const GHOST_VERSION = 2 as const;
+
 export interface GhostHeader {
-  v: 1;
+  v: typeof GHOST_VERSION;
   /** Course seed. */
   seed: number;
   /** Character index (tuning/content characters). */
@@ -105,7 +108,7 @@ function validHeader(h: GhostHeader): boolean {
   const int = (v: unknown, lo: number, hi: number) => Number.isInteger(v) && (v as number) >= lo && (v as number) <= hi;
   const str = (v: unknown, max: number) => typeof v === 'string' && v.length <= max;
   return (
-    h?.v === 1 &&
+    h?.v === GHOST_VERSION &&
     int(h.seed, 0, 2 ** 53) &&
     int(h.ch, 0, TUNING.characters.count - 1) &&
     str(h.name, 32) &&

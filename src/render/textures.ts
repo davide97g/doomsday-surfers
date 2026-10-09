@@ -51,20 +51,182 @@ function heart(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): 
   ctx.fill();
 }
 
-/** All feed posts (ground tiles and tower faces), one per atlas cell, row-major from the top. */
-export function makeFeedAtlas(): THREE.CanvasTexture {
+/** All feed posts (ground tiles and tower faces), one per atlas cell, row-major from the top.
+ *  Each biome shows its own kind of screen (0 Feed City: posts, 1 Canyon: the group
+ *  chat, 2 Sewer: comment sections, 3 Bedroom: 3 AM reels, 4 Mall: product listings). */
+export function makeFeedAtlas(biome = 0): THREE.CanvasTexture {
   const { cols, rows, cellW, cellH } = FEED_ATLAS;
   const [c, ctx] = canvas(cols * cellW, rows * cellH);
-  const rand = seeded(1234);
+  const rand = seeded(1234 + biome * 977);
   for (let i = 0; i < cols * rows; i++) {
     ctx.save();
     ctx.translate((i % cols) * cellW, Math.floor(i / cols) * cellH);
     const caption = fill(content.feed.captions[i % content.feed.captions.length], {}, rand);
     if (WORK) drawOfficeCell(ctx, i, caption, rand);
+    else if (biome === 1) drawChat(ctx, i, rand);
+    else if (biome === 2) drawComments(ctx, i, rand);
+    else if (biome === 3) drawLateReel(ctx, i, caption, rand);
+    else if (biome === 4) drawListing(ctx, i, rand);
     else drawFeedPost(ctx, i, HANDLES[i % HANDLES.length], caption);
     ctx.restore();
   }
   return tex(c);
+}
+
+const BF = content.biomeFeed;
+
+/** Group Chat Canyon: a thread, bubbles left and right, left on read. */
+function drawChat(ctx: CanvasRenderingContext2D, i: number, rand: () => number): void {
+  const W = FEED_ATLAS.cellW;
+  const H = FEED_ATLAS.cellH;
+  ctx.fillStyle = '#120b08';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#2a1a12';
+  ctx.fillRect(0, 0, W, 58);
+  ctx.fillStyle = PALETTE[i % PALETTE.length];
+  ctx.beginPath();
+  ctx.arc(28, 29, 15, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#f3e6dc';
+  ctx.font = 'bold 15px system-ui, sans-serif';
+  ctx.fillText(fill(BF.canyon.title, { n: 3 + ((i * 7) % 40) }), 52, 35, W - 60);
+  let y = 76;
+  for (let k = 0; y < H - 90; k++) {
+    const mine = rand() < 0.45;
+    const text = BF.canyon.lines[Math.floor(rand() * BF.canyon.lines.length)];
+    ctx.font = '15px system-ui, sans-serif';
+    const tw = Math.min(W - 70, ctx.measureText(text).width + 24);
+    const x = mine ? W - 12 - tw : 12;
+    ctx.fillStyle = mine ? '#2f7bff' : '#3a2c26';
+    roundRect(ctx, x, y, tw, 34, 16);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(text, x + 12, y + 22, tw - 20);
+    y += 44 + (rand() < 0.3 ? 10 : 0);
+  }
+  ctx.fillStyle = '#8a7a70';
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.fillText(BF.canyon.seen, W - 88, H - 70);
+  // Typing dots.
+  ctx.fillStyle = '#3a2c26';
+  roundRect(ctx, 12, H - 56, 70, 34, 16);
+  ctx.fill();
+  ctx.fillStyle = '#cdb8aa';
+  for (let k = 0; k < 3; k++) {
+    ctx.beginPath();
+    ctx.arc(32 + k * 15, H - 39, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/** Comment Section Sewer: rage, stacked. */
+function drawComments(ctx: CanvasRenderingContext2D, i: number, rand: () => number): void {
+  const W = FEED_ATLAS.cellW;
+  const H = FEED_ATLAS.cellH;
+  ctx.fillStyle = '#060d08';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#b8f5c6';
+  ctx.font = 'bold 16px system-ui, sans-serif';
+  ctx.fillText(fill(BF.sewer.title, { n: `${1 + ((i * 37) % 98)}.${i % 10}K` }), 14, 30);
+  let y = 54;
+  while (y < H - 60) {
+    const hue = PALETTE[Math.floor(rand() * PALETTE.length)];
+    ctx.fillStyle = hue;
+    ctx.beginPath();
+    ctx.arc(26, y + 14, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#7fa88a';
+    ctx.font = 'bold 12px system-ui, sans-serif';
+    ctx.fillText(HANDLES[Math.floor(rand() * HANDLES.length)], 46, y + 10, W - 60);
+    ctx.fillStyle = '#e8ffe9';
+    ctx.font = `bold ${rand() < 0.3 ? 22 : 16}px system-ui, sans-serif`;
+    ctx.fillText(BF.sewer.lines[Math.floor(rand() * BF.sewer.lines.length)], 46, y + 34, W - 60);
+    ctx.fillStyle = '#ff5a4a';
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillText(`\u25bc ${Math.floor(rand() * 900 + 20)}`, 46, y + 54);
+    y += 74;
+  }
+  ctx.fillStyle = '#4fb86a';
+  ctx.font = 'bold 13px system-ui, sans-serif';
+  ctx.fillText(fill(BF.sewer.replies, { n: 100 + ((i * 131) % 900) }), 14, H - 22);
+}
+
+/** 3 AM Bedroom: a reel at the wrong hour. Dim, blue, the battery nearly gone. */
+function drawLateReel(ctx: CanvasRenderingContext2D, i: number, caption: string, rand: () => number): void {
+  const W = FEED_ATLAS.cellW;
+  const H = FEED_ATLAS.cellH;
+  ctx.fillStyle = '#02030a';
+  ctx.fillRect(0, 0, W, H);
+  const g = ctx.createRadialGradient(W * (0.3 + 0.4 * rand()), H * 0.4, 10, W / 2, H * 0.45, H * 0.6);
+  g.addColorStop(0, i % 2 ? '#3348c8' : '#6a2dbf');
+  g.addColorStop(1, '#02030a');
+  ctx.fillStyle = g;
+  roundRect(ctx, 8, 40, W - 16, H - 130, 14);
+  ctx.fill();
+  ctx.fillStyle = '#8f9bff';
+  ctx.font = 'bold 30px system-ui, sans-serif';
+  ctx.fillText(BF.bedroom.time, 14, 32);
+  ctx.font = 'bold 14px system-ui, sans-serif';
+  ctx.fillStyle = '#ff5a5a';
+  ctx.fillText(BF.bedroom.battery, W - 44, 26);
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.beginPath();
+  ctx.moveTo(W / 2 - 18, H * 0.42);
+  ctx.lineTo(W / 2 + 22, H * 0.42 + 22);
+  ctx.lineTo(W / 2 - 18, H * 0.42 + 44);
+  ctx.fill();
+  ctx.fillStyle = '#c7ccff';
+  ctx.font = 'bold 18px system-ui, sans-serif';
+  ctx.fillText(BF.bedroom.lines[Math.floor(rand() * BF.bedroom.lines.length)], 14, H - 58, W - 28);
+  ctx.fillStyle = '#6770a8';
+  ctx.font = '14px system-ui, sans-serif';
+  ctx.fillText(caption, 14, H - 32, W - 28);
+}
+
+/** Infinite Mall: a product listing. Everything is on sale; nothing is cheap. */
+function drawListing(ctx: CanvasRenderingContext2D, i: number, rand: () => number): void {
+  const W = FEED_ATLAS.cellW;
+  const H = FEED_ATLAS.cellH;
+  ctx.fillStyle = '#fbf6f9';
+  ctx.fillRect(0, 0, W, H);
+  const a = PALETTE[i % PALETTE.length];
+  const g = ctx.createLinearGradient(0, 20, W, 300);
+  g.addColorStop(0, '#fff');
+  g.addColorStop(1, a);
+  ctx.fillStyle = g;
+  roundRect(ctx, 12, 14, W - 24, 280, 18);
+  ctx.fill();
+  // The product: a glossy blob on a plinth.
+  ctx.fillStyle = 'rgba(0,0,0,0.12)';
+  ctx.beginPath();
+  ctx.ellipse(W / 2, 250, 70, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = PALETTE[(i * 5 + 3) % PALETTE.length];
+  roundRect(ctx, W / 2 - 46, 90, 92, 150, 26);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  roundRect(ctx, W / 2 - 34, 102, 18, 110, 9);
+  ctx.fill();
+  ctx.fillStyle = '#1b1320';
+  ctx.font = 'bold 18px system-ui, sans-serif';
+  ctx.fillText(BF.mall.products[i % BF.mall.products.length], 14, 326, W - 28);
+  const price = 9 + Math.floor(rand() * 90);
+  ctx.fillStyle = '#e0245e';
+  ctx.font = 'bold 30px system-ui, sans-serif';
+  ctx.fillText(`$${price}.99`, 14, 366);
+  ctx.fillStyle = '#9b8fa0';
+  ctx.font = '15px system-ui, sans-serif';
+  ctx.fillText(fill(BF.mall.was, { n: price * 4 + 99 }), 150, 366);
+  ctx.fillStyle = '#ffb400';
+  ctx.font = '18px system-ui, sans-serif';
+  ctx.fillText('\u2605\u2605\u2605\u2605\u2605', 14, 398);
+  const tag = BF.mall.tags[Math.floor(rand() * BF.mall.tags.length)];
+  ctx.fillStyle = '#1b1320';
+  roundRect(ctx, 14, 420, W - 28, 44, 22);
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 16px system-ui, sans-serif';
+  ctx.fillText(tag, 30, 448, W - 60);
 }
 
 function drawFeedPost(ctx: CanvasRenderingContext2D, i: number, handle: string, caption: string): void {
