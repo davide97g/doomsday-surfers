@@ -2,8 +2,8 @@
 
 ## Decisions
 
-- **Name: Scrollcoaster**, subtitle "Don't Stop Scrolling". Research on 2026-10-09 found .com, .gg, .app, .game and .lol unregistered, and no game with the name on the App Store, Steam or itch. "Doom" stays out of the title because ZeniMax forced DoomRL to rename. #PROOFOFDOOM as a hashtag is fine.
-- **Hosting:** Cloudflare Pages (free, unlimited bandwidth) at `https://scrollcoaster.com/`.
+- **Name: Scrollcoaster**, subtitle "Don't Stop Scrolling". Research on 2026-10-09 found .com, .gg, .app, .game and .lol unregistered (not bought: the site lives on Davide's own domain), and no game with the name on the App Store, Steam or itch. "Doom" stays out of the title because ZeniMax forced DoomRL to rename. #PROOFOFDOOM as a hashtag is fine.
+- **Hosting:** Cloudflare Pages (free, unlimited bandwidth) at `https://scrollcoaster.davideghiotto.it/`.
 - **Instagram:** a series on Davide's existing YouTube-channel account, [@ai_quack](https://www.instagram.com/ai_quack/), not a new game account. The link in the bio points at the game.
 - **Today's Feed #1 = launch day.** Reset `tuning.daily.epoch` when the launch date is set.
 - **In-app browsers:** the death screen nudges people out of Instagram, Facebook and TikTok's in-app browsers. Credits are fine print on the receipt.
@@ -11,7 +11,7 @@
 ## Done in the repo
 
 - Production builds compile out the real-brand Work mode (no `?brands=real`). The bundle carries no Slack/Teams/... logos, only the unused name strings in `content.work.json`.
-- `public/credits.html` (served at `/credits`) carries the CC BY credit for the decline sound, plus the other sources and open-source licences. Every receipt prints "CREDITS: SCROLLCOASTER.COM/CREDITS".
+- `public/credits.html` (served at `/credits`) carries the CC BY credit for the decline sound, plus the other sources and open-source licences. Every receipt prints "CREDITS: SCROLLCOASTER.DAVIDEGHIOTTO.IT/CREDITS".
 - `index.html` has the title, description and Open Graph/Twitter tags with `og.jpg` (1200×630, a loop frame plus the name). It also links the icons and `manifest.webmanifest`.
 - `public/_headers`:
   - Hashed bundles live in `build/` and are cached as immutable.
@@ -24,7 +24,7 @@
 
 ## Davide's steps, in order
 
-1. **Domain.** Buy `scrollcoaster.com` (Cloudflare Registrar sells at cost). Optionally buy `.gg`/`.app` too and redirect them, so nobody squats them once it spreads.
+1. **Domain.** `scrollcoaster.davideghiotto.it`. The `davideghiotto.it` zone is already on Cloudflare, so step 5 creates the DNS record by itself. Optionally buy `scrollcoaster.com` later and redirect it, so nobody squats it once it spreads.
 2. **Instagram handle.** Check by hand that @scrollcoaster is free (the research couldn't see past the login wall). Grab it even though posts go out from the channel account: it stops impersonators, and it can redirect to the channel.
 3. **Cloudflare.** Sign in and create the project:
    ```
@@ -32,7 +32,7 @@
    ! bunx wrangler pages project create scrollcoaster --production-branch main
    ```
 4. **Daily epoch.** Set `tuning.daily.epoch` to the launch date, then run `bun run check:gen`.
-5. **Deploy.** Run `bun run deploy:web`. In the dashboard, go to Pages → scrollcoaster → Custom domains, add `scrollcoaster.com`, then `www`, redirected to the apex.
+5. **Deploy.** Run `bun run deploy:web`. In the dashboard, go to Pages → scrollcoaster → Custom domains, add `scrollcoaster.davideghiotto.it` (Cloudflare adds the CNAME to `scrollcoaster.pages.dev`).
 6. **Device pass** (below), then post.
 
 Optional: connect the GitHub repo in Pages for auto-deploys from `main` (build `bun run build`, output `dist`, env `BUN_VERSION`). Cloudflare Web Analytics is cookie-free. If you turn it on, change the "no tracking" line in `credits.html`.
@@ -51,7 +51,7 @@ Optional: connect the GitHub repo in Pages for auto-deploys from `main` (build `
 
 ## Instagram series plan
 
-- **Bio:** one cold line plus the link, for example "Don't stop scrolling. ↓ scrollcoaster.com".
+- **Bio:** one cold line plus the link, for example "Don't stop scrolling. ↓ scrollcoaster.davideghiotto.it".
 - **Reels** are the game's own PROOF OF DOOM clips, which are already 9:16 with caption, montage and watermark. Post them as they come out of the game; the burned-in caption is the hook. Cross-post to YouTube Shorts.
 - **Stories:**
   - Today's Feed: the emoji grid, with a link sticker to the site.
@@ -66,5 +66,5 @@ Optional: connect the GitHub repo in Pages for auto-deploys from `main` (build `
 ## Later
 
 - Run a USPTO/EUIPO trademark search for "Scrollcoaster" (classes 9 and 41) before the App Store.
-- Universal links (Associated Domains + AASA on scrollcoaster.com), so the iOS app opens `#g=` links.
+- Universal links (Associated Domains + AASA on scrollcoaster.davideghiotto.it), so the iOS app opens `#g=` links.
 - Measure the first visit on mobile data in the Instagram in-app browser. If it's slow, consider a lighter first character.
