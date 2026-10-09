@@ -27,14 +27,11 @@ function readMode(): Mode {
 export const mode: Mode = readMode();
 
 /** Work mode with the real apps' names, logos, fonts and colours. Local fun
- *  only: on in dev builds (or `?brands=real`), off in production builds so a
- *  TestFlight/App Store build never ships third-party branding. */
+ *  only: dev builds (`?brands=parody` turns it off). Production builds compile
+ *  it out, so the public web build and TestFlight never ship third-party
+ *  branding, not even behind a URL flag. */
 export const realBrands: boolean =
-  mode === 'work' &&
-  (() => {
-    const p = new URLSearchParams(location.search).get('brands');
-    return p === 'real' ? true : p === 'parody' ? false : import.meta.env.DEV;
-  })();
+  import.meta.env.DEV && mode === 'work' && new URLSearchParams(location.search).get('brands') !== 'parody';
 
 /** Remember the mode and restart the app in it. */
 export function switchMode(next: Mode): void {

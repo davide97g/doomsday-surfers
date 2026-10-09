@@ -1,0 +1,23 @@
+# Cloudflare Pages headers (copied into dist/ by Vite).
+
+# Vite's hashed bundles (build.assetsDir) never change.
+/build/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Models, clips and sounds keep their names across deploys: cache a day,
+# then revalidate (cheap 304s).
+/assets/characters/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/assets/kits/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/assets/reels/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/assets/sfx/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/libs/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

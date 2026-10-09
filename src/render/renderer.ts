@@ -223,6 +223,8 @@ export class GameRenderer {
   /** Portrait/landscape field of view before the gate camera's zoom. */
   private baseFov = 70;
   private character = 0;
+  /** Set once the select screen is used: from then on its neighbours are warmed. */
+  private browsingCast = false;
   /** Title turntable angle (radians round the runner, 0 = chase view). */
   private turn = Math.PI;
   /** Seconds into the swing from turntable to chase view; -1 when not swinging. */
@@ -509,6 +511,8 @@ export class GameRenderer {
 
   /** Show the chosen doomscroller, loading its model on first use. */
   setCharacter(i: number): void {
+    const warm = this.browsingCast;
+    this.browsingCast = true;
     this.character = i;
     const look = CHARACTER_LOOKS[i] ?? CHARACTER_LOOKS[0];
     void this.loadModel(look.model).then((hero) => {
@@ -522,6 +526,8 @@ export class GameRenderer {
       else this.phoneLight.position.set(0, 0, 0);
       // Warm the neighbours so flicking through the select screen feels instant
       // (not the whole cast: each realistic model is a few MB of textures).
+      // Not on boot: the first launch never shows the select screen.
+      if (!warm) return;
       const cast = CHARACTER_LOOKS.map((l, k) => ({ l, k })).filter(({ l }) => !!l.work === (mode === 'work'));
       const at = cast.findIndex(({ k }) => k === i);
       for (const d of [-1, 1]) {

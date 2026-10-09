@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Doomsday Surfers app icon: a faceless hood lit only by its phone. -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0" stop-color="#3a0d6b"/>
+      <stop offset="0.55" stop-color="#1a0630"/>
+      <stop offset="1" stop-color="#07040f"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff2e88"/>
+      <stop offset="0.6" stop-color="#7b2eff"/>
+      <stop offset="1" stop-color="#00e1ff"/>
+    </linearGradient>
+    <linearGradient id="hood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2d2446"/>
+      <stop offset="1" stop-color="#151022"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="100%" r="60%">
+      <stop offset="0" stop-color="#9fe6ff" stop-opacity="0.9"/>
+      <stop offset="0.5" stop-color="#00a8ff" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#00a8ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="28"/></filter>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="8"/></filter>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- Shoulders -->
+  <path d="M120 1024 C150 830 300 760 512 760 C724 760 874 830 904 1024 Z" fill="url(#hood)"/>
+  <path d="M120 1024 C150 830 300 760 512 760 C724 760 874 830 904 1024" fill="none" stroke="url(#rim)" stroke-width="10" opacity="0.8"/>
+
+  <!-- Hood -->
+  <path d="M512 150 C730 150 820 330 812 520 C806 680 720 800 512 820 C304 800 218 680 212 520 C204 330 294 150 512 150 Z" fill="url(#hood)"/>
+  <path d="M512 150 C730 150 820 330 812 520 C806 680 720 800 512 820 C304 800 218 680 212 520 C204 330 294 150 512 150 Z" fill="none" stroke="url(#rim)" stroke-width="14"/>
+
+  <!-- The void where a face should be -->
+  <path d="M512 300 C640 300 690 400 686 520 C682 640 610 720 512 724 C414 720 342 640 338 520 C334 400 384 300 512 300 Z" fill="#000"/>
+  <!-- Phone light catching the bottom of the hood opening -->
+  <path d="M512 300 C640 300 690 400 686 520 C682 640 610 720 512 724 C414 720 342 640 338 520 C334 400 384 300 512 300 Z" fill="url(#glow)" opacity="0.55"/>
+
+  <!-- Glow spill, then the phone -->
+  <ellipse cx="512" cy="820" rx="210" ry="120" fill="#35c8ff" opacity="0.55" filter="url(#blur)"/>
+  <g transform="rotate(-8 512 850)">
+    <rect x="432" y="760" width="160" height="250" rx="26" fill="#0b0b10"/>
+    <rect x="444" y="772" width="136" height="226" rx="18" fill="#bff2ff" filter="url(#soft)" opacity="0.8"/>
+    <rect x="444" y="772" width="136" height="226" rx="18" fill="#e9fbff"/>
+    <!-- A feed, of course -->
+    <rect x="458" y="792" width="108" height="92" rx="10" fill="#ff2e88"/>
+    <rect x="458" y="896" width="80" height="10" rx="5" fill="#9a94b3"/>
+    <rect x="458" y="914" width="56" height="10" rx="5" fill="#c9c4dd"/>
+  </g>
+</svg>
