@@ -47,5 +47,5 @@ Art: realistic PBR from Blender scripts only (`assets/blender/human.py`, `assets
 - Day 2: dopamine meter + drain, content pickups with tolerance, healthy-habit obstacles, grade/audio tied to dopamine, death-into-reality sequence ✅ (pending on-device feel check)
 - Day 3: comedy layer (content bank, fake ads, manipulative UI, end-of-run report, sound) ✅ (pending on-device check)
 - Day 4: first Blender hero assets, juice (haptics, particles), TestFlight — runner asset, haptics, particles, icon, TestFlight script done; waiting on App Store Connect app record + on-device check. TestFlight internal only until the public name is decided ("Doomsday Surfers" risks a copycat rejection).
-- v2 (branch `feat/v2-realism`, 2026-09-27): power-ups, second level, five biomes, realistic cast and kits ✅ built; iPhone 14 at 60 fps in Feed City and Canyon. State and leftovers: `docs/v2-leftovers.md` (start there).
+- v2 (merged to main 2026-10-09, built 2026-09-27): power-ups, second level, five biomes, realistic cast and kits ✅ built; iPhone 14 at 60 fps in Feed City and Canyon. State and leftovers: `docs/v2-leftovers.md` (start there).
 - Next: viral features, one per session, in the order in `docs/viral-plan.md`. Follow its pre-build ritual: re-check current trends, then ask Davide every doubt with concrete meme/slang references before coding.

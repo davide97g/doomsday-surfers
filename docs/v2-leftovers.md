@@ -1,6 +1,6 @@
 # v2 handoff: state and leftovers (2026-09-27)
 
-Branch `feat/v2-realism` (not merged, not pushed). Spec: `docs/v2-gameplay.md`.
+Branch `feat/v2-realism`, merged into `main` on 2026-10-09. Spec: `docs/v2-gameplay.md`.
 Asset contract, art direction and budgets: `docs/assets-v2.md`. Plan the work
 followed: `~/.claude/plans/i-need-you-to-woolly-shore.md`.
 
@@ -96,7 +96,6 @@ Bedroom and Mall are not measured on device yet**.
    - Delulu Kicks' flip clip vs normal jumps.
    - The main test bot never climbs roofs (the roof-rider in check:gen does).
 8. **Housekeeping:**
-   - Merge `feat/v2-realism` into `main` when happy.
    - Delete `assets/blender/runner.py` once the new cast is approved.
    - Update the README asset section (still describes runner.py).
    - The untracked `Claude outputs/` folder was left alone.
